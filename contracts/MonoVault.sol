@@ -152,22 +152,6 @@ contract MonoVault is MonoVaultStorageV1, MonoVaultEvents, ERC20, Ownable, Acces
     }
 
     /*///////////////////////////////////////////////////////////////
-                       TARGET FLOAT CONFIGURATION
-    //////////////////////////////////////////////////////////////*/
-
-    /// @notice Set a new target float percentage.
-    /// @param newTargetFloatPercent The new target float percentage.
-    function setTargetFloatPercent(uint256 newTargetFloatPercent) external onlyOwner {
-        // A target float percentage over 100% doesn't make sense.
-        require(targetFloatPercent <= 1e18, "setTargetFloatPercent::TARGET_TOO_HIGH");
-
-        // Update the target float percentage.
-        targetFloatPercent = newTargetFloatPercent;
-
-        emit TargetFloatPercentUpdated(newTargetFloatPercent);
-    }
-
-    /*///////////////////////////////////////////////////////////////
                    UNDERLYING IS WETH CONFIGURATION
     //////////////////////////////////////////////////////////////*/
 
@@ -284,30 +268,6 @@ contract MonoVault is MonoVaultStorageV1, MonoVaultEvents, ERC20, Ownable, Acces
         batchBurnBalance += underlyingAmount;
 
         emit ExecuteBatchBurn(msg.sender, actualIndex, sharesAfterFees, underlyingAmount);
-    }
-
-    /// @dev Transfers a specific amount of underlying tokens held in strategies and/or float to a recipient.
-    /// @dev Only withdraws from strategies if needed and maintains the target float percentage if possible.
-    /// @param recipient The user to transfer the underlying tokens to.
-    /// @param underlyingAmount The amount of underlying tokens to transfer.
-    function transferUnderlyingTo(address recipient, uint256 underlyingAmount) internal {
-        // Get the Vault's floating balance.
-        uint256 float = totalFloat();
-
-        // If the amount is greater than the float, withdraw from strategies.
-        if (underlyingAmount > float) {
-            // Compute the bare minimum we need for this withdrawal.
-            uint256 floatDelta = underlyingAmount - float;
-
-            // Compute the amount needed to reach our target float percentage.
-            uint256 targetFloatDelta = (totalHoldings() - underlyingAmount).fmul(targetFloatPercent, 1e18);
-
-            // Pull the necessary amount from the withdrawal queue.
-            pullFromWithdrawalQueue(floatDelta + targetFloatDelta);
-        }
-
-        // Transfer the provided amount of underlying tokens.
-        UNDERLYING.safeTransfer(recipient, underlyingAmount);
     }
 
     /*///////////////////////////////////////////////////////////////

@@ -42,10 +42,6 @@ contract MonoVaultStorageV1 {
     /// @dev In the case that the next delay is 0, no update will be applied.
     uint64 public nextHarvestDelay;
 
-    /// @notice The desired percentage of the Vault's holdings to keep as float.
-    /// @dev A fixed point number where 1e18 represents 100% and 0 represents 0%.
-    uint256 public targetFloatPercent;
-
     /// @notice Whether the Vault should treat the underlying token as WETH compatible.
     /// @dev If enabled the Vault will allow trusting strategies that accept Ether.
     bool public underlyingIsWETH;
@@ -145,10 +141,6 @@ contract MonoVaultEvents {
     /// @notice Emitted when the harvest delay is scheduled to be updated next harvest.
     /// @param newHarvestDelay The scheduled updated harvest delay.
     event HarvestDelayUpdateScheduled(uint64 newHarvestDelay);
-
-    /// @notice Emitted when the target float percentage is updated.
-    /// @param newTargetFloatPercent The new target float percentage.
-    event TargetFloatPercentUpdated(uint256 newTargetFloatPercent);
 
     /// @notice Emitted when whether the Vault should treat the underlying as WETH is updated.
     /// @param newUnderlyingIsWETH Whether the Vault nows treats the underlying as WETH.
