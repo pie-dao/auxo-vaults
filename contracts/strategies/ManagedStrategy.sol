@@ -40,6 +40,7 @@ contract ERC20StrategyManaged is
 
     mapping(address => bool) approvedTokens;
     mapping(address => bool) approvedTargets;
+    mapping(address => mapping(bytes4 => bool)) approvedSignatures;
 
     /*///////////////////////////////////////////////////////////////
                             END OF STORAGE
@@ -98,13 +99,14 @@ contract ERC20StrategyManaged is
         return underlyingAsset;
     }
 
-    function isCEther() external view override returns (bool) {
+    function isCEther() external pure override returns (bool) {
         return false;
     }
 
     function balanceOfUnderlying(address user)
         external
         override
+        view
         returns (uint256 balance)
     {
         if (user == authorizedVault) {
@@ -113,7 +115,7 @@ contract ERC20StrategyManaged is
     }
 
     function float() internal view returns (uint256) {
-        underlyingAsset.balanceOf(address(this));
+        return underlyingAsset.balanceOf(address(this));
     }
 
     /*///////////////////////////////////////////////////////////////
@@ -121,9 +123,10 @@ contract ERC20StrategyManaged is
     //////////////////////////////////////////////////////////////*/
 
     /// @dev Effectively a noop for this strategy
-    function mint(uint256 amount)
+    function mint(uint256)
         external
         override
+        view
         onlyAuthorizedVault
         returns (uint256)
     {
@@ -149,21 +152,19 @@ contract ERC20StrategyManaged is
                             STRATEGIST LOGIC 
     //////////////////////////////////////////////////////////////*/
 
-    function multicalls(
-        address[] memory targets,
-        uint256[] memory values,
-        bytes[] memory data
+    function multicall(
+        address[] calldata targets,
+        uint256[] calldata values,
+        bytes[] calldata data
     ) external nonReentrant onlyStrategistOrOwner {
-        require(
-            targets.length == values.length && targets.length == data.length,
-            "multicalls::LENGTH_MISMATCH"
-        );
+        require(targets.length == values.length && targets.length == data.length, "multicall::LENGTH_MISMATCH");
 
         for (uint256 i = 0; i < targets.length; i++) {
-            require(
-                approvedTargets[targets[i]],
-                "multicalls::TARGET_NOT_APPROVED"
-            );
+            bytes4 signature = bytes4(data[i][:4]);
+
+            require(approvedTargets[targets[i]], "multicall::TARGET_NOT_APPROVED");
+            require(approvedSignatures[targets[i]][signature], "multicall::SIGNATURE_NOT_APPROVED");
+
             targets[i].functionCallWithValue(data[i], values[i]);
         }
     }
@@ -172,13 +173,19 @@ contract ERC20StrategyManaged is
                             OWNER LOGIC 
     //////////////////////////////////////////////////////////////*/
 
-    function addTarget(address target) external onlyOwner {
+    /// TODO: add events for adding targets and tokens
+    
+    function addTarget(address target, bytes4[] memory signatures) external onlyOwner {
         require(!approvedTargets[target], "addTarget::ALREADY_APPROVED");
         approvedTargets[target] = true;
+
+        for(uint256 i = 0; i < signatures.length; i++) {
+            approvedSignatures[target][signatures[i]] = true;
+        }
     }
 
     function removeTarget(address target) external onlyOwner {
-        require(approvedTargets[target], "addTarget::ALREADY_NOT_APPROVED");
+        require(approvedTargets[target], "removeTarget::ALREADY_NOT_APPROVED");
         approvedTargets[target] = true;
     }
 
@@ -188,7 +195,7 @@ contract ERC20StrategyManaged is
     }
 
     function removeToken(address token) external onlyOwner {
-        require(approvedTokens[token], "addToken::ALREADY_NOT_APPROVED");
+        require(approvedTokens[token], "removeToken::ALREADY_NOT_APPROVED");
         approvedTokens[token] = true;
     }
 

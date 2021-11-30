@@ -58,11 +58,8 @@ contract MonoVaultStorageV1 {
         // Used to determine if the Vault will operate on a strategy.
         bool trusted;
 
-        // Used
-        bool mintable;
-
         // Used to determine profit and loss during harvests of the strategy.
-        uint240 balance;
+        uint248 balance;
     }
 
 
