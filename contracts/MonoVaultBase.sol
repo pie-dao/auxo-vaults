@@ -11,6 +11,9 @@ contract MonoVaultStorageV1 {
     /// @notice Harvester role encoded
     bytes32 constant public HARVESTER_ROLE = keccak256(bytes("HARVESTER"));
 
+    /// @notice Max number of strategies
+    uint8 constant public MAX_STRATEGIES = 20;
+
     /// @notice The underlying token the MonoVault accepts.
     ERC20 public UNDERLYING;
 
@@ -41,10 +44,6 @@ contract MonoVaultStorageV1 {
     /// @notice The value that will replace harvestDelay next harvest.
     /// @dev In the case that the next delay is 0, no update will be applied.
     uint64 public nextHarvestDelay;
-
-    /// @notice Whether the Vault should treat the underlying token as WETH compatible.
-    /// @dev If enabled the Vault will allow trusting strategies that accept Ether.
-    bool public underlyingIsWETH;
 
     /// @notice The total amount of underlying tokens held in strategies at the time of the last harvest.
     /// @dev Includes maxLockedProfit, must be correctly subtracted to compute available/free holdings.
@@ -132,16 +131,13 @@ contract MonoVaultEvents {
     event HarvestWindowUpdated(uint128 newHarvestWindow);
 
     /// @notice Emitted when the harvest delay is updated.
+    /// @param account The address changing the harvest delay
     /// @param newHarvestDelay The new harvest delay.
-    event HarvestDelayUpdated(uint64 newHarvestDelay);
+    event HarvestDelayUpdated(address indexed account, uint64 newHarvestDelay);
 
     /// @notice Emitted when the harvest delay is scheduled to be updated next harvest.
     /// @param newHarvestDelay The scheduled updated harvest delay.
     event HarvestDelayUpdateScheduled(uint64 newHarvestDelay);
-
-    /// @notice Emitted when whether the Vault should treat the underlying as WETH is updated.
-    /// @param newUnderlyingIsWETH Whether the Vault nows treats the underlying as WETH.
-    event UnderlyingIsWETHUpdated(bool newUnderlyingIsWETH);
 
     /// @notice Emitted after a successful deposit.
     /// @param user The address that deposited into the Vault.
@@ -154,25 +150,25 @@ contract MonoVaultEvents {
     event Withdraw(address indexed user, uint256 underlyingAmount);
 
     /// @notice Emitted after a successful harvest.
-    /// @param strategy The strategy that was harvested.
-    /// @param profitAccrued The amount of profit accrued by the harvest.
-    /// @param feesAccrued The amount of fees accrued during the harvest.
-    /// @dev If profitAccrued is 0 that could mean the strategy registered a loss.
+    /// @param account The harvester address.
+    /// @param strategies The set of strategies.
     event Harvest(
-        Strategy indexed strategy,
-        uint256 profitAccrued,
-        uint256 feesAccrued
+        address indexed account,
+        Strategy[] strategies
     );
 
     /// @notice Emitted after the Vault deposits into a strategy contract.
+    /// @param account The address depositing funds into the strategy.
     /// @param strategy The strategy that was deposited into.
     /// @param underlyingAmount The amount of underlying tokens that were deposited.
-    event StrategyDeposit(Strategy indexed strategy, uint256 underlyingAmount);
+    event StrategyDeposit(address indexed account, Strategy indexed strategy, uint256 underlyingAmount);
 
     /// @notice Emitted after the Vault withdraws funds from a strategy contract.
+    /// @param account The user pulling funds from the strategy
     /// @param strategy The strategy that was withdrawn from.
     /// @param underlyingAmount The amount of underlying tokens that were withdrawn.
     event StrategyWithdrawal(
+        address indexed account,
         Strategy indexed strategy,
         uint256 underlyingAmount
     );
@@ -185,53 +181,9 @@ contract MonoVaultEvents {
     /// @param strategy The strategy that became untrusted.
     event StrategyDistrusted(Strategy indexed strategy);
 
-    /// @notice Emitted when a strategy is pushed to the withdrawal queue.
-    /// @param pushedStrategy The strategy pushed to the withdrawal queue.
-    event WithdrawalQueuePushed(Strategy indexed pushedStrategy);
-
-    /// @notice Emitted when a strategy is popped from the withdrawal queue.
-    /// @param poppedStrategy The strategy popped from the withdrawal queue.
-    event WithdrawalQueuePopped(Strategy indexed poppedStrategy);
-
     /// @notice Emitted when the withdrawal queue is updated.
     /// @param replacedWithdrawalQueue The new withdrawal queue.
     event WithdrawalQueueSet(Strategy[] replacedWithdrawalQueue);
-
-    /// @notice Emitted when an index in the withdrawal queue is replaced.
-    /// @param index The index of the replaced strategy in the withdrawal queue.
-    /// @param replacedStrategy The strategy in the withdrawal queue that was replaced.
-    /// @param replacementStrategy The strategy that overrode the replaced strategy at the index.
-    event WithdrawalQueueIndexReplaced(
-        uint256 index,
-        Strategy indexed replacedStrategy,
-        Strategy indexed replacementStrategy
-    );
-
-    /// @notice Emitted when an index in the withdrawal queue is replaced with the tip.
-    /// @param index The index of the replaced strategy in the withdrawal queue.
-    /// @param replacedStrategy The strategy in the withdrawal queue replaced by the tip.
-    /// @param previousTipStrategy The previous tip of the queue that replaced the strategy.
-    event WithdrawalQueueIndexReplacedWithTip(
-        uint256 index,
-        Strategy replacedStrategy,
-        Strategy indexed previousTipStrategy
-    );
-
-    /// @notice Emitted when the strategies at two indexes are swapped.
-    /// @param index1 One index involved in the swap
-    /// @param index2 The other index involved in the swap.
-    /// @param newStrategy1 The strategy (previously at index2) that replaced index1.
-    /// @param newStrategy2 The strategy (previously at index1) that replaced index2.
-    event WithdrawalQueueIndexesSwapped(
-        uint256 index1,
-        uint256 index2,
-        Strategy indexed newStrategy1,
-        Strategy indexed newStrategy2
-    );
-
-    /// @notice Emitted after a strategy is seized.
-    /// @param strategy The strategy that was seized.
-    event StrategySeized(Strategy indexed strategy);
 
     /// @notice Emitted after fees are claimed.
     /// @param fvTokenAmount The amount of fvTokens that were claimed.

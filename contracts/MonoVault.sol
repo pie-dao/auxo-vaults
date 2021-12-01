@@ -5,11 +5,13 @@ import {OwnableUpgradeable as Ownable} from "@openzeppelin/contracts/access/Owna
 import {ERC20Upgradeable as ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20Upgradeable.sol";
 import {AccessControlUpgradeable as AccessControl} from "@openzeppelin/contracts/access/AccessControlUpgradeable.sol";
 import {SafeERC20Upgradeable as SafeERC20} from  "@openzeppelin/contracts/token/ERC20/utils/SafeERC20Upgradeable.sol";
-import {SafeCastLib as SafeCast} from "./libraries/SafeCastLib.sol";
-import {FixedPointMathLib as FixedPointMath} from "./libraries/FixedPointMathLib.sol";
+
+import {Strategy} from "../interfaces/Strategy.sol";
 import {WETH9 as WETH} from "../interfaces/WETH9.sol";
-import {Strategy, ERC20Strategy, ETHStrategy} from "../interfaces/Strategy.sol";
 import {MonoVaultStorageV1, MonoVaultEvents} from "./MonoVaultBase.sol";
+
+import {SafeCast} from "./libraries/SafeCast.sol";
+import {FixedPointMathLib as FixedPointMath} from "./libraries/FixedPointMathLib.sol";
 
 /// @title Mono Vault (monoToken)
 /// @author dantop114
@@ -142,30 +144,13 @@ contract MonoVault is MonoVaultStorageV1, MonoVaultEvents, ERC20, Ownable, Acces
             // We'll apply the update immediately.
             harvestDelay = newHarvestDelay;
 
-            emit HarvestDelayUpdated(newHarvestDelay);
+            emit HarvestDelayUpdated(msg.sender, newHarvestDelay);
         } else {
             // We'll apply the update next harvest.
             nextHarvestDelay = newHarvestDelay;
 
             emit HarvestDelayUpdateScheduled(newHarvestDelay);
         }
-    }
-
-    /*///////////////////////////////////////////////////////////////
-                   UNDERLYING IS WETH CONFIGURATION
-    //////////////////////////////////////////////////////////////*/
-
-    /// @notice Set whether the Vault treats the underlying as WETH.
-    /// @param newUnderlyingIsWETH Whether the Vault should treat the underlying as WETH.
-    /// @dev The underlying token must have 18 decimals, to match Ether's decimal scheme.
-    function setUnderlyingIsWETH(bool newUnderlyingIsWETH) external onlyOwner {
-        // Ensure the underlying token's decimals match ETH.
-        require(UNDERLYING.decimals() == 18, "setUnderlyingIsWETH::WRONG_DECIMALS");
-
-        // Update whether the Vault treats the underlying as WETH.
-        underlyingIsWETH = newUnderlyingIsWETH;
-
-        emit UnderlyingIsWETHUpdated(newUnderlyingIsWETH);
     }
 
     /*///////////////////////////////////////////////////////////////
@@ -262,7 +247,16 @@ contract MonoVault is MonoVaultStorageV1, MonoVaultEvents, ERC20, Ownable, Acces
         uint256 amountPerShare = underlyingAmount.fdiv(sharesAfterFees, BASE_UNIT);
         _burn(address(this), sharesAfterFees);
 
-        pullFromWithdrawalQueue(underlyingAmount);
+        uint256 float = totalFloat();
+
+        // If the amount is greater than the float, withdraw from strategies.
+        if (underlyingAmount > float) {
+            // Compute the bare minimum amount we need for this withdrawal.
+            uint256 floatMissingForWithdrawal = underlyingAmount - float;
+
+            // Pull enough to cover the withdrawal.
+            pullFromWithdrawalQueue(floatMissingForWithdrawal);
+        }
 
         batchBurns[actualIndex].amountPerShare = amountPerShare;
         batchBurnBalance += underlyingAmount;
@@ -337,17 +331,11 @@ contract MonoVault is MonoVaultStorageV1, MonoVaultEvents, ERC20, Ownable, Acces
                              HARVEST LOGIC
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Harvest a trusted strategy.
-    /// @param strategy The trusted strategy to harvest.
-    /// @dev Heavily optimized at the cost of some readability, as this function must
-    /// be called frequently by altruistic actors for the Vault to function as intended.
-    function harvest(Strategy strategy) external onlyRole(HARVESTER_ROLE) {
-        require(!locked, "harvest::VAULT_LOCKED");
-
-        // If an untrusted strategy could be harvested a malicious user could use
-        // a fake strategy that over-reports holdings to manipulate the exchange rate.
-        require(getStrategyData[strategy].trusted, "harvest::UNTRUSTED_STRATEGY");
-
+    /// @notice Harvest a set of trusted strategies.
+    /// @param strategies The trusted strategies to harvest.
+    /// @dev Will always revert if called outside of an active
+    /// harvest window or before the harvest delay has passed.
+    function harvest(Strategy[] calldata strategies) external onlyRole(HARVESTER_ROLE) {
         // If this is the first harvest after the last window:
         if (block.timestamp >= lastHarvest + harvestDelay) {
             // Set the harvest window's start timestamp.
@@ -359,46 +347,61 @@ contract MonoVault is MonoVaultStorageV1, MonoVaultEvents, ERC20, Ownable, Acces
         }
 
         // Get the Vault's current total strategy holdings.
-        uint256 strategyHoldings = totalStrategyHoldings;
+        uint256 oldTotalStrategyHoldings = totalStrategyHoldings;
 
-        // Get the strategy's previous and current balance.
-        uint256 balanceLastHarvest = getStrategyData[strategy].balance;
-        uint256 balanceThisHarvest = strategy.balanceOfUnderlying(address(this));
+        // Used to store the total profit accrued by the strategies.
+        uint256 totalProfitAccrued;
 
-        // Compute the profit since last harvest. Will be 0 if it it had a net loss.
-        uint256 profitAccrued = balanceThisHarvest > balanceLastHarvest
-            ? balanceThisHarvest - balanceLastHarvest // Profits since last harvest.
-            : 0; // If the strategy registered a net loss we don't have any new profit.
+        // Used to store the new total strategy holdings after harvesting.
+        uint256 newTotalStrategyHoldings = oldTotalStrategyHoldings;
+
+        // Will revert if any of the specified strategies are untrusted.
+        for (uint256 i = 0; i < strategies.length; i++) {
+            // Get the strategy at the current index.
+            Strategy strategy = strategies[i];
+
+            // If an untrusted strategy could be harvested a malicious user could use
+            // a fake strategy that over-reports holdings to manipulate the exchange rate.
+            require(getStrategyData[strategy].trusted, "harvest::UNTRUSTED_STRATEGY");
+
+            // Get the strategy's previous and current balance.
+            uint256 balanceLastHarvest = getStrategyData[strategy].balance;
+            uint256 balanceThisHarvest = strategy.balanceOfUnderlying(address(this));
+
+            // Update the strategy's stored balance. Cast overflow is unrealistic.
+            getStrategyData[strategy].balance = balanceThisHarvest.toUint248();
+
+            // Increase/decrease newTotalStrategyHoldings based on the profit/loss registered.
+            // We cannot wrap the subtraction in parenthesis as it would underflow if the strategy had a loss.
+            newTotalStrategyHoldings = newTotalStrategyHoldings + balanceThisHarvest - balanceLastHarvest;
+
+            unchecked {
+                // Update the total profit accrued while counting losses as zero profit.
+                // Cannot overflow as we already increased total holdings without reverting.
+                totalProfitAccrued += balanceThisHarvest > balanceLastHarvest
+                    ? balanceThisHarvest - balanceLastHarvest // Profits since last harvest.
+                    : 0; // If the strategy registered a net loss we don't have any new profit.
+            }
+        }
 
         // Compute fees as the fee percent multiplied by the profit.
-        uint256 feesAccrued = profitAccrued.fmul(feePercent, 1e18);
+        uint256 feesAccrued = totalProfitAccrued.fmul(feePercent, 1e18);
 
-        // If we accrued any fees, mint an equivalent amount of fvTokens.
-        // Authorized users can claim the newly minted fvTokens via claimFees.
-        if (feesAccrued != 0)
-            _mint(
-                address(this),
-                feesAccrued.fdiv(
-                    // Optimized equivalent to exchangeRate. We don't subtract
-                    // locked profit because it will always be 0 during a harvest.
-                    (strategyHoldings + totalFloat()).fdiv(totalSupply(), BASE_UNIT),
-                    BASE_UNIT
-                )
-            );
+        // If we accrued any fees, mint an equivalent amount of rvTokens.
+        // Authorized users can claim the newly minted rvTokens via claimFees.
+        _mint(address(this), feesAccrued.fdiv(exchangeRate(), BASE_UNIT));
 
-        // Increase/decrease totalStrategyHoldings based on the profit/loss registered.
-        // We cannot wrap the subtraction in parenthesis as it would underflow if the strategy had a loss.
-        totalStrategyHoldings = strategyHoldings + balanceThisHarvest - balanceLastHarvest;
+        // Update max unlocked profit based on any remaining locked profit plus new profit.
+        maxLockedProfit = (lockedProfit() + totalProfitAccrued - feesAccrued).toUint128();
 
-        // Update our stored balance for the strategy.
-        getStrategyData[strategy].balance = balanceThisHarvest.safeCastTo224();
-
-        // Update the max amount of locked profit.
-        maxLockedProfit = (profitAccrued - feesAccrued).safeCastTo128();
+        // Set strategy holdings to our new total.
+        totalStrategyHoldings = newTotalStrategyHoldings;
 
         // Update the last harvest timestamp.
         // Cannot overflow on human timescales.
         lastHarvest = uint64(block.timestamp);
+
+        emit Harvest(msg.sender, strategies);
 
         // Get the next harvest delay.
         uint64 newHarvestDelay = nextHarvestDelay;
@@ -411,10 +414,8 @@ contract MonoVault is MonoVaultStorageV1, MonoVaultEvents, ERC20, Ownable, Acces
             // Reset the next harvest delay.
             nextHarvestDelay = 0;
 
-            emit HarvestDelayUpdated(newHarvestDelay);
+            emit HarvestDelayUpdated(msg.sender, newHarvestDelay);
         }
-
-        emit Harvest(strategy, profitAccrued, feesAccrued);
     }
 
     /*///////////////////////////////////////////////////////////////
@@ -437,25 +438,16 @@ contract MonoVault is MonoVaultStorageV1, MonoVaultEvents, ERC20, Ownable, Acces
         unchecked {
             // Without this the next harvest would count the deposit as profit.
             // Cannot overflow as the balance of one strategy can't exceed the sum of all.
-            getStrategyData[strategy].balance += underlyingAmount.safeCastTo224();
+            getStrategyData[strategy].balance += underlyingAmount.toUint224();
         }
 
-        emit StrategyDeposit(strategy, underlyingAmount);
+        emit StrategyDeposit(msg.sender, strategy, underlyingAmount);
 
-        // We need to deposit differently if the strategy takes ETH.
-        if (strategy.isCEther()) {
-            // Unwrap the right amount of WETH.
-            WETH(payable(address(UNDERLYING))).withdraw(underlyingAmount);
+        // Approve underlyingAmount to the strategy so we can deposit.
+        UNDERLYING.safeApprove(address(strategy), underlyingAmount);
 
-            // Deposit into the strategy and assume it will revert on error.
-            ETHStrategy(address(strategy)).mint{value: underlyingAmount}();
-        } else {
-            // Approve underlyingAmount to the strategy so we can deposit.
-            UNDERLYING.safeApprove(address(strategy), underlyingAmount);
-
-            // Deposit into the strategy and revert if it returns an error code.
-            require(ERC20Strategy(address(strategy)).mint(underlyingAmount) == 0, "depositIntoStrategy::MINT_FAILED");
-        }
+        // Deposit into the strategy and revert if it returns an error code.
+        require(Strategy(address(strategy)).deposit(underlyingAmount) == 0, "depositIntoStrategy::MINT_FAILED");
     }
 
     /// @notice Withdraw a specific amount of underlying tokens from a strategy.
@@ -470,7 +462,7 @@ contract MonoVault is MonoVaultStorageV1, MonoVaultEvents, ERC20, Ownable, Acces
         require(underlyingAmount != 0, "withdrawFromStrategy::AMOUNT_CANNOT_BE_ZERO");
 
         // Without this the next harvest would count the withdrawal as a loss.
-        getStrategyData[strategy].balance -= underlyingAmount.safeCastTo224();
+        getStrategyData[strategy].balance -= underlyingAmount.toUint224();
 
         unchecked {
             // Decrease totalStrategyHoldings to account for the withdrawal.
@@ -478,13 +470,10 @@ contract MonoVault is MonoVaultStorageV1, MonoVaultEvents, ERC20, Ownable, Acces
             totalStrategyHoldings -= underlyingAmount;
         }
 
-        emit StrategyWithdrawal(strategy, underlyingAmount);
+        emit StrategyWithdrawal(msg.sender, strategy, underlyingAmount);
 
         // Withdraw from the strategy and revert if returns an error code.
         require(strategy.redeemUnderlying(underlyingAmount) == 0, "withdrawFromStrategy::REDEEM_FAILED");
-
-        // Wrap the withdrawn Ether into WETH if necessary.
-        if (strategy.isCEther()) WETH(payable(address(UNDERLYING))).deposit{value: underlyingAmount}();
     }
 
     /*///////////////////////////////////////////////////////////////
@@ -496,10 +485,7 @@ contract MonoVault is MonoVaultStorageV1, MonoVaultEvents, ERC20, Ownable, Acces
     function trustStrategy(Strategy strategy) external onlyOwner {
         // Ensure the strategy accepts the correct underlying token.
         // If the strategy accepts ETH the Vault should accept WETH, it'll handle wrapping when necessary.
-        require(
-            strategy.isCEther() ? underlyingIsWETH : ERC20Strategy(address(strategy)).underlying() == UNDERLYING,
-            "trustStrategy::WRONG_UNDERLYING"
-        );
+        require(Strategy(address(strategy)).underlying() == UNDERLYING, "trustStrategy::WRONG_UNDERLYING");
 
         // Store the strategy as trusted.
         getStrategyData[strategy].trusted = true;
@@ -527,7 +513,7 @@ contract MonoVault is MonoVaultStorageV1, MonoVaultEvents, ERC20, Ownable, Acces
         // We will update this variable as we pull from strategies.
         uint256 amountLeftToPull = underlyingAmount;
 
-        // We'll at the tip of the queue and pop strategies until we've pulled the entire amount.
+        // We'll start at the tip of the queue and traverse backwards.
         uint256 currentIndex = withdrawalQueue.length - 1;
 
         // Iterate in reverse so we pull from the queue in a "last in, first out" manner.
@@ -539,44 +525,28 @@ contract MonoVault is MonoVaultStorageV1, MonoVaultEvents, ERC20, Ownable, Acces
             // Get the balance of the strategy before we withdraw from it.
             uint256 strategyBalance = getStrategyData[strategy].balance;
 
-            // If the strategy is currently untrusted or was already depleted:
-            if (!getStrategyData[strategy].trusted || strategyBalance == 0) {
-                // Remove it from the queue.
-                withdrawalQueue.pop();
-
-                emit WithdrawalQueuePopped(strategy);
-
-                // Move on to the next strategy.
-                continue;
-            }
+            // If the strategy is currently untrusted or was already depleted, move to the next strategy
+            if (!getStrategyData[strategy].trusted || strategyBalance == 0) continue;
 
             // We want to pull as much as we can from the strategy, but no more than we need.
             uint256 amountToPull = FixedPointMath.min(amountLeftToPull, strategyBalance);
 
             unchecked {
                 // Compute the balance of the strategy that will remain after we withdraw.
-                // Cannot overflow as we cap the amount to pull at the strategy's balance.
+                // Cannot underflow as we cap the amount to pull at the strategy's balance.
                 uint256 strategyBalanceAfterWithdrawal = strategyBalance - amountToPull;
 
                 // Without this the next harvest would count the withdrawal as a loss.
-                getStrategyData[strategy].balance = strategyBalanceAfterWithdrawal.safeCastTo224();
+                getStrategyData[strategy].balance = strategyBalanceAfterWithdrawal.toUint248();
 
                 // Adjust our goal based on how much we can pull from the strategy.
-                // Cannot overflow as we cap the amount to pull at the amount left to pull.
+                // Cannot underflow as we cap the amount to pull at the amount left to pull.
                 amountLeftToPull -= amountToPull;
 
-                emit StrategyWithdrawal(strategy, amountToPull);
+                emit StrategyWithdrawal(msg.sender, strategy, amountToPull);
 
                 // Withdraw from the strategy and revert if returns an error code.
                 require(strategy.redeemUnderlying(amountToPull) == 0, "pullFromWithdrawalQueue::REDEEM_FAILED");
-
-                // If we fully depleted the strategy:
-                if (strategyBalanceAfterWithdrawal == 0) {
-                    // Remove it from the queue.
-                    withdrawalQueue.pop();
-
-                    emit WithdrawalQueuePopped(strategy);
-                }
             }
 
             // If we've pulled all we need, exit the loop.
@@ -585,39 +555,9 @@ contract MonoVault is MonoVaultStorageV1, MonoVaultEvents, ERC20, Ownable, Acces
 
         unchecked {
             // Account for the withdrawals done in the loop above.
-            // Cannot overflow as the balances of some strategies cannot exceed the sum of all.
+            // Cannot underflow as the balances of some strategies cannot exceed the sum of all.
             totalStrategyHoldings -= underlyingAmount;
         }
-
-        // Cache the Vault's balance of ETH.
-        uint256 ethBalance = address(this).balance;
-
-        // If the Vault's underlying token is WETH compatible and we have some ETH, wrap it into WETH.
-        if (ethBalance != 0 && underlyingIsWETH) WETH(payable(address(UNDERLYING))).deposit{value: ethBalance}();
-    }
-
-    /// @notice Push a single strategy to front of the withdrawal queue.
-    /// @param strategy The strategy to be inserted at the front of the withdrawal queue.
-    /// @dev Strategies that are untrusted, duplicated, or have no balance are
-    /// filtered out when encountered at withdrawal time, not validated upfront.
-    function pushToWithdrawalQueue(Strategy strategy) external onlyOwner {
-        // Push the strategy to the front of the queue.
-        withdrawalQueue.push(strategy);
-
-        emit WithdrawalQueuePushed(strategy);
-    }
-
-    /// @notice Remove the strategy at the tip of the withdrawal queue.
-    /// @dev Be careful, another authorized user could push a different strategy
-    /// than expected to the queue while a popFromWithdrawalQueue transaction is pending.
-    function popFromWithdrawalQueue() external onlyOwner {
-        // Get the (soon to be) popped strategy.
-        Strategy poppedStrategy = withdrawalQueue[withdrawalQueue.length - 1];
-
-        // Pop the first strategy in the queue.
-        withdrawalQueue.pop();
-
-        emit WithdrawalQueuePopped(poppedStrategy);
     }
 
     /// @notice Set the withdrawal queue.
@@ -625,56 +565,13 @@ contract MonoVault is MonoVaultStorageV1, MonoVaultEvents, ERC20, Ownable, Acces
     /// @dev Strategies that are untrusted, duplicated, or have no balance are
     /// filtered out when encountered at withdrawal time, not validated upfront.
     function setWithdrawalQueue(Strategy[] calldata newQueue) external onlyOwner {
+        // Check for duplicated in queue
+        require(newQueue.length <= MAX_STRATEGIES, "setWithdrawalQueue::QUEUE_TOO_BIG");
+
         // Replace the withdrawal queue.
         withdrawalQueue = newQueue;
 
         emit WithdrawalQueueSet(newQueue);
-    }
-
-    /// @notice Replace an index in the withdrawal queue with another strategy.
-    /// @param index The index in the queue to replace.
-    /// @param replacementStrategy The strategy to override the index with.
-    /// @dev Strategies that are untrusted, duplicated, or have no balance are
-    /// filtered out when encountered at withdrawal time, not validated upfront.
-    function replaceWithdrawalQueueIndex(uint256 index, Strategy replacementStrategy) external onlyOwner {
-        // Get the (soon to be) replaced strategy.
-        Strategy replacedStrategy = withdrawalQueue[index];
-
-        // Update the index with the replacement strategy.
-        withdrawalQueue[index] = replacementStrategy;
-
-        emit WithdrawalQueueIndexReplaced(index, replacedStrategy, replacementStrategy);
-    }
-
-    /// @notice Move the strategy at the tip of the queue to the specified index and pop the tip off the queue.
-    /// @param index The index of the strategy in the withdrawal queue to replace with the tip.
-    function replaceWithdrawalQueueIndexWithTip(uint256 index) external onlyOwner {
-        // Get the (soon to be) previous tip and strategy we will replace at the index.
-        Strategy previousTipStrategy = withdrawalQueue[withdrawalQueue.length - 1];
-        Strategy replacedStrategy = withdrawalQueue[index];
-
-        // Replace the index specified with the tip of the queue.
-        withdrawalQueue[index] = previousTipStrategy;
-
-        // Remove the now duplicated tip from the array.
-        withdrawalQueue.pop();
-
-        emit WithdrawalQueueIndexReplacedWithTip(index, replacedStrategy, previousTipStrategy);
-    }
-
-    /// @notice Swap two indexes in the withdrawal queue.
-    /// @param index1 One index involved in the swap
-    /// @param index2 The other index involved in the swap.
-    function swapWithdrawalQueueIndexes(uint256 index1, uint256 index2) external onlyOwner {
-        // Get the (soon to be) new strategies at each index.
-        Strategy newStrategy2 = withdrawalQueue[index1];
-        Strategy newStrategy1 = withdrawalQueue[index2];
-
-        // Swap the strategies at both indexes.
-        withdrawalQueue[index1] = newStrategy1;
-        withdrawalQueue[index2] = newStrategy2;
-
-        emit WithdrawalQueueIndexesSwapped(index1, index2, newStrategy1, newStrategy2);
     }
 
     /*///////////////////////////////////////////////////////////////
