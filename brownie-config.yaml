@@ -7,7 +7,7 @@ compiler:
   solc:
     version: null
     optimizer:
-      enabled: false
-      runs: 200
+      enabled: true
+      runs: 10000
     remappings:
       - '@openzeppelin=OpenZeppelin/openzeppelin-contracts-upgradeable@4.3.2'
