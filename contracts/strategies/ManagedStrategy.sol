@@ -9,11 +9,11 @@ import {SafeERC20Upgradeable as SafeERC20} from "@openzeppelin/contracts/token/E
 import {ReentrancyGuardUpgradeable as ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuardUpgradeable.sol";
 import {AddressUpgradeable as Address} from "@openzeppelin/contracts/utils/AddressUpgradeable.sol";
 
-import {ERC20Strategy} from "../../interfaces/Strategy.sol";
+import {Strategy} from "../../interfaces/Strategy.sol";
 import {IUnderlyingOracle} from "../../interfaces/IUnderlyingOracle.sol";
 
-contract ERC20StrategyManaged is
-    ERC20Strategy,
+contract StrategyManaged is
+    Strategy,
     Ownable,
     AccessControl,
     ReentrancyGuard
@@ -41,10 +41,6 @@ contract ERC20StrategyManaged is
     mapping(address => bool) approvedTokens;
     mapping(address => bool) approvedTargets;
     mapping(address => mapping(bytes4 => bool)) approvedSignatures;
-
-    /*///////////////////////////////////////////////////////////////
-                            END OF STORAGE
-    //////////////////////////////////////////////////////////////*/
 
     /*///////////////////////////////////////////////////////////////
                                 MODIFIERS
@@ -99,19 +95,13 @@ contract ERC20StrategyManaged is
         return underlyingAsset;
     }
 
-    function isCEther() external pure override returns (bool) {
-        return false;
-    }
-
     function balanceOfUnderlying(address user)
         external
-        override
         view
+        override
         returns (uint256 balance)
     {
-        if (user == authorizedVault) {
-            balance = underlyingOracle.totalUnderlying();
-        }
+        if (user == authorizedVault) balance = underlyingOracle.totalUnderlying();
     }
 
     function float() internal view returns (uint256) {
@@ -122,35 +112,45 @@ contract ERC20StrategyManaged is
                             MINTING/REDEEMING 
     //////////////////////////////////////////////////////////////*/
 
-    /// @dev Effectively a noop for this strategy
-    function mint(uint256)
+    event Deposit(address indexed vault, uint256 amount);
+
+    /// @dev Pulls funds from the strategy
+    function deposit(uint256 amount)
         external
         override
-        view
         onlyAuthorizedVault
         returns (uint256)
     {
+        underlyingAsset.safeTransferFrom(msg.sender, address(this), amount);
+
+        emit Deposit(msg.sender, amount);
+
         return SUCCESS;
     }
+
+    event UnderlyingRedeemed(address indexed vault, uint256 amount);
 
     function redeemUnderlying(uint256 amount)
         external
         override
         onlyAuthorizedVault
-        returns (uint256)
+        returns (uint256 returnValue)
     {
         if (float() < amount) {
-            return NOT_ENOUGH_UNDERLYING;
+            returnValue = NOT_ENOUGH_UNDERLYING;
+        } else {            
+            underlyingAsset.safeTransfer(msg.sender, amount);
+            returnValue = SUCCESS;
         }
 
-        underlyingAsset.safeTransfer(msg.sender, amount);
-
-        return SUCCESS;
+        emit UnderlyingRedeemed(msg.sender, amount);
     }
 
     /*///////////////////////////////////////////////////////////////
                             STRATEGIST LOGIC 
     //////////////////////////////////////////////////////////////*/
+
+    event Multicall(address indexed strategist, address[] targets, uint256[] values, bytes[] data);
 
     function multicall(
         address[] calldata targets,
@@ -167,43 +167,97 @@ contract ERC20StrategyManaged is
 
             targets[i].functionCallWithValue(data[i], values[i]);
         }
+
+        emit Multicall(msg.sender, targets, values, data);
     }
 
     /*///////////////////////////////////////////////////////////////
                             OWNER LOGIC 
     //////////////////////////////////////////////////////////////*/
 
-    /// TODO: add events for adding targets and tokens
-    
-    function addTarget(address target, bytes4[] memory signatures) external onlyOwner {
+    event TargetAdded(address indexed target, bytes4[] signatures);
+
+    function addTargetWithSignatures(address target, bytes4[] memory signatures)
+        external
+        onlyOwner
+    {
         require(!approvedTargets[target], "addTarget::ALREADY_APPROVED");
         approvedTargets[target] = true;
 
-        for(uint256 i = 0; i < signatures.length; i++) {
+        for (uint256 i = 0; i < signatures.length; i++) {
             approvedSignatures[target][signatures[i]] = true;
         }
+
+        emit TargetAdded(target, signatures);
     }
+
+    event TargetRemoved(address indexed target);
 
     function removeTarget(address target) external onlyOwner {
         require(approvedTargets[target], "removeTarget::ALREADY_NOT_APPROVED");
         approvedTargets[target] = true;
+
+        emit TargetRemoved(target);
     }
+
+    event SignaturesAdded(address indexed target, bytes4[] signatures);
+
+    function addSignaturesToTarget(address target, bytes4[] memory signatures) public onlyOwner {
+        require(approvedTargets[target], "addSignaturesToTarget::TARGET_NOT_APPROVED");
+
+        for (uint256 i = 0; i < signatures.length; i++) {
+            approvedSignatures[target][signatures[i]] = true;
+        }
+
+        emit SignaturesAdded(target, signatures);
+    }
+
+    event SignaturesRemoved(address indexed target, bytes4[] signatures);
+
+    function removeSignatures(address target, bytes4[] memory signatures) external onlyOwner {
+        require(approvedTargets[target], "removeSignatures::TARGET_NOT_APPROVED");
+
+        for(uint256 i = 0; i < signatures.length; i++) {
+            approvedSignatures[target][signatures[i]] = false;
+        }
+
+        emit SignaturesRemoved(target, signatures);
+    }
+
+    event TokenAdded(address indexed token);
 
     function addToken(address token) external onlyOwner {
         require(!approvedTokens[token], "addToken::ALREADY_APPROVED");
         approvedTokens[token] = true;
+
+        emit TokenAdded(token);
     }
+
+    event TokenRemoved(address indexed token);
 
     function removeToken(address token) external onlyOwner {
         require(approvedTokens[token], "removeToken::ALREADY_NOT_APPROVED");
         approvedTokens[token] = true;
+
+        emit TokenRemoved(token);
     }
 
-    function approveToken(address token, address target, uint256 amount) external onlyOwner {
+    event TokenApproved(address indexed token, uint256 allowance);
+
+    function approveToken(
+        address token,
+        address target,
+        uint256 newAllowance
+    ) external onlyOwner {
         require(approvedTargets[target], "approveToken::TARGET_NOT_APPROVED");
         require(approvedTokens[token], "approveToken::ASSET_NOT_APPROVED");
 
-        if (amount > 0) ERC20(token).safeApprove(target, 0);
-        ERC20(token).safeApprove(target, amount);
+        if(newAllowance > 0 && ERC20(token).allowance(address(this), target) > 0) {
+            ERC20(token).approve(target, 0);
+        }
+
+        ERC20(token).approve(target, newAllowance);
+
+        emit TokenApproved(token, newAllowance);
     }
 }
