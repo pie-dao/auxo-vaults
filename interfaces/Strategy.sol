@@ -13,7 +13,7 @@ abstract contract Strategy {
         virtual
         returns (uint256);
 
-    function balanceOfUnderlying(address user)
+    function balanceOfUnderlying()
         external
         virtual
         returns (uint256);
