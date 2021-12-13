@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.0;
 
-import {ERC20Upgradeable as ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20Upgradeable.sol";
+import {IERC20Upgradeable as IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20Upgradeable.sol";
 import {OwnableUpgradeable as Ownable} from "@openzeppelin/contracts/access/OwnableUpgradeable.sol";
 import {AccessControlUpgradeable as AccessControl} from "@openzeppelin/contracts/access/AccessControlUpgradeable.sol";
 import {SafeERC20Upgradeable as SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20Upgradeable.sol";
@@ -13,7 +13,7 @@ import {Strategy} from "../../interfaces/Strategy.sol";
 
 abstract contract BaseStrategy is Strategy, Ownable, AccessControl, ReentrancyGuard {
     using Address for address;
-    using SafeERC20 for ERC20;
+    using SafeERC20 for IERC20;
 
     /*///////////////////////////////////////////////////////////////
                                 CONSTANTS
@@ -28,7 +28,7 @@ abstract contract BaseStrategy is Strategy, Ownable, AccessControl, ReentrancyGu
     //////////////////////////////////////////////////////////////*/
 
     address public authorizedVault;
-    ERC20 public underlyingAsset;
+    IERC20 public underlyingAsset;
 
     /*///////////////////////////////////////////////////////////////
                                 MODIFIERS
@@ -54,7 +54,7 @@ abstract contract BaseStrategy is Strategy, Ownable, AccessControl, ReentrancyGu
 
 
     function __Strategy_init(
-        ERC20 asset,
+        IERC20 asset,
         address vault,
         address strategist
     ) internal initializer {
@@ -70,7 +70,16 @@ abstract contract BaseStrategy is Strategy, Ownable, AccessControl, ReentrancyGu
         transferOwnership(msg.sender);
     }
 
-    function underlying() external view override returns (ERC20) {
+    function underlying() external view override returns (IERC20) {
         return underlyingAsset;
+    }
+
+    event Sweep(address indexed asset, uint256 amount);
+
+    function sweep(IERC20 asset, uint256 amount) external onlyOwner {
+        require(address(asset) != address(underlyingAsset), "sweep:SAME_AS_UNDERLYING");
+        asset.safeTransfer(owner(), amount);
+        
+        emit Sweep(address(asset), amount);
     }
 }

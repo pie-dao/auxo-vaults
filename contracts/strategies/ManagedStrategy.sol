@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.0;
 
-import {ERC20Upgradeable as ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20Upgradeable.sol";
+import {IERC20Upgradeable as IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20Upgradeable.sol";
 import {OwnableUpgradeable as Ownable} from "@openzeppelin/contracts/access/OwnableUpgradeable.sol";
 import {AccessControlUpgradeable as AccessControl} from "@openzeppelin/contracts/access/AccessControlUpgradeable.sol";
 import {SafeERC20Upgradeable as SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20Upgradeable.sol";
@@ -14,7 +14,7 @@ import {IUnderlyingOracle} from "../../interfaces/IUnderlyingOracle.sol";
 
 contract StrategyManaged is BaseStrategy {
     using Address for address;
-    using SafeERC20 for ERC20;
+    using SafeERC20 for IERC20;
 
     /*///////////////////////////////////////////////////////////////
                                 STORAGE
@@ -31,7 +31,7 @@ contract StrategyManaged is BaseStrategy {
     //////////////////////////////////////////////////////////////*/
 
     function initialize(
-        ERC20 asset,
+        IERC20 asset,
         IUnderlyingOracle oracle,
         address vault,
         address strategist
@@ -201,11 +201,11 @@ contract StrategyManaged is BaseStrategy {
         require(approvedTargets[target], "approveToken::TARGET_NOT_APPROVED");
         require(approvedTokens[token], "approveToken::ASSET_NOT_APPROVED");
 
-        if(newAllowance > 0 && ERC20(token).allowance(address(this), target) > 0) {
-            ERC20(token).approve(target, 0);
+        if(newAllowance > 0 && IERC20(token).allowance(address(this), target) > 0) {
+            IERC20(token).approve(target, 0);
         }
 
-        ERC20(token).approve(target, newAllowance);
+        IERC20(token).approve(target, newAllowance);
 
         emit TokenApproved(token, newAllowance);
     }
