@@ -98,22 +98,22 @@ contract MonoVaultStorageV1 {
     }
 
     /// @notice Current Batch burn index. 
-    uint256 batchBurnIndex;
+    uint256 public batchBurnIndex;
 
     /// @notice Balance reserved to batched burning withdrawals.
-    uint256 batchBurnBalance;
+    uint256 public batchBurnBalance;
 
     /// @notice Maps user's address to last batched burning index in which the user took part.
-    mapping(address => uint256) userBatchBurnLastRequest;
+    mapping(address => uint256) public userBatchBurnLastRequest;
 
     /// @notice Maps user's address to batched burning requests
-    mapping(address => BatchBurnReceipt[]) userBatchBurnReceipts;
+    mapping(address => BatchBurnReceipt[]) public userBatchBurnReceipts;
 
     /// @notice Maps social burning events indexes to batched burn details
-    mapping(uint256 => BatchBurn) batchBurns;
+    mapping(uint256 => BatchBurn) public batchBurns;
 
     /// @notice A boolean indicating wheter the Vault is locked or not.
-    bool locked;
+    bool public locked;
 }
 
 contract MonoVaultEvents {

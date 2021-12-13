@@ -9,60 +9,22 @@ import {SafeERC20Upgradeable as SafeERC20} from "@openzeppelin/contracts/token/E
 import {ReentrancyGuardUpgradeable as ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuardUpgradeable.sol";
 import {AddressUpgradeable as Address} from "@openzeppelin/contracts/utils/AddressUpgradeable.sol";
 
-import {Strategy} from "../../interfaces/Strategy.sol";
+import {BaseStrategy} from "./BaseStrategy.sol";
 import {IUnderlyingOracle} from "../../interfaces/IUnderlyingOracle.sol";
 
-contract StrategyManaged is
-    Strategy,
-    Ownable,
-    AccessControl,
-    ReentrancyGuard
-{
+contract StrategyManaged is BaseStrategy {
     using Address for address;
     using SafeERC20 for ERC20;
-
-    /*///////////////////////////////////////////////////////////////
-                                CONSTANTS
-    //////////////////////////////////////////////////////////////*/
-
-    uint256 public constant SUCCESS = 0;
-    uint256 public constant NOT_ENOUGH_UNDERLYING = 1;
-    bytes32 public constant STRATEGIST_ROLE = keccak256(bytes("STRATEGIST"));
 
     /*///////////////////////////////////////////////////////////////
                                 STORAGE
     //////////////////////////////////////////////////////////////*/
 
-    address public authorizedVault;
-
-    ERC20 public underlyingAsset;
     IUnderlyingOracle public underlyingOracle;
 
     mapping(address => bool) approvedTokens;
     mapping(address => bool) approvedTargets;
     mapping(address => mapping(bytes4 => bool)) approvedSignatures;
-
-    /*///////////////////////////////////////////////////////////////
-                                MODIFIERS
-    //////////////////////////////////////////////////////////////*/
-
-    modifier onlyStrategistOrOwner() {
-        require(
-            msg.sender == owner() || hasRole(STRATEGIST_ROLE, msg.sender),
-            "onlyStrategistOrOwner::UNAUTHORIZED"
-        );
-
-        _;
-    }
-
-    modifier onlyAuthorizedVault() {
-        require(
-            msg.sender == authorizedVault,
-            "onlyAuthorizedVault::UNAUTHORIZED"
-        );
-
-        _;
-    }
 
     /*///////////////////////////////////////////////////////////////
                                 INITIALIZER
@@ -74,34 +36,21 @@ contract StrategyManaged is
         address vault,
         address strategist
     ) external initializer {
-        underlyingAsset = asset;
         underlyingOracle = oracle;
-        authorizedVault = vault;
-
-        __Ownable_init();
-        __AccessControl_init();
-
-        _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
-        _setupRole(STRATEGIST_ROLE, strategist);
-
-        transferOwnership(msg.sender);
+        __Strategy_init(asset, vault, strategist);
     }
 
     /*///////////////////////////////////////////////////////////////
                             MISC AND OVERRIDES 
     //////////////////////////////////////////////////////////////*/
 
-    function underlying() external view override returns (ERC20) {
-        return underlyingAsset;
-    }
-
-    function balanceOfUnderlying(address user)
+    function balanceOfUnderlying()
         external
         view
         override
-        returns (uint256 balance)
+        returns (uint256)
     {
-        if (user == authorizedVault) balance = underlyingOracle.totalUnderlying();
+        return underlyingOracle.totalUnderlying();
     }
 
     function float() internal view returns (uint256) {
@@ -138,12 +87,12 @@ contract StrategyManaged is
     {
         if (float() < amount) {
             returnValue = NOT_ENOUGH_UNDERLYING;
-        } else {            
+        } else {        
             underlyingAsset.safeTransfer(msg.sender, amount);
             returnValue = SUCCESS;
-        }
 
-        emit UnderlyingRedeemed(msg.sender, amount);
+            emit UnderlyingRedeemed(msg.sender, amount);
+        }
     }
 
     /*///////////////////////////////////////////////////////////////

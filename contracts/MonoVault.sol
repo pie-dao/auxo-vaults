@@ -26,11 +26,6 @@ contract MonoVault is MonoVaultStorageV1, MonoVaultEvents, ERC20, Ownable, Acces
                                 INITIALIZER
     //////////////////////////////////////////////////////////////*/
 
-    /// @dev Prevents implementation initialization
-    constructor() {
-        underlyingDecimals = type(uint8).max;
-    }
-
     function initialize(address underlying, address harvester) initializer external {
         require(underlyingDecimals == 0, "initialize::CANNOT_INITIALIZE_IMPL");
         require(harvester != address(0), "initialize::HARV_ZERO_ADDR");
@@ -206,19 +201,19 @@ contract MonoVault is MonoVaultStorageV1, MonoVaultEvents, ERC20, Ownable, Acces
 
         batchBurns[actualIndex].totalShares += monoTokenAmount;
 
-        require(transferFrom(msg.sender, address(this), monoTokenAmount));
+        require(transfer(address(this), monoTokenAmount));
 
         emit EnterBatchBurn(msg.sender, actualIndex, monoTokenAmount);
     }
 
     /// @notice Withdraw underlying redeemed in batched burning events.
     /// @dev User will withdraw all of his batch burns
-    function exitBurnBatch() external {
+    function exitBatchBurn() external {
         uint256 totalUnderlying;
         BatchBurnReceipt[] storage receipts = userBatchBurnReceipts[msg.sender];
         
-        for(uint256 i = receipts.length - 1; i >= 0; i--) {
-            BatchBurnReceipt memory r = receipts[i];
+        for(uint256 i = receipts.length; i >= 1; i--) {
+            BatchBurnReceipt memory r = receipts[i - 1];
             totalUnderlying += r.shares.fmul(batchBurns[r.index].amountPerShare, BASE_UNIT);
             receipts.pop();
         }
@@ -238,14 +233,16 @@ contract MonoVault is MonoVaultStorageV1, MonoVaultEvents, ERC20, Ownable, Acces
         BatchBurn memory batchBurn = batchBurns[actualIndex];
 
         require(batchBurn.totalShares != 0, "batchBurn::TOTAL_SHARES_CANNOT_BE_ZERO");
-
-        uint256 feesAccrued = batchBurn.totalShares.fmul(batchBurningFeePercent, 1e18);
-        uint256 sharesAfterFees = batchBurn.totalShares - feesAccrued;
+        
+        uint256 sharesAfterFees = batchBurn.totalShares;
+        if(batchBurningFeePercent > 0) {
+            uint256 feesAccrued = batchBurn.totalShares.fmul(batchBurningFeePercent, 1e18);
+            sharesAfterFees -= feesAccrued;
+        }
 
         // Determine the equivalent amount of underlying tokens.
         uint256 underlyingAmount = sharesAfterFees.fmul(exchangeRate(), BASE_UNIT);
         uint256 amountPerShare = underlyingAmount.fdiv(sharesAfterFees, BASE_UNIT);
-        _burn(address(this), sharesAfterFees);
 
         uint256 float = totalFloat();
 
@@ -257,6 +254,8 @@ contract MonoVault is MonoVaultStorageV1, MonoVaultEvents, ERC20, Ownable, Acces
             // Pull enough to cover the withdrawal.
             pullFromWithdrawalQueue(floatMissingForWithdrawal);
         }
+
+        _burn(address(this), sharesAfterFees);
 
         batchBurns[actualIndex].amountPerShare = amountPerShare;
         batchBurnBalance += underlyingAmount;
@@ -366,7 +365,7 @@ contract MonoVault is MonoVaultStorageV1, MonoVaultEvents, ERC20, Ownable, Acces
 
             // Get the strategy's previous and current balance.
             uint256 balanceLastHarvest = getStrategyData[strategy].balance;
-            uint256 balanceThisHarvest = strategy.balanceOfUnderlying(address(this));
+            uint256 balanceThisHarvest = strategy.balanceOfUnderlying();
 
             // Update the strategy's stored balance. Cast overflow is unrealistic.
             getStrategyData[strategy].balance = balanceThisHarvest.toUint248();
