@@ -11,4 +11,3 @@ compiler:
       runs: 10000
     remappings:
       - '@openzeppelin=OpenZeppelin/openzeppelin-contracts-upgradeable@4.3.2'
-      - '@balancer-labs=balancer-labs/balancer-v2-monorepo@tob-audit-phantom-stable'
