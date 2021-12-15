@@ -114,6 +114,12 @@ contract MonoVaultStorageV1 {
 
     /// @notice A boolean indicating wheter the Vault is locked or not.
     bool public locked;
+
+    /// @notice A boolean indicating wheter deposits are allowed only with proxy
+    bool proxiedDeposits;
+
+    /// @notice Deposits proxy address
+    address depositProxy;
 }
 
 contract MonoVaultEvents {

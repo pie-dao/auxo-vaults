@@ -23,6 +23,18 @@ contract MonoVault is MonoVaultStorageV1, MonoVaultEvents, ERC20, Ownable, Acces
     using FixedPointMath for uint256;
 
     /*///////////////////////////////////////////////////////////////
+                                MODIFIERS
+    //////////////////////////////////////////////////////////////*/
+
+    modifier onlyProxied {
+        if(proxiedDeposits) {
+            require(msg.sender == depositProxy, "Only DepositProxy");
+        }
+
+        _;
+    }
+
+    /*///////////////////////////////////////////////////////////////
                                 INITIALIZER
     //////////////////////////////////////////////////////////////*/
 
@@ -75,6 +87,20 @@ contract MonoVault is MonoVaultStorageV1, MonoVaultEvents, ERC20, Ownable, Acces
         locked = _locked;
 
         emit Lock(_locked, block.timestamp);
+    }
+
+    /*///////////////////////////////////////////////////////////////
+                            PROXIED DEPOSITS 
+    //////////////////////////////////////////////////////////////*/
+
+    function setProxied(bool proxied, address proxy) {
+        if(proxied) {
+            proxiedDeposits = true;
+            depositProxy = proxy;
+        } else {
+            proxied = false;
+            depositProxy = address(0);
+        }
     }
 
     /*///////////////////////////////////////////////////////////////
@@ -166,7 +192,7 @@ contract MonoVault is MonoVaultStorageV1, MonoVaultEvents, ERC20, Ownable, Acces
 
     /// @notice Deposit a specific amount of underlying tokens.
     /// @param underlyingAmount The amount of the underlying token to deposit.
-    function deposit(uint256 underlyingAmount) external {
+    function deposit(uint256 underlyingAmount) external onlyProxied {
         require(!locked, "deposit::VAULT_LOCKED");
         // We don't allow depositing 0 to prevent emitting a useless event.
         require(underlyingAmount != 0, "deposit::AMOUNT_CANNOT_BE_ZERO");
@@ -235,7 +261,7 @@ contract MonoVault is MonoVaultStorageV1, MonoVaultEvents, ERC20, Ownable, Acces
         require(batchBurn.totalShares != 0, "batchBurn::TOTAL_SHARES_CANNOT_BE_ZERO");
         
         uint256 sharesAfterFees = batchBurn.totalShares;
-        if(batchBurningFeePercent > 0) {
+        if(batchBurningFeePercent != 0) {
             uint256 feesAccrued = batchBurn.totalShares.fmul(batchBurningFeePercent, 1e18);
             sharesAfterFees -= feesAccrued;
         }
