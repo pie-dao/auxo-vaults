@@ -18,6 +18,7 @@ contract BalancerV2Strategy is BaseStrategy {
     }
 
     IERC20 public immutable bal;
+    SwapSteps internal balSwaps;
 
     bytes32 public balancerPoolId;
     IBalancerPool public balancerPool;
@@ -28,7 +29,7 @@ contract BalancerV2Strategy is BaseStrategy {
 
     IAsset[] public assets;
     IERC20[] public rewardTokens;
-    SwapSteps internal balSwaps;
+    SwapSteps[] internal rewardsSwaps;
 
     constructor(IERC20 balToken) {
         require(address(balToken) != address(0), "constructor::BAL_ADDRESS_ZERO");
@@ -44,10 +45,7 @@ contract BalancerV2Strategy is BaseStrategy {
         bytes32 poolId,
         SwapSteps memory balSwapSteps
     ) external initializer {
-        require(
-            balancerVaultAddr != address(0),
-            "initialize::INVALID_BALANCER_VAULT"
-        );
+        require(balancerVaultAddr != address(0), "initialize::INVALID_BALANCER_VAULT");
 
         (address balancerPoolAddress, ) = IBalancerVault(balancerVaultAddr).getPool(poolId);
         (IERC20[] memory tokens, , ) = IBalancerVault(balancerVaultAddr).getPoolTokens(balancerPoolId);
@@ -63,8 +61,12 @@ contract BalancerV2Strategy is BaseStrategy {
             assets[i] = IAsset(address(tokens[i]));
         }
         
-        require(underlyingIndex != type(uint8).max, "initialize::UNDERLYING_NOT_IN_POOL");
+        require(
+            underlyingIndex != type(uint8).max,
+            "initialize::UNDERLYING_NOT_IN_POOL"
+        );
 
+        bal.approve(balancerVaultAddr, type(uint256).max);
         balSwaps = balSwapSteps;
         balancerPoolId = poolId;
         balancerPool = IBalancerPool(balancerPoolAddress);
@@ -147,6 +149,29 @@ contract BalancerV2Strategy is BaseStrategy {
         emit WithdrawUnderlying(neededOutput);
     }
 
+    function addReward(address reward, SwapSteps memory steps) external onlyStrategistOrOwner {
+        IERC20 reward = IERC20(reward);
+        token.approve(address(balancerVault), type(uint256).max);
+        rewardTokens.push(reward);
+        rewardsSwaps.push(steps);
+    }
+
+    function removeReward(address reward) external onlyStrategistOrOwner {
+        uint8 length = rewardTokens.length;
+
+        for(uint8 i = 0; i < length; i++) { 
+            if(rewardTokens[i] == reward) {
+                (rewardTokens[i], rewardTokens[length - 1]) = (rewardTokens[length - 1], rewardTokens[i]);
+                (rewardsSwaps[i], rewardsSwaps[length - 1]) = (rewardsSteps[length - 1], rewardsSteps[i]);
+
+                rewardTokens.pop();
+                rewardsSwaps.pop();
+
+                break;
+            }
+        }
+    }
+
     function sellBal(uint256 minOut) external onlyStrategistOrOwner {
         uint256 balance = balBalance();
         require(balance > 0, "sellBal::BALANCE_ZERO");
@@ -183,7 +208,52 @@ contract BalancerV2Strategy is BaseStrategy {
         );
 
         uint256 delta = float() - floatBefore;
+        require(delta >= minOut, "sellBal::SLIPPAGE");
+    }
 
+    function sellRewards(uint256 minOut) external onlyStrategistOrOwner {
+        uint256 floatBefore = float();
+        for (uint8 i = 0; i < rewardTokens.length; i++) {
+            IERC20 rewardToken = IERC20(address(rewardTokens[i]));
+            uint256 amount = rewardBalance(rewardToken);
+
+            uint256 decReward = rewardToken.decimals();
+            uint256 decWant = ERC20(address(want)).decimals();
+
+            if (
+                amount > 10**(decReward > decWant ? decReward.sub(decWant) : 0)
+            ) {
+                uint256 length = rewardsSwaps[i].poolIds.length;
+                IBalancerVault.BatchSwapStep[]
+                    memory steps = new IBalancerVault.BatchSwapStep[](length);
+                int256[] memory limits = new int256[](length + 1);
+                limits[0] = int256(amount);
+                for (uint256 j = 0; j < length; j++) {
+                    steps[j] = IBalancerVault.BatchSwapStep(
+                        rewardsSwaps[i].poolIds[j],
+                        j,
+                        j + 1,
+                        j == 0 ? amount : 0,
+                        abi.encode(0)
+                    );
+                }
+                balancerVault.batchSwap(
+                    IBalancerVault.SwapKind.GIVEN_IN,
+                    steps,
+                    rewardsSwaps[i].assets,
+                    IBalancerVault.FundManagement(
+                        address(this),
+                        false,
+                        address(this),
+                        false
+                    ),
+                    limits,
+                    block.timestamp + 1000
+                );
+            }
+        }
+
+        uint256 delta = float() - floatBefore;
         require(delta >= minOut, "sellBal::SLIPPAGE");
     }
 
@@ -207,6 +277,10 @@ contract BalancerV2Strategy is BaseStrategy {
 
     function balanceOfUnderlying() external view override returns (uint256) {
         return float() + pooledBalance();
+    }
+
+    function rewardBalance(IERC20 reward) internal view returns (uint256) {
+        return reward.balanceOf(address(this));
     }
 
     function balBalance() internal view returns (uint256) {
