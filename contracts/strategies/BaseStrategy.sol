@@ -73,4 +73,13 @@ abstract contract BaseStrategy is Strategy, Ownable, AccessControl, ReentrancyGu
     function underlying() external view override returns (ERC20) {
         return underlyingAsset;
     }
+
+    event Sweep(address indexed asset, uint256 amount);
+
+    function sweep(ERC20 asset, uint256 amount) external onlyOwner {
+        require(address(asset) != address(underlyingAsset), "sweep:SAME_AS_UNDERLYING");
+        asset.safeTransfer(owner(), amount);
+        
+        emit Sweep(address(asset), amount);
+    }
 }
