@@ -3,7 +3,7 @@
 pragma experimental ABIEncoderV2;
 pragma solidity ^0.8.0;
 
-import {IERC20Upgradeable as IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20Upgradeable.sol";
+import {ERC20Upgradeable as ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20Upgradeable.sol";
 
 interface IAsset {
     // solhint-disable-previous-line no-empty-blocks
@@ -110,7 +110,7 @@ interface IBalancerVault {
 
     function getPool(bytes32 poolId) external view returns (address poolAddress, PoolSpecialization);
 
-    function getPoolTokenInfo(bytes32 poolId, IERC20 token) external view returns (
+    function getPoolTokenInfo(bytes32 poolId, ERC20 token) external view returns (
         uint256 cash,
         uint256 managed,
         uint256 lastChangeBlock,
@@ -118,7 +118,7 @@ interface IBalancerVault {
     );
 
     function getPoolTokens(bytes32 poolId) external view returns (
-        IERC20[] calldata tokens,
+        ERC20[] calldata tokens,
         uint256[] calldata balances,
         uint256 lastChangeBlock
     );

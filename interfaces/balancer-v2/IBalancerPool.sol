@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.0;
 
+import {ERC20Upgradeable as ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20Upgradeable.sol";
 import {IERC20Upgradeable as IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20Upgradeable.sol";
 
 interface IBalancerPool is IERC20 {
@@ -8,8 +9,8 @@ interface IBalancerPool is IERC20 {
 
     struct SwapRequest {
         SwapKind kind;
-        IERC20 tokenIn;
-        IERC20 tokenOut;
+        ERC20 tokenIn;
+        ERC20 tokenOut;
         uint256 amount;
         // Misc data
         bytes32 poolId;
