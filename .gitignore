@@ -1,4 +1,5 @@
 __pycache__
+.pytest_cache
 .env
 .history
 .hypothesis/
@@ -6,3 +7,4 @@ build/
 reports/
 venv/
 node_modules/
+remappings.txt

@@ -1,5 +1,6 @@
 dependencies:
   - OpenZeppelin/openzeppelin-contracts-upgradeable@4.3.2
+  - rari-capital/solmate@a9e3ea2
 
 autofetch_sources: true
 
@@ -11,3 +12,4 @@ compiler:
       runs: 10000
     remappings:
       - '@openzeppelin=OpenZeppelin/openzeppelin-contracts-upgradeable@4.3.2'
+      - '@solmate=rari-capital/solmate@a9e3ea2/src'

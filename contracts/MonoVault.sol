@@ -4,14 +4,13 @@ pragma solidity ^0.8.0;
 import {OwnableUpgradeable as Ownable} from "@openzeppelin/contracts/access/OwnableUpgradeable.sol";
 import {ERC20Upgradeable as ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20Upgradeable.sol";
 import {AccessControlUpgradeable as AccessControl} from "@openzeppelin/contracts/access/AccessControlUpgradeable.sol";
-import {SafeERC20Upgradeable as SafeERC20} from  "@openzeppelin/contracts/token/ERC20/utils/SafeERC20Upgradeable.sol";
+import {SafeERC20Upgradeable as SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20Upgradeable.sol";
+
+import {SafeCastLib as SafeCast} from "@solmate/utils/SafeCastLib.sol";
+import {FixedPointMathLib as FixedPointMath} from "@solmate/utils/FixedPointMathLib.sol";
 
 import {Strategy} from "../interfaces/Strategy.sol";
-import {WETH9 as WETH} from "../interfaces/WETH9.sol";
 import {MonoVaultStorageV1, MonoVaultEvents} from "./MonoVaultBase.sol";
-
-import {SafeCast} from "./libraries/SafeCast.sol";
-import {FixedPointMathLib as FixedPointMath} from "./libraries/FixedPointMathLib.sol";
 
 /// @title Mono Vault (monoToken)
 /// @author dantop114
@@ -26,7 +25,7 @@ contract MonoVault is MonoVaultStorageV1, MonoVaultEvents, ERC20, Ownable, Acces
                                 INITIALIZER
     //////////////////////////////////////////////////////////////*/
 
-    function initialize(address underlying, address harvester) initializer external {
+    function initialize(address underlying, address harvester) external initializer {
         require(underlyingDecimals == 0, "initialize::CANNOT_INITIALIZE_IMPL");
         require(harvester != address(0), "initialize::HARV_ZERO_ADDR");
 
@@ -34,17 +33,14 @@ contract MonoVault is MonoVaultStorageV1, MonoVaultEvents, ERC20, Ownable, Acces
         ERC20 _UNDERLYING = ERC20(underlying);
         uint8 _underlyingDecimals = _UNDERLYING.decimals();
 
-        __ERC20_init(
-            string(abi.encodePacked("Mono ", _UNDERLYING.name(), " Vault")), 
-            string(abi.encodePacked("mono", _UNDERLYING.symbol()))
-        );
+        __ERC20_init(string(abi.encodePacked("Mono ", _UNDERLYING.name(), " Vault")), string(abi.encodePacked("mono", _UNDERLYING.symbol())));
 
         __Ownable_init();
         __AccessControl_init();
 
         UNDERLYING = ERC20(underlying);
         underlyingDecimals = _underlyingDecimals;
-        BASE_UNIT = 10 ** _underlyingDecimals;
+        BASE_UNIT = 10**_underlyingDecimals;
 
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _setupRole(HARVESTER_ROLE, harvester);
@@ -58,10 +54,9 @@ contract MonoVault is MonoVaultStorageV1, MonoVaultEvents, ERC20, Ownable, Acces
                                 MISC
     //////////////////////////////////////////////////////////////*/
 
-
     /// @notice Overrides `decimals` method
-    /// @return mono share token decimals (underlying token decimals) 
-    function decimals() public view override returns(uint8) {
+    /// @return mono share token decimals (underlying token decimals)
+    function decimals() public view override returns (uint8) {
         return underlyingDecimals;
     }
 
@@ -189,7 +184,7 @@ contract MonoVault is MonoVaultStorageV1, MonoVaultEvents, ERC20, Ownable, Acces
         uint256 actualIndex = batchBurnIndex + 1;
         uint256 latestRequestIndex = userBatchBurnLastRequest[msg.sender];
 
-        if(latestRequestIndex == actualIndex) {
+        if (latestRequestIndex == actualIndex) {
             uint256 idx = userBatchBurnReceipts[msg.sender].length - 1;
             userBatchBurnReceipts[msg.sender][idx].shares += monoTokenAmount;
         } else {
@@ -211,8 +206,8 @@ contract MonoVault is MonoVaultStorageV1, MonoVaultEvents, ERC20, Ownable, Acces
     function exitBatchBurn() external {
         uint256 totalUnderlying;
         BatchBurnReceipt[] storage receipts = userBatchBurnReceipts[msg.sender];
-        
-        for(uint256 i = receipts.length; i >= 1; i--) {
+
+        for (uint256 i = receipts.length; i >= 1; i--) {
             BatchBurnReceipt memory r = receipts[i - 1];
             totalUnderlying += r.shares.fmul(batchBurns[r.index].amountPerShare, BASE_UNIT);
             receipts.pop();
@@ -233,9 +228,9 @@ contract MonoVault is MonoVaultStorageV1, MonoVaultEvents, ERC20, Ownable, Acces
         BatchBurn memory batchBurn = batchBurns[actualIndex];
 
         require(batchBurn.totalShares != 0, "batchBurn::TOTAL_SHARES_CANNOT_BE_ZERO");
-        
+
         uint256 sharesAfterFees = batchBurn.totalShares;
-        if(batchBurningFeePercent > 0) {
+        if (batchBurningFeePercent > 0) {
             uint256 feesAccrued = batchBurn.totalShares.fmul(batchBurningFeePercent, 1e18);
             sharesAfterFees -= feesAccrued;
         }
@@ -368,7 +363,7 @@ contract MonoVault is MonoVaultStorageV1, MonoVaultEvents, ERC20, Ownable, Acces
             uint256 balanceThisHarvest = strategy.balanceOfUnderlying();
 
             // Update the strategy's stored balance. Cast overflow is unrealistic.
-            getStrategyData[strategy].balance = balanceThisHarvest.toUint248();
+            getStrategyData[strategy].balance = balanceThisHarvest.safeCastTo248();
 
             // Increase/decrease newTotalStrategyHoldings based on the profit/loss registered.
             // We cannot wrap the subtraction in parenthesis as it would underflow if the strategy had a loss.
@@ -391,7 +386,7 @@ contract MonoVault is MonoVaultStorageV1, MonoVaultEvents, ERC20, Ownable, Acces
         _mint(address(this), feesAccrued.fdiv(exchangeRate(), BASE_UNIT));
 
         // Update max unlocked profit based on any remaining locked profit plus new profit.
-        maxLockedProfit = (lockedProfit() + totalProfitAccrued - feesAccrued).toUint128();
+        maxLockedProfit = (lockedProfit() + totalProfitAccrued - feesAccrued).safeCastTo128();
 
         // Set strategy holdings to our new total.
         totalStrategyHoldings = newTotalStrategyHoldings;
@@ -437,7 +432,7 @@ contract MonoVault is MonoVaultStorageV1, MonoVaultEvents, ERC20, Ownable, Acces
         unchecked {
             // Without this the next harvest would count the deposit as profit.
             // Cannot overflow as the balance of one strategy can't exceed the sum of all.
-            getStrategyData[strategy].balance += underlyingAmount.toUint224();
+            getStrategyData[strategy].balance += underlyingAmount.safeCastTo248();
         }
 
         emit StrategyDeposit(msg.sender, strategy, underlyingAmount);
@@ -461,7 +456,7 @@ contract MonoVault is MonoVaultStorageV1, MonoVaultEvents, ERC20, Ownable, Acces
         require(underlyingAmount != 0, "withdrawFromStrategy::AMOUNT_CANNOT_BE_ZERO");
 
         // Without this the next harvest would count the withdrawal as a loss.
-        getStrategyData[strategy].balance -= underlyingAmount.toUint224();
+        getStrategyData[strategy].balance -= underlyingAmount.safeCastTo248();
 
         unchecked {
             // Decrease totalStrategyHoldings to account for the withdrawal.
@@ -528,7 +523,7 @@ contract MonoVault is MonoVaultStorageV1, MonoVaultEvents, ERC20, Ownable, Acces
             if (!getStrategyData[strategy].trusted || strategyBalance == 0) continue;
 
             // We want to pull as much as we can from the strategy, but no more than we need.
-            uint256 amountToPull = FixedPointMath.min(amountLeftToPull, strategyBalance);
+            uint256 amountToPull = (amountLeftToPull <= strategyBalance) ? amountLeftToPull : strategyBalance;
 
             unchecked {
                 // Compute the balance of the strategy that will remain after we withdraw.
@@ -536,7 +531,7 @@ contract MonoVault is MonoVaultStorageV1, MonoVaultEvents, ERC20, Ownable, Acces
                 uint256 strategyBalanceAfterWithdrawal = strategyBalance - amountToPull;
 
                 // Without this the next harvest would count the withdrawal as a loss.
-                getStrategyData[strategy].balance = strategyBalanceAfterWithdrawal.toUint248();
+                getStrategyData[strategy].balance = strategyBalanceAfterWithdrawal.safeCastTo248();
 
                 // Adjust our goal based on how much we can pull from the strategy.
                 // Cannot underflow as we cap the amount to pull at the amount left to pull.
@@ -586,11 +581,4 @@ contract MonoVault is MonoVaultStorageV1, MonoVaultEvents, ERC20, Ownable, Acces
         // Transfer the provided amount of fvTokens to the caller.
         ERC20(this).safeTransfer(msg.sender, fmonoTokenAmount);
     }
-
-    /*///////////////////////////////////////////////////////////////
-                          RECEIVE FUNCTION
-    //////////////////////////////////////////////////////////////*/
-
-    /// @dev Required for the MonoVault to receive unwrapped ETH.
-    receive() external payable {}
 }

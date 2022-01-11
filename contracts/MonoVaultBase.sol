@@ -3,16 +3,14 @@
 pragma solidity ^0.8.0;
 
 import {ERC20Upgradeable as ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20Upgradeable.sol";
-import {WETH9 as WETH} from "../interfaces/WETH9.sol";
 import {Strategy} from "../interfaces/Strategy.sol";
 
 contract MonoVaultStorageV1 {
-
     /// @notice Harvester role encoded
-    bytes32 constant public HARVESTER_ROLE = keccak256(bytes("HARVESTER"));
+    bytes32 public constant HARVESTER_ROLE = keccak256(bytes("HARVESTER"));
 
     /// @notice Max number of strategies
-    uint8 constant public MAX_STRATEGIES = 20;
+    uint8 public constant MAX_STRATEGIES = 20;
 
     /// @notice The underlying token the MonoVault accepts.
     ERC20 public UNDERLYING;
@@ -56,11 +54,9 @@ contract MonoVaultStorageV1 {
     struct StrategyData {
         // Used to determine if the Vault will operate on a strategy.
         bool trusted;
-
         // Used to determine profit and loss during harvests of the strategy.
         uint248 balance;
     }
-
 
     /// @notice Maps strategies to data the Vault holds on them.
     mapping(Strategy => StrategyData) public getStrategyData;
@@ -97,7 +93,7 @@ contract MonoVaultStorageV1 {
         uint256 shares;
     }
 
-    /// @notice Current Batch burn index. 
+    /// @notice Current Batch burn index.
     uint256 public batchBurnIndex;
 
     /// @notice Balance reserved to batched burning withdrawals.
@@ -120,7 +116,6 @@ contract MonoVaultEvents {
     /// @notice Emitted when the fee percentage is updated.
     /// @param newFeePercent The new fee percentage.
     event FeePercentUpdated(uint256 newFeePercent);
-
 
     /// @notice Emitted when the batched burning fee percentage is updated.
     /// @param newFeePercent The new fee percentage.
@@ -152,10 +147,7 @@ contract MonoVaultEvents {
     /// @notice Emitted after a successful harvest.
     /// @param account The harvester address.
     /// @param strategies The set of strategies.
-    event Harvest(
-        address indexed account,
-        Strategy[] strategies
-    );
+    event Harvest(address indexed account, Strategy[] strategies);
 
     /// @notice Emitted after the Vault deposits into a strategy contract.
     /// @param account The address depositing funds into the strategy.
@@ -167,11 +159,7 @@ contract MonoVaultEvents {
     /// @param account The user pulling funds from the strategy
     /// @param strategy The strategy that was withdrawn from.
     /// @param underlyingAmount The amount of underlying tokens that were withdrawn.
-    event StrategyWithdrawal(
-        address indexed account,
-        Strategy indexed strategy,
-        uint256 underlyingAmount
-    );
+    event StrategyWithdrawal(address indexed account, Strategy indexed strategy, uint256 underlyingAmount);
 
     /// @notice Emitted when a strategy is set to trusted.
     /// @param strategy The strategy that became trusted.
@@ -189,7 +177,6 @@ contract MonoVaultEvents {
     /// @param fvTokenAmount The amount of fvTokens that were claimed.
     event FeesClaimed(uint256 fvTokenAmount);
 
-
     /// @notice Emitted after a user enters a batched burn round
     /// @param account user's address
     /// @param amount amount of shares to be burned
@@ -200,12 +187,11 @@ contract MonoVaultEvents {
     /// @param executor user that executes the batch burn
     /// @param burnIndex batched burn index
     /// @param shares total amount of burned shares
-    /// @param underlying total amount of underlying redeemed 
+    /// @param underlying total amount of underlying redeemed
     event ExecuteBatchBurn(address indexed executor, uint256 indexed burnIndex, uint256 shares, uint256 underlying);
 
     /// @notice Emitted after a lock event
     /// @param locked wheter the vault was locked or not
     /// @param timestamp time of the lock
     event Lock(bool indexed locked, uint256 indexed timestamp);
-
 }
