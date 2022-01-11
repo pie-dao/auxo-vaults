@@ -14,10 +14,26 @@ interface IAsset {
  * don't override one of these declarations.
  */
 interface IBalancerVault {
-    enum PoolSpecialization {GENERAL, MINIMAL_SWAP_INFO, TWO_TOKEN}
-    enum JoinKind {INIT, EXACT_TOKENS_IN_FOR_BPT_OUT, TOKEN_IN_FOR_EXACT_BPT_OUT, ALL_TOKENS_IN_FOR_EXACT_BPT_OUT}
-    enum ExitKind {EXACT_BPT_IN_FOR_ONE_TOKEN_OUT, EXACT_BPT_IN_FOR_TOKENS_OUT, BPT_IN_FOR_EXACT_TOKENS_OUT}
-    enum SwapKind {GIVEN_IN, GIVEN_OUT}
+    enum PoolSpecialization {
+        GENERAL,
+        MINIMAL_SWAP_INFO,
+        TWO_TOKEN
+    }
+    enum JoinKind {
+        INIT,
+        EXACT_TOKENS_IN_FOR_BPT_OUT,
+        TOKEN_IN_FOR_EXACT_BPT_OUT,
+        ALL_TOKENS_IN_FOR_EXACT_BPT_OUT
+    }
+    enum ExitKind {
+        EXACT_BPT_IN_FOR_ONE_TOKEN_OUT,
+        EXACT_BPT_IN_FOR_TOKENS_OUT,
+        BPT_IN_FOR_EXACT_TOKENS_OUT
+    }
+    enum SwapKind {
+        GIVEN_IN,
+        GIVEN_OUT
+    }
 
     /**
      * @dev Data for each individual swap executed by `batchSwap`. The asset in and out fields are indexes into the
@@ -110,18 +126,25 @@ interface IBalancerVault {
 
     function getPool(bytes32 poolId) external view returns (address poolAddress, PoolSpecialization);
 
-    function getPoolTokenInfo(bytes32 poolId, ERC20 token) external view returns (
-        uint256 cash,
-        uint256 managed,
-        uint256 lastChangeBlock,
-        address assetManager
-    );
+    function getPoolTokenInfo(bytes32 poolId, ERC20 token)
+        external
+        view
+        returns (
+            uint256 cash,
+            uint256 managed,
+            uint256 lastChangeBlock,
+            address assetManager
+        );
 
-    function getPoolTokens(bytes32 poolId) external view returns (
-        ERC20[] calldata tokens,
-        uint256[] calldata balances,
-        uint256 lastChangeBlock
-    );
+    function getPoolTokens(bytes32 poolId)
+        external
+        view
+        returns (
+            ERC20[] calldata tokens,
+            uint256[] calldata balances,
+            uint256 lastChangeBlock
+        );
+
     /**
      * @dev Performs a swap with a single Pool.
      *

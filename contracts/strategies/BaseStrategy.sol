@@ -35,23 +35,16 @@ abstract contract BaseStrategy is Strategy, Ownable, AccessControl, ReentrancyGu
     //////////////////////////////////////////////////////////////*/
 
     modifier onlyStrategistOrOwner() {
-        require(
-            msg.sender == owner() || hasRole(STRATEGIST_ROLE, msg.sender),
-            "onlyStrategistOrOwner::UNAUTHORIZED"
-        );
+        require(msg.sender == owner() || hasRole(STRATEGIST_ROLE, msg.sender), "onlyStrategistOrOwner::UNAUTHORIZED");
 
         _;
     }
 
     modifier onlyAuthorizedVault() {
-        require(
-            msg.sender == authorizedVault,
-            "onlyAuthorizedVault::UNAUTHORIZED"
-        );
+        require(msg.sender == authorizedVault, "onlyAuthorizedVault::UNAUTHORIZED");
 
         _;
     }
-
 
     function __Strategy_init(
         ERC20 asset,
@@ -79,7 +72,7 @@ abstract contract BaseStrategy is Strategy, Ownable, AccessControl, ReentrancyGu
     function sweep(ERC20 asset, uint256 amount) external onlyOwner {
         require(address(asset) != address(underlyingAsset), "sweep:SAME_AS_UNDERLYING");
         asset.safeTransfer(owner(), amount);
-        
+
         emit Sweep(address(asset), amount);
     }
 }

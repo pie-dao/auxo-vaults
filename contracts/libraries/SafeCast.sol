@@ -16,11 +16,10 @@ pragma solidity ^0.8.0;
  *
  * Can be combined with {SafeMath} and {SignedSafeMath} to extend it to smaller types, by performing
  * all math on `uint256` and `int256` and then downcasting.
- * 
+ *
  * WARNING: This library adds the method toUint248, not included in the Openzeppelin Library
  */
 library SafeCast {
-
     /**
      * @dev Returns the downcasted uint248 from uint256, reverting on
      * overflow (when the input is greater than largest uint248).
@@ -35,7 +34,6 @@ library SafeCast {
         require(value <= type(uint248).max, "SafeCast: value doesn't fit in 248 bits");
         return uint248(value);
     }
-
 
     /**
      * @dev Returns the downcasted uint224 from uint256, reverting on

@@ -44,12 +44,7 @@ contract StrategyManaged is BaseStrategy {
                             MISC AND OVERRIDES 
     //////////////////////////////////////////////////////////////*/
 
-    function balanceOfUnderlying()
-        external
-        view
-        override
-        returns (uint256)
-    {
+    function balanceOfUnderlying() external view override returns (uint256) {
         return underlyingOracle.totalUnderlying();
     }
 
@@ -64,12 +59,7 @@ contract StrategyManaged is BaseStrategy {
     event Deposit(address indexed vault, uint256 amount);
 
     /// @dev Pulls funds from the strategy
-    function deposit(uint256 amount)
-        external
-        override
-        onlyAuthorizedVault
-        returns (uint256)
-    {
+    function deposit(uint256 amount) external override onlyAuthorizedVault returns (uint256) {
         underlyingAsset.safeTransferFrom(msg.sender, address(this), amount);
 
         emit Deposit(msg.sender, amount);
@@ -79,15 +69,10 @@ contract StrategyManaged is BaseStrategy {
 
     event UnderlyingRedeemed(address indexed vault, uint256 amount);
 
-    function redeemUnderlying(uint256 amount)
-        external
-        override
-        onlyAuthorizedVault
-        returns (uint256 returnValue)
-    {
+    function redeemUnderlying(uint256 amount) external override onlyAuthorizedVault returns (uint256 returnValue) {
         if (float() < amount) {
             returnValue = NOT_ENOUGH_UNDERLYING;
-        } else {        
+        } else {
             underlyingAsset.safeTransfer(msg.sender, amount);
             returnValue = SUCCESS;
 
@@ -126,10 +111,7 @@ contract StrategyManaged is BaseStrategy {
 
     event TargetAdded(address indexed target, bytes4[] signatures);
 
-    function addTargetWithSignatures(address target, bytes4[] memory signatures)
-        external
-        onlyOwner
-    {
+    function addTargetWithSignatures(address target, bytes4[] memory signatures) external onlyOwner {
         require(!approvedTargets[target], "addTarget::ALREADY_APPROVED");
         approvedTargets[target] = true;
 
@@ -166,7 +148,7 @@ contract StrategyManaged is BaseStrategy {
     function removeSignatures(address target, bytes4[] memory signatures) external onlyOwner {
         require(approvedTargets[target], "removeSignatures::TARGET_NOT_APPROVED");
 
-        for(uint256 i = 0; i < signatures.length; i++) {
+        for (uint256 i = 0; i < signatures.length; i++) {
             approvedSignatures[target][signatures[i]] = false;
         }
 
@@ -201,7 +183,7 @@ contract StrategyManaged is BaseStrategy {
         require(approvedTargets[target], "approveToken::TARGET_NOT_APPROVED");
         require(approvedTokens[token], "approveToken::ASSET_NOT_APPROVED");
 
-        if(newAllowance > 0 && ERC20(token).allowance(address(this), target) > 0) {
+        if (newAllowance > 0 && ERC20(token).allowance(address(this), target) > 0) {
             ERC20(token).approve(target, 0);
         }
 

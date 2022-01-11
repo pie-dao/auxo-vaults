@@ -5,7 +5,10 @@ import {ERC20Upgradeable as ERC20} from "@openzeppelin/contracts/token/ERC20/ERC
 import {IERC20Upgradeable as IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20Upgradeable.sol";
 
 interface IBalancerPool is IERC20 {
-    enum SwapKind {GIVEN_IN, GIVEN_OUT}
+    enum SwapKind {
+        GIVEN_IN,
+        GIVEN_OUT
+    }
 
     struct SwapRequest {
         SwapKind kind;

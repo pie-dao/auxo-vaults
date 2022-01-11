@@ -11,7 +11,11 @@ contract MockStrategy is BaseStrategy {
     using SafeERC20 for ERC20;
     using FixedPointMathLib for uint256;
 
-    constructor(ERC20 asset, address vault, address strategist) {
+    constructor(
+        ERC20 asset,
+        address vault,
+        address strategist
+    ) {
         __Strategy_init(asset, vault, strategist);
     }
 
@@ -24,12 +28,8 @@ contract MockStrategy is BaseStrategy {
         return SUCCESS;
     }
 
-    function redeemUnderlying(uint256 amount)
-        external
-        override
-        returns (uint256 returnValue)
-    {
-        if(balanceOfUnderlying() < amount) {
+    function redeemUnderlying(uint256 amount) external override returns (uint256 returnValue) {
+        if (balanceOfUnderlying() < amount) {
             returnValue = NOT_ENOUGH_UNDERLYING;
         } else {
             underlyingAsset.safeTransfer(msg.sender, amount);
@@ -37,12 +37,7 @@ contract MockStrategy is BaseStrategy {
         }
     }
 
-    function balanceOfUnderlying()
-        public
-        view
-        override
-        returns (uint256)
-    {
+    function balanceOfUnderlying() public view override returns (uint256) {
         return underlyingAsset.balanceOf(address(this));
     }
 
