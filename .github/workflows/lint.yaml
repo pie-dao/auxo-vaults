@@ -1,0 +1,21 @@
+name: Lint
+
+on: [push, pull_request]
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions/setup-node@v2
+      with:
+        name: setup
+    
+    - name: Install dependencies
+      run: yarn --frozen-lockfile
+    
+    - name: Run formatter
+      run: yarn format:check
+
+# TODO: Slither or some other static analysis tool
