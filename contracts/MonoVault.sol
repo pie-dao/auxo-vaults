@@ -45,6 +45,7 @@ contract MonoVault is MonoVaultStorageV1, MonoVaultEvents, ERC20, Ownable, Acces
         UNDERLYING = ERC20(underlying);
         underlyingDecimals = _underlyingDecimals;
         BASE_UNIT = 10 ** _underlyingDecimals;
+        BLOCKS_PER_YEAR = 2465437;
 
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _setupRole(HARVESTER_ROLE, harvester);
@@ -63,6 +64,10 @@ contract MonoVault is MonoVaultStorageV1, MonoVaultEvents, ERC20, Ownable, Acces
     /// @return mono share token decimals (underlying token decimals) 
     function decimals() public view override returns(uint8) {
         return underlyingDecimals;
+    }
+
+    function setBlocksPerYear(uint256 blocks) external {
+        BLOCKS_PER_YEAR = blocks;
     }
 
     /*///////////////////////////////////////////////////////////////
@@ -326,6 +331,18 @@ contract MonoVault is MonoVaultStorageV1, MonoVaultEvents, ERC20, Ownable, Acces
         return UNDERLYING.balanceOf(address(this)) - batchBurnBalance;
     }
 
+    /// @notice Returns an estimated return for the vault.
+    /// @dev This method should not be used to get a precise estimate.
+    /// @return estimate A formatted APR value
+    function estimatedReturn() public view returns (uint256 estimate) {
+        uint256 supply = totalSupply();
+
+        if(supply != 0 && maxLockedProfit != 0) {
+            uint256 exchangeRateIncrease = uint256(maxLockedProfit).fdiv(supply, BASE_UNIT);
+            estimate = exchangeRateIncrease * (BLOCKS_PER_YEAR / lastHarvestIntervalInBlocks) * 100;
+        }
+    }
+
     /*///////////////////////////////////////////////////////////////
                              HARVEST LOGIC
     //////////////////////////////////////////////////////////////*/
@@ -337,9 +354,13 @@ contract MonoVault is MonoVaultStorageV1, MonoVaultEvents, ERC20, Ownable, Acces
     function harvest(Strategy[] calldata strategies) external onlyRole(HARVESTER_ROLE) {
         // If this is the first harvest after the last window:
         if (block.timestamp >= lastHarvest + harvestDelay) {
+            lastHarvestExchangeRate = exchangeRate();
+            lastHarvestIntervalInBlocks = block.number - lastHarvestWindowStartBlock;
+
             // Set the harvest window's start timestamp.
             // Cannot overflow 64 bits on human timescales.
             lastHarvestWindowStart = uint64(block.timestamp);
+            lastHarvestWindowStartBlock = block.number;
         } else {
             // We know this harvest is not the first in the window so we need to ensure it's within it.
             require(block.timestamp <= lastHarvestWindowStart + harvestWindow, "harvest::BAD_HARVEST_TIME");

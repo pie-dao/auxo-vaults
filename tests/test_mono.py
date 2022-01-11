@@ -1,7 +1,7 @@
 import pytest
 
 from rich import print
-from brownie import accounts, MonoVault, MockToken, MockStrategy
+from brownie import accounts, chain, MonoVault, MockToken, MockStrategy
 
 @pytest.fixture
 def deployer():
@@ -154,3 +154,38 @@ def test_batch_burning_with_loss(deployer, token, vault, strategy, mock_accounts
         vault.exitBatchBurn({'from': user})
         expected = 833333333333333333000 # ~ 2500 / 3
         assert token.balanceOf(user) == expected
+
+def test_expected_return(deployer, token, vault, strategy, mock_accounts):
+    users = mock_accounts[:3]
+    vault.trustStrategy(strategy, {'from': deployer})
+    vault.setWithdrawalQueue([strategy], {'from': deployer})
+
+    for user in users:
+        token.mint(user.address, 1000 * 1e18, {'from': deployer})
+
+        token.approve(vault, 1000 * 1e18, {'from': user})
+        vault.deposit(1000 * 1e18, {'from': user})
+    
+    vault.depositIntoStrategy(strategy, 3000 * 1e18, {'from': deployer})
+
+    assert token.balanceOf(strategy) == 3000 * 1e18
+
+    vault.setBlocksPerYear(365, {'from': deployer})
+
+    # mine for approx 7 days
+    chain.mine(7, (chain.time() + 604800))
+
+    # yield 150 tokens in a week (approx 10% apr)
+    # apr = exchange_rate_increase * (365 days / latest_harvest_days_interval)
+    # or in blocks terms: 
+    # apr = exchange_rate_increase * (blocks_in_a_year / latest_harvest_blocks_interval)
+    # in this case:
+    # apr = (1 - (3150 / 3000)) * (blocks_in_a_year / latest_harvest_blocks_interval)
+    token.mint(strategy.address, 150 * 1e18, {'from': deployer})
+    assert token.balanceOf(strategy) == 3150 * 1e18
+
+    vault.harvest([strategy], {'from': deployer})
+    assert vault.totalStrategyHoldings() == 3150 * 1e18
+
+    # expected apr should be 10
+    assert (vault.estimatedReturn({"from": deployer}) / 1e18) == 10

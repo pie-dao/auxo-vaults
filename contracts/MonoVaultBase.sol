@@ -14,6 +14,8 @@ contract MonoVaultStorageV1 {
     /// @notice Max number of strategies
     uint8 constant public MAX_STRATEGIES = 20;
 
+    uint256 public BLOCKS_PER_YEAR;
+
     /// @notice The underlying token the MonoVault accepts.
     ERC20 public UNDERLYING;
 
@@ -64,6 +66,15 @@ contract MonoVaultStorageV1 {
 
     /// @notice Maps strategies to data the Vault holds on them.
     mapping(Strategy => StrategyData) public getStrategyData;
+
+    /// @notice Exchange rate at the beginning of latest harvest window
+    uint256 public lastHarvestExchangeRate;
+
+    /// @notice Latest harvest interval in blocks
+    uint256 public lastHarvestIntervalInBlocks;
+
+    /// @notice The block number when the first harvest in the most recent harvest window occurred.
+    uint256 public lastHarvestWindowStartBlock;
 
     /// @notice A timestamp representing when the first harvest in the most recent harvest window occurred.
     /// @dev May be equal to lastHarvest if there was/has only been one harvest in the most last/current window.
