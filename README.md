@@ -1,4 +1,12 @@
-# mono-vaults
+# vaults
+
+A vault seeking for yield. Not fully ERC4626-compliant.
+
+## Overview
+
+![](./overview.png)
+
+### Basic run
 
 1. Create and activate a virtualenv for the project (using Python 3.8):
 
@@ -20,8 +28,14 @@ pip install -r requirements.txt
 brownie compile
 ```
 
-## How to run tests
+4. Run tests
 
 ```
 brownie test
 ```
+
+### Acknowledgements
+
+- Yearn
+- Rari Capital
+- Authors of EIP4626
