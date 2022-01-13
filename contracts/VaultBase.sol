@@ -35,7 +35,7 @@ contract VaultBase is ERC20, Ownable, Pausable {
     bytes internal constant nSuffix = bytes(" Vault");
 
     /// @notice Max number of strategies the Vault can handle.
-    uint256 internal MAX_STRATEGIES = 20;
+    uint256 internal constant MAX_STRATEGIES = 20;
 
     /*///////////////////////////////////////////////////////////////
                         STRUCTS DECLARATIONS
@@ -50,6 +50,22 @@ contract VaultBase is ERC20, Ownable, Pausable {
         bool trusted;
         // Used to determine profit and loss during harvests of the strategy.
         uint248 balance;
+    }
+
+    /// @dev Struct for batched burning events.
+    /// @param totalShares Shares to burn during the event.
+    /// @param amountPerShare Underlying amount per share (this differs from exchangeRate at the moment of batched burning).
+    struct BatchBurn {
+        uint256 totalShares;
+        uint256 amountPerShare;
+    }
+
+    /// @dev Struct for users' batched burning requests.
+    /// @param round Batched burning event index.
+    /// @param shares Shares to burn for the user.
+    struct BatchBurnReceipt {
+        uint256 round;
+        uint256 shares;
     }
 
     /*///////////////////////////////////////////////////////////////
@@ -119,6 +135,18 @@ contract VaultBase is ERC20, Ownable, Pausable {
     /// withdrawal time, not validated upfront, meaning the queue may not reflect the "true" set used for withdrawals.
     IStrategy[] public withdrawalQueue;
 
+    /// @notice Current batched burning round.
+    uint256 batchBurnRound;
+
+    /// @notice Balance reserved to batched burning withdrawals.
+    uint256 public batchBurnBalance;
+
+    /// @notice Maps user's address to withdrawal request.
+    mapping(address => BatchBurnReceipt) public userBatchBurnReceipts;
+
+    /// @notice Maps social burning events rounds to batched burn details.
+    mapping(uint256 => BatchBurn) public batchBurns;
+
     /*///////////////////////////////////////////////////////////////
                                 EVENTS
     //////////////////////////////////////////////////////////////*/
@@ -164,11 +192,30 @@ contract VaultBase is ERC20, Ownable, Pausable {
     /// @param strategy The strategy that became untrusted.
     event StrategyDistrusted(IStrategy indexed strategy);
 
-    /// @notice The event emitted when tokens are deposited into the vault.
+    /// @notice Emitted when underlying tokens are deposited into the vault.
     /// @param from The user depositing into the vault.
     /// @param to The user receiving Vault's shares.
     /// @param value The shares `to` is receiving.
     event Deposit(address indexed from, address indexed to, uint256 value);
+
+    /// @notice Emitted after a user enters a batched burn round.
+    /// @param round Batched burn round.
+    /// @param account User's address.
+    /// @param amount Amount of shares to be burned.
+    event EnterBatchBurn(uint256 indexed round, address indexed account, uint256 amount);
+
+    /// @notice Emitted after a user exits a batched burn round.
+    /// @param round Batched burn round.
+    /// @param account User's address.
+    /// @param amount Amount of underlying redeemed.
+    event ExitBatchBurn(uint256 indexed round, address indexed account, uint256 amount);
+
+    /// @notice Emitted after a batched burn event happens.
+    /// @param round Batched burn round.
+    /// @param executor User that executes the batch burn.
+    /// @param shares Total amount of burned shares.
+    /// @param amount Total amount of underlying redeemed.
+    event ExecuteBatchBurn(uint256 indexed round, address indexed executor, uint256 shares, uint256 amount);
 
     /// @notice Emitted after a successful harvest.
     /// @param account The harvester address.
@@ -255,6 +302,10 @@ contract VaultBase is ERC20, Ownable, Pausable {
         auth = auth_;
         burningFeeReceiver = burnFeeReceiver_;
         harvestFeeReceiver = harvestFeeReceiver_;
+
+        // sets batchBurnRound to 1
+        // indicating 0 as an uninitialized withdraw request
+        batchBurnRound = 1;
     }
 
     /*///////////////////////////////////////////////////////////////
@@ -429,6 +480,99 @@ contract VaultBase is ERC20, Ownable, Pausable {
     /// @return underlyingAmount The amount needed to mint `shares` amount of shares.
     function mint(address to, uint256 shares) external returns (uint256 underlyingAmount) {
         _deposit(to, shares, (underlyingAmount = calculateUnderlying(shares)));
+    }
+
+    /// @notice Enter a batched burn event.
+    /// @dev Each user can take part to one batched burn event a time.
+    /// @dev User's shares amount will be staked until the burn happens.
+    /// @param shares Shares to withdraw during the next batched burn event.
+    function enterBatchBurn(uint256 shares) external {
+        uint256 batchBurnRound_ = batchBurnRound;
+        uint256 userRound = userBatchBurnReceipts[msg.sender].round;
+
+        if (userRound == 0) {
+            // user is depositing for the first time in this round
+            // so we set his round to current round
+
+            userBatchBurnReceipts[msg.sender].round = batchBurnRound_;
+            userBatchBurnReceipts[msg.sender].shares = shares;
+        } else {
+            // user is not depositing for the first time or took part in a previous round:
+            //      - first case: we stack the deposits.
+            //      - second case: revert, user needs to withdraw before requesting
+            //                     to take part in another round.
+
+            require(userRound == batchBurnRound_, "enterBatchBurn::DIFFERENT_ROUNDS");
+            userBatchBurnReceipts[msg.sender].shares += shares;
+        }
+
+        batchBurns[batchBurnRound_].totalShares += shares;
+
+        require(transfer(address(this), shares));
+
+        emit EnterBatchBurn(batchBurnRound_, msg.sender, shares);
+    }
+
+    /// @notice Withdraw underlying redeemed in batched burning events.
+    /// @dev User will withdraw all of his batch burns
+    function exitBatchBurn() external {
+        uint256 batchBurnRound_ = batchBurnRound;
+        BatchBurnReceipt memory receipt = userBatchBurnReceipts[msg.sender];
+
+        require(receipt.round != 0, "exitBatchBurn::NO_DEPOSITS");
+        require(receipt.round < batchBurnRound_, "exitBatchBurn::ROUND_NOT_EXECUTED");
+
+        userBatchBurnReceipts[msg.sender].round = 0;
+        userBatchBurnReceipts[msg.sender].shares = 0;
+
+        uint256 underlyingAmount = receipt.shares.fmul(batchBurns[receipt.round].amountPerShare, BASE_UNIT);
+        underlying.safeTransfer(msg.sender, underlyingAmount);
+
+        emit ExitBatchBurn(batchBurnRound_, msg.sender, underlyingAmount);
+    }
+
+    /// @notice Execute batched burns
+    function execBatchBurn() external onlyAdmin(msg.sender) {
+        // let's wait for lockedProfit to go to 0
+        require(block.timestamp >= (lastHarvest + harvestDelay), "batchBurn::LATEST_HARVEST_NOT_EXPIRED");
+
+        uint256 batchBurnRound_ = batchBurnRound;
+        batchBurnRound += 1;
+
+        BatchBurn memory batchBurn = batchBurns[batchBurnRound_];
+        uint256 totalShares = batchBurn.totalShares;
+
+        // burning 0 shares is not convenient
+        require(totalShares != 0, "batchBurn::TOTAL_SHARES_CANNOT_BE_ZERO");
+
+        // Determine the equivalent amount of underlying tokens and withdraw from strategies if needed.
+        uint256 underlyingAmount = totalShares.fmul(exchangeRate(), BASE_UNIT);
+        uint256 float = totalFloat();
+
+        // If the amount is greater than the float, withdraw from strategies.
+        if (underlyingAmount > float) {
+            // Compute the bare minimum amount we need for this withdrawal.
+            uint256 floatMissingForWithdrawal = underlyingAmount - float;
+
+            // Pull enough to cover the withdrawal.
+            pullFromWithdrawalQueue(floatMissingForWithdrawal);
+        }
+
+        _burn(address(this), totalShares);
+
+
+        // Compute fees and transfer underlying amount if any
+        if(burningFeePercent != 0) {
+            uint256 accruedFees = underlyingAmount.fmul(burningFeePercent, 10 ** 18);
+            underlyingAmount -= accruedFees;
+
+            underlying.safeTransfer(burningFeeReceiver, accruedFees);
+        }
+        
+        batchBurns[batchBurnRound_].amountPerShare = underlyingAmount.fdiv(totalShares, BASE_UNIT);
+        batchBurnBalance += underlyingAmount;
+
+        emit ExecuteBatchBurn(batchBurnRound_, msg.sender, totalShares, underlyingAmount);
     }
 
     /// @dev Internal function to deposit into the Vault.
