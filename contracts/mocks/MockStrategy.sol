@@ -1,44 +1,42 @@
-// SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8;
+// SPDX-License-Identifier: AGPL-3.0-only
+pragma solidity ^0.8.10;
 
-import {ERC20Upgradeable as ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20Upgradeable.sol";
+import {IERC20Upgradeable as IERC20} from "@openzeppelin/contracts/token/ERC20/ERC20Upgradeable.sol";
 import {SafeERC20Upgradeable as SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20Upgradeable.sol";
 
-import {FixedPointMathLib} from "../libraries/FixedPointMathLib.sol";
-import {BaseStrategy} from "../strategies/BaseStrategy.sol";
+import {BaseStrategy} from "../BaseStrategy.sol";
+import {IVault} from "../../interfaces/IVault.sol";
 
 contract MockStrategy is BaseStrategy {
-    using SafeERC20 for ERC20;
-    using FixedPointMathLib for uint256;
+    using SafeERC20 for IERC20;
 
-    constructor(
-        ERC20 asset,
-        address vault,
-        address strategist
-    ) {
-        __Strategy_init(asset, vault, strategist);
+    function initialize(
+        IVault vault_,
+        IERC20 underlying_,
+        address manager_,
+        address strategist_,
+        string calldata name_
+    ) external {
+        __initialize(vault_, underlying_, manager_, strategist_, name_);
     }
+
+    /*///////////////////////////////////////////////////////////////
+                        DEPOSIT/WITHDRAW UNDERLYING
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Deposit underlying in strategy's yielding option.
+    function depositUnderlying() external view override {}
+
+    /// @notice Withdraw underlying from strategy's yielding option.
+    function withdrawUnderlying() external view override {}
 
     /*///////////////////////////////////////////////////////////////
                              STRATEGY LOGIC
     //////////////////////////////////////////////////////////////*/
 
-    function deposit(uint256 amount) external override returns (uint256) {
-        underlyingAsset.safeTransferFrom(msg.sender, address(this), amount);
-        return SUCCESS;
-    }
-
-    function redeemUnderlying(uint256 amount) external override returns (uint256 returnValue) {
-        if (balanceOfUnderlying() < amount) {
-            returnValue = NOT_ENOUGH_UNDERLYING;
-        } else {
-            underlyingAsset.safeTransfer(msg.sender, amount);
-            returnValue = SUCCESS;
-        }
-    }
-
-    function balanceOfUnderlying() public view override returns (uint256) {
-        return underlyingAsset.balanceOf(address(this));
+    /// @notice An estimate amount of underlying managed by the strategy.
+    function estimatedUnderlying() external view override returns (uint256) {
+        return float();
     }
 
     /*///////////////////////////////////////////////////////////////
@@ -46,6 +44,6 @@ contract MockStrategy is BaseStrategy {
     //////////////////////////////////////////////////////////////*/
 
     function simulateLoss(uint256 underlyingAmount) external {
-        underlyingAsset.safeTransfer(address(0x1), underlyingAmount);
+        underlying.safeTransfer(address(0x1), underlyingAmount);
     }
 }
