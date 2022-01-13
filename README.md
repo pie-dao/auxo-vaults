@@ -6,6 +6,14 @@ A vault seeking for yield. Not fully ERC4626-compliant.
 
 ![](./overview.png)
 
+### How batched burning works
+
+Withdrawing from `vaults` is achieved through batched burning of shares. The flow for a batched burning round is:
+
+- Users deposits shares when they want to withdraw. (contract-wise, the `userBatchBurnReceipts` mapping is populated when `enterBatchBurn` is called).
+- Once enough deposits are done, an admin can call `execBatchBurn` to withdraw from strategies and burn the deposited shares. A snapshot of the current price per share will be done.
+- Users can now withdraw their underlying using `exitBatchBurn`.
+
 ### Basic run
 
 1. Create and activate a virtualenv for the project (using Python 3.8):
