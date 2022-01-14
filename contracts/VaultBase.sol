@@ -526,6 +526,12 @@ contract VaultBase is ERC20, Ownable, Pausable {
         userBatchBurnReceipts[msg.sender].shares = 0;
 
         uint256 underlyingAmount = receipt.shares.fmul(batchBurns[receipt.round].amountPerShare, BASE_UNIT);
+        
+        // can't underflow since underlyingAmount can't be greater than batchBurnBalance
+        unchecked {
+            batchBurnBalance -= underlyingAmount;
+        }
+        
         underlying.safeTransfer(msg.sender, underlyingAmount);
 
         emit ExitBatchBurn(batchBurnRound_, msg.sender, underlyingAmount);
@@ -560,15 +566,14 @@ contract VaultBase is ERC20, Ownable, Pausable {
 
         _burn(address(this), totalShares);
 
-
         // Compute fees and transfer underlying amount if any
-        if(burningFeePercent != 0) {
-            uint256 accruedFees = underlyingAmount.fmul(burningFeePercent, 10 ** 18);
+        if (burningFeePercent != 0) {
+            uint256 accruedFees = underlyingAmount.fmul(burningFeePercent, 10**18);
             underlyingAmount -= accruedFees;
 
             underlying.safeTransfer(burningFeeReceiver, accruedFees);
         }
-        
+
         batchBurns[batchBurnRound_].amountPerShare = underlyingAmount.fdiv(totalShares, BASE_UNIT);
         batchBurnBalance += underlyingAmount;
 
@@ -836,7 +841,11 @@ contract VaultBase is ERC20, Ownable, Pausable {
     /// @notice Returns the amount of underlying tokens that idly sit in the Vault.
     /// @return The amount of underlying tokens that sit idly in the Vault.
     function totalFloat() public view returns (uint256) {
-        return underlying.balanceOf(address(this));
+        // can't underlflow since batchBurnBalance will never be greater than
+        // the float itself
+        unchecked {
+            return underlying.balanceOf(address(this)) - batchBurnBalance;
+        }
     }
 
     /// @notice Calculate the current amount of locked profit.

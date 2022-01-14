@@ -157,7 +157,7 @@ def test_batch_burning_with_loss(deployer, token, vault, strategy, mock_accounts
     vault.execBatchBurn({'from': deployer})
 
     assert token.balanceOf(vault) == 2499999999999999999000
-    assert vault.totalUnderlying() == 2500000000000000000000
+    assert vault.totalUnderlying() == 1000
     assert vault.totalStrategyHoldings() == 1000
 
     for user in users:
