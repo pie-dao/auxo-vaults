@@ -75,6 +75,9 @@ contract VaultBase is ERC20, Pausable {
                                 STORAGE
     //////////////////////////////////////////////////////////////*/
 
+    /// @notice Blocks mined in a year.
+    uint256 public BLOCKS_PER_YEAR;
+
     /// @notice Vault Auth module.
     IVaultAuth public auth;
 
@@ -121,6 +124,15 @@ contract VaultBase is ERC20, Pausable {
 
     /// @notice Maps strategies to data the Vault holds on them.
     mapping(IStrategy => StrategyData) public getStrategyData;
+
+    /// @notice Exchange rate at the beginning of latest harvest window
+    uint256 public lastHarvestExchangeRate;
+
+    /// @notice Latest harvest interval in blocks
+    uint256 public lastHarvestIntervalInBlocks;
+
+    /// @notice The block number when the first harvest in the most recent harvest window occurred.
+    uint256 public lastHarvestWindowStartBlock;
 
     /// @notice A timestamp representing when the first harvest in the most recent harvest window occurred.
     /// @dev May be equal to lastHarvest if there was/has only been one harvest in the most last/current window.
@@ -310,6 +322,10 @@ contract VaultBase is ERC20, Pausable {
         // sets batchBurnRound to 1
         // indicating 0 as an uninitialized withdraw request
         batchBurnRound = 1;
+
+        // sets initial BLOCKS_PER_YEAR value
+        // BLOCKS_PER_YEAR is set to Ethereum mainnet estimated blocks (~13.5s per block)
+        BLOCKS_PER_YEAR = 2465437;
     }
 
     /*///////////////////////////////////////////////////////////////
@@ -332,6 +348,16 @@ contract VaultBase is ERC20, Pausable {
     function setAuth(IVaultAuth newAuth) external onlyAdmin(msg.sender) {
         auth = newAuth;
         emit AuthUpdated(newAuth);
+    }
+
+    /*///////////////////////////////////////////////////////////////
+                     BLOCKS PER YEAR CONFIGURATION
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Sets blocks per year.
+    /// @param blocks Blocks in a given year.
+    function setBlocksPerYear(uint256 blocks) external {
+        BLOCKS_PER_YEAR = blocks;
     }
 
     /*///////////////////////////////////////////////////////////////
@@ -635,6 +661,14 @@ contract VaultBase is ERC20, Pausable {
     function harvest(IStrategy[] calldata strategies) external onlyHarvester(msg.sender) {
         // If this is the first harvest after the last window:
         if (block.timestamp >= lastHarvest + harvestDelay) {
+            // Accounts for:
+            //    - harvest interval (from latest harvest)
+            //    - harvest exchange rate
+            //    - harvest window starting block
+            lastHarvestExchangeRate = exchangeRate();
+            lastHarvestIntervalInBlocks = block.number - lastHarvestWindowStartBlock;
+            lastHarvestWindowStartBlock = block.number;
+
             // Set the harvest window's start timestamp.
             // Cannot overflow 64 bits on human timescales.
             lastHarvestWindowStart = uint64(block.timestamp);
@@ -892,5 +926,17 @@ contract VaultBase is ERC20, Pausable {
 
         // Include floating underlying balance in the total.
         totalUnderlyingHeld += totalFloat();
+    }
+
+    /// @notice Returns an estimated return for the vault.
+    /// @dev This method should not be used to get a precise estimate.
+    /// @return estimate A formatted APR value
+    function estimatedReturn() public view returns (uint256 estimate) {
+        uint256 supply = totalSupply();
+
+        if (supply != 0 && maxLockedProfit != 0) {
+            uint256 exchangeRateIncrease = uint256(maxLockedProfit).fdiv(supply, BASE_UNIT);
+            estimate = exchangeRateIncrease * (BLOCKS_PER_YEAR / lastHarvestIntervalInBlocks) * 100;
+        }
     }
 }

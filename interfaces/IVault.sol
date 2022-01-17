@@ -115,4 +115,9 @@ interface IVault is IERC20 {
     /// @notice Calculates the total amount of underlying tokens the Vault holds.
     /// @return The total amount of underlying tokens the Vault holds.
     function totalUnderlying() external view returns (uint256);
+
+    /// @notice Returns an estimated return for the vault.
+    /// @dev This method should not be used to get a precise estimate.
+    /// @return A formatted APR value
+    function estimatedReturn() external view returns (uint256);
 }

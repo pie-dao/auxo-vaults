@@ -26,7 +26,7 @@ contract VaultFactory is ProxyAdmin {
     event VaultDeployed(address indexed vault, address indexed underlying, string indexed version);
 
     /// @notice Event emitted when a new Vault is registered.
-    event VaultRegistered(address indexed vault, address indexed underlying, string indexed version);
+    event VaultRegistered(address indexed vault, address indexed underlying);
 
     /// @notice Publish a new Vault version.
     /// @dev Version ordering and checks are not implemented. Off-chain queries are needed to
@@ -43,10 +43,9 @@ contract VaultFactory is ProxyAdmin {
     /// @notice Registers a Vault in the registry.
     /// @dev Only one vault can be mapped to an underlying. Every vault registered will overwrite the current Vault for the underlying.
     /// @param vault The Vault to register
-    function registerVault(IVault vault) external {
-        address underlying = address(vault.underlying());
+    function registerVault(IVault vault, address underlying) external {
         underlyingVaults[underlying] = address(vault);
-        emit VaultRegistered(address(vault), underlying, vault.version());
+        emit VaultRegistered(address(vault), underlying);
     }
 
     /// @notice Deploy a Vault using latest version registered.
