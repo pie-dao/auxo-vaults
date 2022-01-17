@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity ^0.8.10;
 
-import {ERC20Upgradeable as ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20Upgradeable.sol";
-import {OwnableUpgradeable as Ownable} from "@openzeppelin/contracts/access/OwnableUpgradeable.sol";
-import {AccessControlUpgradeable as AccessControl} from "@openzeppelin/contracts/access/AccessControlUpgradeable.sol";
-import {ReentrancyGuardUpgradeable as ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuardUpgradeable.sol";
-import {AddressUpgradeable as Address} from "@openzeppelin/contracts/utils/AddressUpgradeable.sol";
+import {ERC20Upgradeable as ERC20} from "@openzeppelin-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
+import {OwnableUpgradeable as Ownable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
+import {AccessControlUpgradeable as AccessControl} from "@openzeppelin-upgradeable/contracts/access/AccessControlUpgradeable.sol";
+import {ReentrancyGuardUpgradeable as ReentrancyGuard} from "@openzeppelin-upgradeable/contracts/security/ReentrancyGuardUpgradeable.sol";
+import {AddressUpgradeable as Address} from "@openzeppelin-upgradeable/contracts/utils/AddressUpgradeable.sol";
 
-import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
-import {IERC20Upgradeable as IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20Upgradeable.sol";
-import {SafeERC20Upgradeable as SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20Upgradeable.sol";
+import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
+import {IERC20Upgradeable as IERC20} from "@openzeppelin-upgradeable/contracts/token/ERC20/IERC20Upgradeable.sol";
+import {SafeERC20Upgradeable as SafeERC20} from "@openzeppelin-upgradeable/contracts/token/ERC20/utils/SafeERC20Upgradeable.sol";
 
 import {IVault} from "../interfaces/IVault.sol";
 
@@ -66,6 +66,12 @@ abstract contract BaseStrategy is Initializable {
     /// @notice Event emitted when underlying is withdrawn from this strategy.
     event Withdraw(IVault indexed vault, uint256 amount);
 
+    /// @notice Event emitted when underlying is deployed.
+    event DepositUnderlying(uint256 deposited);
+
+    /// @notice Event emitted when underlying is removed from other contracts and returned to the strategy.
+    event WithdrawUnderlying(uint256 amount);
+
     /// @notice Event emitted when tokens are sweeped from this strategy.
     event Sweep(IERC20 indexed asset, uint256 amount);
 
@@ -78,7 +84,7 @@ abstract contract BaseStrategy is Initializable {
         IERC20 underlying_,
         address manager_,
         address strategist_,
-        string calldata name_
+        string memory name_
     ) internal virtual initializer {
         name = name_;
         vault = vault_;
@@ -131,10 +137,12 @@ abstract contract BaseStrategy is Initializable {
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Deposit underlying in strategy's yielding option.
-    function depositUnderlying() external virtual;
+    /// @param amount The amount to deposit.
+    function depositUnderlying(uint256 amount) external virtual;
 
     /// @notice Withdraw underlying from strategy's yielding option.
-    function withdrawUnderlying() external virtual;
+    /// @param amount The amount to withdraw.
+    function withdrawUnderlying(uint256 amount) external virtual;
 
     /*///////////////////////////////////////////////////////////////
                             ACCOUNTING

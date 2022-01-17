@@ -5,6 +5,7 @@ __pycache__
 .hypothesis/
 build/
 reports/
+env/
 venv/
 node_modules/
 remappings.txt

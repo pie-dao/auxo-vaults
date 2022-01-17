@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity ^0.8.10;
 
-import {OwnableUpgradeable as Ownable} from "@openzeppelin/contracts/access/OwnableUpgradeable.sol";
-import {PausableUpgradeable as Pausable} from "@openzeppelin/contracts/security/PausableUpgradeable.sol";
-import {ERC20Upgradeable as ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20Upgradeable.sol";
-import {SafeERC20Upgradeable as SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20Upgradeable.sol";
+import {OwnableUpgradeable as Ownable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
+import {PausableUpgradeable as Pausable} from "@openzeppelin-upgradeable/contracts/security/PausableUpgradeable.sol";
+import {ERC20Upgradeable as ERC20} from "@openzeppelin-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
+import {SafeERC20Upgradeable as SafeERC20} from "@openzeppelin-upgradeable/contracts/token/ERC20/utils/SafeERC20Upgradeable.sol";
 
 import {IVault} from "../interfaces/IVault.sol";
 import {IStrategy} from "../interfaces/IStrategy.sol";
@@ -16,7 +16,7 @@ import {FixedPointMathLib as FixedPointMath} from "./libraries/FixedPointMathLib
 /// @title VaultBase
 /// @author dantop114 (based on RariCapital Vaults)
 /// @notice A vault seeking for yield.
-contract VaultBase is ERC20, Ownable, Pausable {
+contract VaultBase is ERC20, Pausable {
     using SafeERC20 for ERC20;
     using SafeCast for uint256;
     using FixedPointMath for uint256;
@@ -36,6 +36,9 @@ contract VaultBase is ERC20, Ownable, Pausable {
 
     /// @notice Max number of strategies the Vault can handle.
     uint256 internal constant MAX_STRATEGIES = 20;
+
+    /// @notice Vault's API version.
+    string public constant version = "0.1";
 
     /*///////////////////////////////////////////////////////////////
                         STRUCTS DECLARATIONS
@@ -150,6 +153,10 @@ contract VaultBase is ERC20, Ownable, Pausable {
     /*///////////////////////////////////////////////////////////////
                                 EVENTS
     //////////////////////////////////////////////////////////////*/
+
+    /// @notice Emitted when the IVaultAuth module is updated.
+    /// @param newAuth The new IVaultAuth module.
+    event AuthUpdated(IVaultAuth newAuth);
 
     /// @notice Emitted when the fee percentage is updated.
     /// @param newFeePercent The new fee percentage.
@@ -284,15 +291,12 @@ contract VaultBase is ERC20, Ownable, Pausable {
         string memory name_ = string(bytes.concat(nPrefix, " ", bytes(underlying_.name()), " ", nSuffix));
         string memory symbol_ = string(bytes.concat(sPrefix, bytes(underlying_.symbol())));
 
+        // super.initialize
         __ERC20_init(name_, symbol_);
-
-        // init Ownable and Pausable
-        __Ownable_init();
         __Pausable_init();
 
-        // transfer ownership and pause
+        // pause on initialize
         _pause();
-        transferOwnership(msg.sender);
 
         // init storage
         underlying = underlying_;
@@ -317,6 +321,17 @@ contract VaultBase is ERC20, Ownable, Pausable {
     /// @return Vault's shares token decimals (underlying token decimals).
     function decimals() public view override returns (uint8) {
         return underlyingDecimals;
+    }
+
+    /*///////////////////////////////////////////////////////////////
+                        AUTH CONFIGURATION
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Set a new IVaultAuth module.
+    /// @param newAuth The new IVaultAuth module.
+    function setAuth(IVaultAuth newAuth) external onlyAdmin(msg.sender) {
+        auth = newAuth;
+        emit AuthUpdated(newAuth);
     }
 
     /*///////////////////////////////////////////////////////////////
@@ -514,7 +529,6 @@ contract VaultBase is ERC20, Ownable, Pausable {
     }
 
     /// @notice Withdraw underlying redeemed in batched burning events.
-    /// @dev User will withdraw all of his batch burns
     function exitBatchBurn() external {
         uint256 batchBurnRound_ = batchBurnRound;
         BatchBurnReceipt memory receipt = userBatchBurnReceipts[msg.sender];
@@ -526,12 +540,10 @@ contract VaultBase is ERC20, Ownable, Pausable {
         userBatchBurnReceipts[msg.sender].shares = 0;
 
         uint256 underlyingAmount = receipt.shares.fmul(batchBurns[receipt.round].amountPerShare, BASE_UNIT);
-        
         // can't underflow since underlyingAmount can't be greater than batchBurnBalance
         unchecked {
             batchBurnBalance -= underlyingAmount;
         }
-        
         underlying.safeTransfer(msg.sender, underlyingAmount);
 
         emit ExitBatchBurn(batchBurnRound_, msg.sender, underlyingAmount);
@@ -573,7 +585,6 @@ contract VaultBase is ERC20, Ownable, Pausable {
 
             underlying.safeTransfer(burningFeeReceiver, accruedFees);
         }
-
         batchBurns[batchBurnRound_].amountPerShare = underlyingAmount.fdiv(totalShares, BASE_UNIT);
         batchBurnBalance += underlyingAmount;
 
@@ -601,12 +612,14 @@ contract VaultBase is ERC20, Ownable, Pausable {
 
     /// @notice Calculates the amount of Vault's shares for a given amount of underlying tokens.
     /// @param underlyingAmount The underlying token's amount.
+    /// @return The amount of shares given `underlyingAmount`.
     function calculateShares(uint256 underlyingAmount) public view returns (uint256) {
         return underlyingAmount.fdiv(exchangeRate(), BASE_UNIT);
     }
 
     /// @notice Calculates the amount of underlying tokens corresponding to a given amount of Vault's shares.
     /// @param sharesAmount The shares amount.
+    /// @return The amount of underlying given `sharesAmount`.
     function calculateUnderlying(uint256 sharesAmount) public view returns (uint256) {
         return sharesAmount.fmul(exchangeRate(), BASE_UNIT);
     }
