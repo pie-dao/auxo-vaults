@@ -1,13 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity ^0.8.10;
 
-import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
-import {EnumerableSetUpgradeable as EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSetUpgradeable.sol";
+import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 import {IVault} from "../../interfaces/IVault.sol";
 import {IVaultAuth} from "../../interfaces/IVaultAuth.sol";
 
-contract VaultAuthBase is IVaultAuth, Initializable {
+contract VaultAuthBase is IVaultAuth {
     using EnumerableSet for EnumerableSet.AddressSet;
 
     /*///////////////////////////////////////////////////////////////
@@ -49,7 +48,7 @@ contract VaultAuthBase is IVaultAuth, Initializable {
     /// @notice Initialize the VaultAuth contract.
     /// @dev `admin_` will manage the VaultAuth contract.
     /// @param admin_ The admin to initialize the contract with.
-    function initialize(address admin_) external initializer {
+    constructor(address admin_) {
         admin = admin_;
         emit AdminUpdate(admin_);
     }

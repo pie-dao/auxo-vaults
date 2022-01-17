@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity ^0.8.10;
 
-import {IERC20Upgradeable as IERC20} from "@openzeppelin-upgradeable/contracts/token/ERC20/IERC20Upgradeable.sol";
+import {IERC20MetadataUpgradeable as IERC20} from "@openzeppelin-upgradeable/contracts/token/ERC20/extensions/IERC20MetadataUpgradeable.sol";
 
 /// @title IVault
 /// @notice Basic MonoVault interface.
@@ -115,9 +115,4 @@ interface IVault is IERC20 {
     /// @notice Calculates the total amount of underlying tokens the Vault holds.
     /// @return The total amount of underlying tokens the Vault holds.
     function totalUnderlying() external view returns (uint256);
-
-    /// @notice Returns an estimated return for the vault.
-    /// @dev This method should not be used to get a precise estimate.
-    /// @return A formatted APR value
-    function estimatedReturn() external view returns (uint256);
 }

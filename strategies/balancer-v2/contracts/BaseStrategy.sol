@@ -8,7 +8,7 @@ import {ReentrancyGuardUpgradeable as ReentrancyGuard} from "@openzeppelin-upgra
 import {AddressUpgradeable as Address} from "@openzeppelin-upgradeable/contracts/utils/AddressUpgradeable.sol";
 
 import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
-import {IERC20Upgradeable as IERC20} from "@openzeppelin-upgradeable/contracts/token/ERC20/IERC20Upgradeable.sol";
+import {IERC20MetadataUpgradeable as IERC20} from "@openzeppelin-upgradeable/contracts/token/ERC20/extensions/IERC20MetadataUpgradeable.sol";
 import {SafeERC20Upgradeable as SafeERC20} from "@openzeppelin-upgradeable/contracts/token/ERC20/utils/SafeERC20Upgradeable.sol";
 
 import {IVault} from "../interfaces/IVault.sol";

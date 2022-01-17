@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity ^0.8.10;
 
-import {IERC20Upgradeable as IERC20} from "@openzeppelin/contracts/token/ERC20/ERC20Upgradeable.sol";
-import {SafeERC20Upgradeable as SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20Upgradeable.sol";
+import {IERC20Upgradeable as IERC20} from "@openzeppelin-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
+import {SafeERC20Upgradeable as SafeERC20} from "@openzeppelin-upgradeable/contracts/token/ERC20/utils/SafeERC20Upgradeable.sol";
 
 import {BaseStrategy} from "../BaseStrategy.sol";
 import {IVault} from "../../interfaces/IVault.sol";
@@ -25,10 +25,10 @@ contract MockStrategy is BaseStrategy {
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Deposit underlying in strategy's yielding option.
-    function depositUnderlying() external view override {}
+    function depositUnderlying(uint256) external view override {}
 
     /// @notice Withdraw underlying from strategy's yielding option.
-    function withdrawUnderlying() external view override {}
+    function withdrawUnderlying(uint256) external view override {}
 
     /*///////////////////////////////////////////////////////////////
                              STRATEGY LOGIC

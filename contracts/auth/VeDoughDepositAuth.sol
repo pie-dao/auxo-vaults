@@ -3,4 +3,4 @@ pragma solidity ^0.8.10;
 
 import {VaultAuthBase} from "./VaultAuthBase.sol";
 
-contract VeDoughDepositAuth is VaultAuthBase {}
+abstract contract VeDoughDepositAuth is VaultAuthBase {}
