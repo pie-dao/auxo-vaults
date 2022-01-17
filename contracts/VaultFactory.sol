@@ -31,7 +31,7 @@ contract VaultFactory is ProxyAdmin {
     /// @notice Publish a new Vault version.
     /// @dev Version ordering and checks are not implemented. Off-chain queries are needed to
     ///      take care of ordering and duplicates.
-    function publish(IVault vault) external {
+    function publish(IVault vault) external onlyOwner {
         string memory version = vault.version();
 
         latest = version;
@@ -43,7 +43,7 @@ contract VaultFactory is ProxyAdmin {
     /// @notice Registers a Vault in the registry.
     /// @dev Only one vault can be mapped to an underlying. Every vault registered will overwrite the current Vault for the underlying.
     /// @param vault The Vault to register
-    function registerVault(IVault vault, address underlying) external {
+    function registerVault(IVault vault, address underlying) external onlyOwner {
         underlyingVaults[underlying] = address(vault);
         emit VaultRegistered(address(vault), underlying);
     }
