@@ -21,9 +21,7 @@ def token(deployer):
 
 @pytest.fixture
 def auth(deployer):
-    auth = VaultAuthBase.deploy({"from": deployer})
-    auth.initialize(deployer.address, {"from": deployer})
-
+    auth = VaultAuthBase.deploy(deployer.address, {"from": deployer})
     return auth
 
 
@@ -195,7 +193,7 @@ def test_expected_return(deployer, token, vault, strategy, mock_accounts):
         token.mint(user.address, 1000 * 1e18, {"from": deployer})
 
         token.approve(vault, 1000 * 1e18, {"from": user})
-        vault.deposit(1000 * 1e18, {"from": user})
+        vault.deposit(user.address, 1000 * 1e18, {"from": user})
 
     vault.depositIntoStrategy(strategy, 3000 * 1e18, {"from": deployer})
 
