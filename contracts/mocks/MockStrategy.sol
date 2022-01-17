@@ -25,10 +25,10 @@ contract MockStrategy is BaseStrategy {
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Deposit underlying in strategy's yielding option.
-    function depositUnderlying() external view override {}
+    function depositUnderlying(uint256) external view override {}
 
     /// @notice Withdraw underlying from strategy's yielding option.
-    function withdrawUnderlying() external view override {}
+    function withdrawUnderlying(uint256) external view override {}
 
     /*///////////////////////////////////////////////////////////////
                              STRATEGY LOGIC
