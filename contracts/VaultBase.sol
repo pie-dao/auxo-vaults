@@ -151,7 +151,7 @@ contract VaultBase is ERC20, Pausable {
     IStrategy[] public withdrawalQueue;
 
     /// @notice Current batched burning round.
-    uint256 batchBurnRound;
+    uint256 public batchBurnRound;
 
     /// @notice Balance reserved to batched burning withdrawals.
     uint256 public batchBurnBalance;
