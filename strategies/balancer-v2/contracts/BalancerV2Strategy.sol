@@ -84,7 +84,8 @@ contract BalancerV2Strategy is BaseStrategy {
         require(underlyingIndex != type(uint8).max, "initialize::UNDERLYING_NOT_IN_POOL");
 
         bal.approve(balancerVaultAddr, type(uint256).max);
-        asset_.approve(address(vault), type(uint256).max);
+        asset_.approve(balancerVaultAddr, type(uint256).max);
+
         balSwaps = balSwapSteps;
         balancerPoolId = poolId;
         balancerPool = IBalancerPool(balancerPoolAddress);
@@ -103,15 +104,10 @@ contract BalancerV2Strategy is BaseStrategy {
         maxAmountsIn[underlyingIndex] = float();
 
         if (maxAmountsIn[underlyingIndex] > 0) {
-            uint256[] memory amountsIn = new uint256[](nPoolTokens);
-            amountsIn[underlyingIndex] = float();
-
-            bytes memory userData = abi.encode(IBalancerVault.JoinKind.EXACT_TOKENS_IN_FOR_BPT_OUT, amountsIn, 0);
+            bytes memory userData = abi.encode(IBalancerVault.JoinKind.EXACT_TOKENS_IN_FOR_BPT_OUT, maxAmountsIn, 0);
 
             IBalancerVault balancerVault_ = balancerVault;
-
             IBalancerVault.JoinPoolRequest memory request = IBalancerVault.JoinPoolRequest(assets, maxAmountsIn, userData, false);
-
             balancerVault_.joinPool(balancerPoolId, address(this), address(this), request);
 
             uint256 depositedAmount = pooledBalance() - pooledBefore;
@@ -136,12 +132,22 @@ contract BalancerV2Strategy is BaseStrategy {
 
         uint256[] memory amountsOut = new uint256[](nPoolTokens);
         amountsOut[underlyingIndex] = neededOutput;
-        uint256[] memory minAmountsOut = new uint256[](nPoolTokens);
 
-        bytes memory userData = abi.encode(IBalancerVault.ExitKind.BPT_IN_FOR_EXACT_TOKENS_OUT, amountsOut, bptBalanceBefore);
+        bytes memory userData = abi.encode(
+            IBalancerVault.ExitKind.BPT_IN_FOR_EXACT_TOKENS_OUT, 
+            amountsOut, 
+            bptBalanceBefore
+        );
 
-        IBalancerVault.ExitPoolRequest memory request = IBalancerVault.ExitPoolRequest(assets, minAmountsOut, userData, false);
-        balancerVault.exitPool(balancerPoolId, address(this), payable(address(this)), request);
+        IBalancerVault.ExitPoolRequest memory request = IBalancerVault
+            .ExitPoolRequest(assets, amountsOut, userData, false);
+
+        balancerVault.exitPool(
+            balancerPoolId, 
+            address(this), 
+            payable(address(this)), 
+            request
+        );
 
         require((bptBalanceBefore - bptBalance()) <= maxLiquidated, "withdrawUnderlying::SLIPPAGE");
 
