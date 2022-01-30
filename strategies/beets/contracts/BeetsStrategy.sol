@@ -76,7 +76,7 @@ contract BeetsStrategy is BaseStrategy {
             asset_,
             manager_,
             strategist_,
-            string(abi.encodePacked("BalancerV2SingleSided ", asset_.symbol()))
+            string(abi.encodePacked("BeethovenLPSingleSided ", asset_.symbol()))
         );
 
         IBalancerVault balancerVault_ = IBalancerVault(balancerVaultAddr_);
