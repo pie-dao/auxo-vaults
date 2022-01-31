@@ -26,10 +26,10 @@ contract VaultBase is ERC20, Pausable {
     ///////////////////////////////////////////////////////////////*/
 
     /// @notice The Vault's token symbol prefix.
-    bytes internal constant sPrefix = bytes("mono");
+    bytes internal constant sPrefix = bytes("auxo");
 
     /// @notice The Vault's token name prefix.
-    bytes internal constant nPrefix = bytes("Mono ");
+    bytes internal constant nPrefix = bytes("Auxo ");
 
     /// @notice The Vault's token name suffix.
     bytes internal constant nSuffix = bytes(" Vault");
