@@ -6,7 +6,7 @@ import {SafeERC20Upgradeable as SafeERC20} from "@openzeppelin-upgradeable/contr
 
 import {VaultBase} from "./VaultBase.sol";
 
-/// @title VaultBase
+/// @title VaultCapped
 /// @author dantop114 (based on RariCapital Vaults)
 /// @notice A vault seeking for yield with deposits cap.
 contract VaultCapped is VaultBase {
@@ -15,6 +15,7 @@ contract VaultCapped is VaultBase {
     /// @notice Amount of shares a single address can hold.
     uint256 public UNDERLYING_CAP;
 
+    /// @notice Event emitted when the underlying cap per address is updated.
     event ChangeUnderlyingCap(uint256 newCap);
 
     /*///////////////////////////////////////////////////////////////
@@ -44,7 +45,7 @@ contract VaultCapped is VaultBase {
     ) internal override onlyDepositor(to) whenNotPaused {
         if (UNDERLYING_CAP != 0) {
             uint256 userUnderlying = calculateUnderlying(balanceOf(to));
-            require(userUnderlying + underlyingAmount < UNDERLYING_CAP, "_deposit::CAP_PER_ADDRESS_REACHED");
+            require((userUnderlying + underlyingAmount) <= UNDERLYING_CAP, "_deposit::CAP_PER_ADDRESS_REACHED");
         }
 
         _mint(to, shares);
