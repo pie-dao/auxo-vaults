@@ -30,7 +30,7 @@ contract MerkleAuth is IVaultAuth {
     EnumerableSet.AddressSet private admins;
 
     /// @notice Mapping user -> authorized
-    mapping(address => bool) depositors;
+    mapping(address => bool) private depositors;
 
     /*///////////////////////////////////////////////////////////////
                                 EVENTS  
