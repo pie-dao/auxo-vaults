@@ -1,1 +1,1 @@
-# vaults-strategy-mix
+# beets-strategy
