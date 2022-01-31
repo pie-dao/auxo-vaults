@@ -14,7 +14,7 @@ import {SafeCastLib as SafeCast} from "./libraries/SafeCastLib.sol";
 import {FixedPointMathLib as FixedPointMath} from "./libraries/FixedPointMathLib.sol";
 
 /// @title VaultBase
-/// @author dantop114 (based on RariCapital Vaults)
+/// @author dantop114
 /// @notice A vault seeking for yield.
 contract VaultBase is ERC20, Pausable {
     using SafeERC20 for ERC20;
@@ -625,7 +625,7 @@ contract VaultBase is ERC20, Pausable {
         address to,
         uint256 shares,
         uint256 underlyingAmount
-    ) internal onlyDepositor(to) whenNotPaused {
+    ) internal virtual onlyDepositor(to) whenNotPaused {
         // Determine te equivalent amount of shares and mint them
         _mint(to, shares);
 
