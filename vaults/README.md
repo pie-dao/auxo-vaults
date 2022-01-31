@@ -4,7 +4,7 @@ A vault seeking for yield.
 
 ## Overview
 
-![](./vaults/overview.png)
+![](./overview.png)
 
 ### How batched burning works
 
