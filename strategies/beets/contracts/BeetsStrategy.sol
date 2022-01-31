@@ -452,6 +452,11 @@ contract BeetsStrategy is BaseStrategy {
                             HARVEST
     //////////////////////////////////////////////////////////////*/
 
+    function availableRewards() external view returns (uint256) {
+        return masterchef.pendingBeets(masterchefId, address(this)) 
+            + masterchef.pendingBeets(fBeetsMasterchefId, address(this));
+    }
+
     function claimRewards() external {
         require(msg.sender == manager || msg.sender == strategist);
 
