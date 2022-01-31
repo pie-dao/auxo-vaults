@@ -417,7 +417,7 @@ contract BeetsStrategy is BaseStrategy {
         fBeetsMasterchefId = fBeetsMasterchefId_;
         fidelioPoolId = fidelioPoolId_;
 
-        IERC20(fidelioBpt_).approve(address(masterchef), type(uint256).max);
+        IERC20(fidelioBpt_).approve(address(fBeets_), type(uint256).max);
         IERC20(fBeets_).approve(address(masterchef), type(uint256).max);
     }
 
