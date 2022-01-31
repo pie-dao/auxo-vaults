@@ -35,7 +35,7 @@ contract MerkleAuth is IVaultAuth {
     /*///////////////////////////////////////////////////////////////
                                 EVENTS  
     //////////////////////////////////////////////////////////////*/
-    
+
     /// @notice Event emitted when the Merkle Root is set.
     event MerkleRootUpdate(bytes32 merkleRoot);
 
@@ -193,5 +193,4 @@ contract MerkleAuth is IVaultAuth {
     ) external view virtual returns (bool) {
         return admins.contains(caller);
     }
-
 }
