@@ -57,6 +57,9 @@ abstract contract BaseStrategy is Initializable {
     /// @notice Event emitted when a new manager is set for this strategy.
     event UpdateManager(address indexed manager);
 
+    /// @notice Event emitted when a new strategist is set for this strategy.
+    event UpdateStrategist(address indexed strategist);
+
     /// @notice Event emitted when rewards are sold.
     event RewardsHarvested(address indexed reward, uint256 rewards, uint256 underlying);
 
@@ -91,6 +94,28 @@ abstract contract BaseStrategy is Initializable {
         manager = manager_;
         strategist = strategist_;
         underlying = underlying_;
+    }
+
+    /*///////////////////////////////////////////////////////////////
+                            MANAGER/STRATEGIST
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Change strategist address.
+    /// @param strategist_ The new strategist address.
+    function setStrategist(address strategist_) external {
+        require(msg.sender == manager);
+        strategist = strategist_;
+
+        emit UpdateStrategist(manager);
+    }
+
+    /// @notice Change manager address.
+    /// @param manager_ The new manager address.
+    function setManager(address manager_) external {
+        require(msg.sender == manager);
+        manager = manager_;
+
+        emit UpdateManager(manager_);
     }
 
     /*///////////////////////////////////////////////////////////////
