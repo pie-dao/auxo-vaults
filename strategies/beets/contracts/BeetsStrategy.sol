@@ -407,7 +407,7 @@ contract BeetsStrategy is BaseStrategy {
         uint256 fBeetsMasterchefId_,
         bytes32 fidelioPoolId_
     ) external {
-        require(msg.sender == manager || msg.sender == strategist);
+        require(msg.sender == manager);
 
         assetsFidelio = fidelioAssets_;
         nPoolTokensFidelio = nPoolTokensFidelio_;
@@ -433,7 +433,7 @@ contract BeetsStrategy is BaseStrategy {
     }
 
     function setMasterchef(address masterchef_, bool emergency_) external {
-        require(msg.sender == manager || msg.sender == strategist);
+        require(msg.sender == manager);
 
         uint256 bptBalance_ = bptBalanceInMasterchef();
         uint256 fBeetsBalance_ = fBeetsInMasterchef();
