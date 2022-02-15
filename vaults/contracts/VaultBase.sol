@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity ^0.8.10;
 
-import {OwnableUpgradeable as Ownable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
-import {PausableUpgradeable as Pausable} from "@openzeppelin-upgradeable/contracts/security/PausableUpgradeable.sol";
-import {ERC20Upgradeable as ERC20} from "@openzeppelin-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
-import {SafeERC20Upgradeable as SafeERC20} from "@openzeppelin-upgradeable/contracts/token/ERC20/utils/SafeERC20Upgradeable.sol";
+import {OwnableUpgradeable as Ownable} from "@oz-upgradeable/contracts/access/OwnableUpgradeable.sol";
+import {PausableUpgradeable as Pausable} from "@oz-upgradeable/contracts/security/PausableUpgradeable.sol";
+import {ERC20Upgradeable as ERC20} from "@oz-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
+import {SafeERC20Upgradeable as SafeERC20} from "@oz-upgradeable/contracts/token/ERC20/utils/SafeERC20Upgradeable.sol";
 
 import {IVault} from "../interfaces/IVault.sol";
 import {IStrategy} from "../interfaces/IStrategy.sol";
@@ -14,7 +14,7 @@ import {SafeCastLib as SafeCast} from "./libraries/SafeCastLib.sol";
 import {FixedPointMathLib as FixedPointMath} from "./libraries/FixedPointMathLib.sol";
 
 /// @title VaultBase
-/// @author dantop114 (based on RariCapital Vaults)
+/// @author dantop114
 /// @notice A vault seeking for yield.
 contract VaultBase is ERC20, Pausable {
     using SafeERC20 for ERC20;
@@ -26,10 +26,10 @@ contract VaultBase is ERC20, Pausable {
     ///////////////////////////////////////////////////////////////*/
 
     /// @notice The Vault's token symbol prefix.
-    bytes internal constant sPrefix = bytes("mono");
+    bytes internal constant sPrefix = bytes("auxo");
 
     /// @notice The Vault's token name prefix.
-    bytes internal constant nPrefix = bytes("Mono ");
+    bytes internal constant nPrefix = bytes("Auxo ");
 
     /// @notice The Vault's token name suffix.
     bytes internal constant nSuffix = bytes(" Vault");
@@ -625,7 +625,7 @@ contract VaultBase is ERC20, Pausable {
         address to,
         uint256 shares,
         uint256 underlyingAmount
-    ) internal onlyDepositor(to) whenNotPaused {
+    ) internal virtual onlyDepositor(to) whenNotPaused {
         // Determine te equivalent amount of shares and mint them
         _mint(to, shares);
 

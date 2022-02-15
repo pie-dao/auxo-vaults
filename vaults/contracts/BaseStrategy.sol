@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity ^0.8.10;
 
-import {ERC20Upgradeable as ERC20} from "@openzeppelin-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
-import {OwnableUpgradeable as Ownable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
-import {AccessControlUpgradeable as AccessControl} from "@openzeppelin-upgradeable/contracts/access/AccessControlUpgradeable.sol";
-import {ReentrancyGuardUpgradeable as ReentrancyGuard} from "@openzeppelin-upgradeable/contracts/security/ReentrancyGuardUpgradeable.sol";
-import {AddressUpgradeable as Address} from "@openzeppelin-upgradeable/contracts/utils/AddressUpgradeable.sol";
+import {ERC20Upgradeable as ERC20} from "@oz-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
+import {OwnableUpgradeable as Ownable} from "@oz-upgradeable/contracts/access/OwnableUpgradeable.sol";
+import {AccessControlUpgradeable as AccessControl} from "@oz-upgradeable/contracts/access/AccessControlUpgradeable.sol";
+import {ReentrancyGuardUpgradeable as ReentrancyGuard} from "@oz-upgradeable/contracts/security/ReentrancyGuardUpgradeable.sol";
+import {AddressUpgradeable as Address} from "@oz-upgradeable/contracts/utils/AddressUpgradeable.sol";
 
-import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
-import {IERC20Upgradeable as IERC20} from "@openzeppelin-upgradeable/contracts/token/ERC20/IERC20Upgradeable.sol";
-import {SafeERC20Upgradeable as SafeERC20} from "@openzeppelin-upgradeable/contracts/token/ERC20/utils/SafeERC20Upgradeable.sol";
+import {Initializable} from "@oz-upgradeable/contracts/proxy/utils/Initializable.sol";
+import {IERC20Upgradeable as IERC20} from "@oz-upgradeable/contracts/token/ERC20/IERC20Upgradeable.sol";
+import {SafeERC20Upgradeable as SafeERC20} from "@oz-upgradeable/contracts/token/ERC20/utils/SafeERC20Upgradeable.sol";
 
 import {IVault} from "../interfaces/IVault.sol";
 
@@ -57,6 +57,9 @@ abstract contract BaseStrategy is Initializable {
     /// @notice Event emitted when a new manager is set for this strategy.
     event UpdateManager(address indexed manager);
 
+    /// @notice Event emitted when a new strategist is set for this strategy.
+    event UpdateStrategist(address indexed strategist);
+
     /// @notice Event emitted when rewards are sold.
     event RewardsHarvested(address indexed reward, uint256 rewards, uint256 underlying);
 
@@ -91,6 +94,28 @@ abstract contract BaseStrategy is Initializable {
         manager = manager_;
         strategist = strategist_;
         underlying = underlying_;
+    }
+
+    /*///////////////////////////////////////////////////////////////
+                            MANAGER/STRATEGIST
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Change strategist address.
+    /// @param strategist_ The new strategist address.
+    function setStrategist(address strategist_) external {
+        require(msg.sender == manager);
+        strategist = strategist_;
+
+        emit UpdateStrategist(manager);
+    }
+
+    /// @notice Change manager address.
+    /// @param manager_ The new manager address.
+    function setManager(address manager_) external {
+        require(msg.sender == manager);
+        manager = manager_;
+
+        emit UpdateManager(manager_);
     }
 
     /*///////////////////////////////////////////////////////////////

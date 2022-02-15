@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity ^0.8.10;
 
-import {IERC20Upgradeable as IERC20} from "@openzeppelin-upgradeable/contracts/token/ERC20/IERC20Upgradeable.sol";
+import {IERC20Upgradeable as IERC20} from "@oz-upgradeable/contracts/token/ERC20/IERC20Upgradeable.sol";
 
 import {IVault} from "./IVault.sol";
 
