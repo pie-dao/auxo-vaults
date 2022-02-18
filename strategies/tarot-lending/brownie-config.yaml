@@ -1,0 +1,13 @@
+dependencies:
+  - OpenZeppelin/openzeppelin-contracts-upgradeable@4.3.2
+
+autofetch_sources: true
+
+compiler:
+  solc:
+    version: 0.8.10
+    optimizer:
+      enabled: true
+      runs: 9999
+    remappings:
+      - "@oz-upgradeable=OpenZeppelin/openzeppelin-contracts-upgradeable@4.3.2"
