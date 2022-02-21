@@ -117,6 +117,7 @@ contract BeetsHarvester is IHarvester, Ownable {
 
         uint256 harvested = strategy_.float() - floatBefore;
 <<<<<<< HEAD
+<<<<<<< HEAD
         uint256 harvestedSlipped = harvested * slippageIn / 1e18;
 
         strategy_.depositUnderlying(harvestedSlipped);
@@ -124,6 +125,11 @@ contract BeetsHarvester is IHarvester, Ownable {
 
         strategy.depositUnderlying(harvested * slippageIn / 1e18);
 >>>>>>> 813cd76 ((feat): adds harvester contract for beets strategy)
+=======
+        uint256 harvestedSlipped = harvested * slippageIn / 1e18;
+
+        strategy_.depositUnderlying(harvestedSlipped);
+>>>>>>> 4364830 ((fix): avoid sload, slippage not inline)
 
         emit Harvest(msg.sender, harvested);
     }
