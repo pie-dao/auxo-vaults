@@ -7,8 +7,13 @@ import {OwnableUpgradeable as Ownable} from "@oz-upgradeable/contracts/access/Ow
 import {BeetsStrategy} from "./BeetsStrategy.sol";
 import {IHarvester} from "../interfaces/IHarvester.sol";
 
-/// @notice This contract can be used to harvest BeetsStrategy. 
+/// @title BeetsHarvester
+/// @author dantop114
+/// @notice Harvester contract for BeetsStrategy. This contract can be used to harvest BeetsStrategy.
+/// @dev Owner of this contract should set `minRewards` (default 0) and `slippageIn` (default 0)
+///      to manage minimum rewards to harvest.
 contract BeetsHarvester is IHarvester, Ownable {
+
     /*///////////////////////////////////////////////////////////////
                                 STORAGE
     //////////////////////////////////////////////////////////////*/
@@ -86,11 +91,12 @@ contract BeetsHarvester is IHarvester, Ownable {
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Harvest IT!
-    function harvest(bytes calldata /* extra */) external {
+    /// @param deadline A block number after which harvest transaction should fail.
+    function harvest(bytes calldata /* extra */, uint256 deadline) external {
         require(msg.sender == tx.origin, "harvest::ONLY_EOA");
-        
-        // avoid too many SLOADs
-        BeetsStrategy strategy_ = strategy;
+        require(deadline >= block.timestamp, "harvest::TIMEOUT");
+
+        BeetsStrategy strategy_ = strategy; // save some SLOADs
         uint256 floatBefore = strategy_.float();
 
         strategy_.claimRewards();
