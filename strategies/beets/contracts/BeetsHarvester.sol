@@ -8,17 +8,25 @@ import {BeetsStrategy} from "./BeetsStrategy.sol";
 import {IHarvester} from "../interfaces/IHarvester.sol";
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 3c8f1ce ((feat): adds deadline)
 /// @title BeetsHarvester
 /// @author dantop114
 /// @notice Harvester contract for BeetsStrategy. This contract can be used to harvest BeetsStrategy.
 /// @dev Owner of this contract should set `minRewards` (default 0) and `slippageIn` (default 0)
 ///      to manage minimum rewards to harvest.
+<<<<<<< HEAD
 contract BeetsHarvester is IHarvester, Ownable {
 
 =======
 /// @notice This contract can be used to harvest BeetsStrategy. 
 contract BeetsHarvester is IHarvester, Ownable {
 >>>>>>> 813cd76 ((feat): adds harvester contract for beets strategy)
+=======
+contract BeetsHarvester is IHarvester, Ownable {
+
+>>>>>>> 3c8f1ce ((feat): adds deadline)
     /*///////////////////////////////////////////////////////////////
                                 STORAGE
     //////////////////////////////////////////////////////////////*/
@@ -97,6 +105,7 @@ contract BeetsHarvester is IHarvester, Ownable {
 
     /// @notice Harvest IT!
 <<<<<<< HEAD
+<<<<<<< HEAD
     /// @param deadline A block number after which harvest transaction should fail.
     function harvest(bytes calldata /* extra */, uint256 deadline) external {
         require(msg.sender == tx.origin, "harvest::ONLY_EOA");
@@ -110,6 +119,14 @@ contract BeetsHarvester is IHarvester, Ownable {
         // avoid too many SLOADs
         BeetsStrategy strategy_ = strategy;
 >>>>>>> 813cd76 ((feat): adds harvester contract for beets strategy)
+=======
+    /// @param deadline A block number after which harvest transaction should fail.
+    function harvest(bytes calldata /* extra */, uint256 deadline) external {
+        require(msg.sender == tx.origin, "harvest::ONLY_EOA");
+        require(deadline >= block.timestamp, "harvest::TIMEOUT");
+
+        BeetsStrategy strategy_ = strategy; // save some SLOADs
+>>>>>>> 3c8f1ce ((feat): adds deadline)
         uint256 floatBefore = strategy_.float();
 
         strategy_.claimRewards();
