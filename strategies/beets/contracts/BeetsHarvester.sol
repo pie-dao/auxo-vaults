@@ -97,8 +97,9 @@ contract BeetsHarvester is IHarvester, Ownable {
         strategy_.sellRewards(minRewards);
 
         uint256 harvested = strategy_.float() - floatBefore;
+        uint256 harvestedSlipped = harvested * slippageIn / 1e18;
 
-        strategy.depositUnderlying(harvested * slippageIn / 1e18);
+        strategy_.depositUnderlying(harvestedSlipped);
 
         emit Harvest(msg.sender, harvested);
     }
