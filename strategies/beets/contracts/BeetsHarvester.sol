@@ -94,7 +94,7 @@ contract BeetsHarvester is IHarvester, Ownable {
     /// @param deadline A block number after which harvest transaction should fail.
     function harvest(bytes calldata /* extra */, uint256 deadline) external {
         require(msg.sender == tx.origin, "harvest::ONLY_EOA");
-        require(deadline >= block.timestamp, "harvest::TIMEOUT");
+        require(deadline >= block.number, "harvest::TIMEOUT");
 
         BeetsStrategy strategy_ = strategy; // save some SLOADs
         uint256 floatBefore = strategy_.float();
