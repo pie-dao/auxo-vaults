@@ -7,6 +7,7 @@ import {OwnableUpgradeable as Ownable} from "@oz-upgradeable/contracts/access/Ow
 import {BeetsStrategy} from "./BeetsStrategy.sol";
 import {IHarvester} from "../interfaces/IHarvester.sol";
 
+<<<<<<< HEAD
 /// @title BeetsHarvester
 /// @author dantop114
 /// @notice Harvester contract for BeetsStrategy. This contract can be used to harvest BeetsStrategy.
@@ -14,6 +15,10 @@ import {IHarvester} from "../interfaces/IHarvester.sol";
 ///      to manage minimum rewards to harvest.
 contract BeetsHarvester is IHarvester, Ownable {
 
+=======
+/// @notice This contract can be used to harvest BeetsStrategy. 
+contract BeetsHarvester is IHarvester, Ownable {
+>>>>>>> 813cd76 ((feat): adds harvester contract for beets strategy)
     /*///////////////////////////////////////////////////////////////
                                 STORAGE
     //////////////////////////////////////////////////////////////*/
@@ -91,21 +96,34 @@ contract BeetsHarvester is IHarvester, Ownable {
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Harvest IT!
+<<<<<<< HEAD
     /// @param deadline A block number after which harvest transaction should fail.
     function harvest(bytes calldata /* extra */, uint256 deadline) external {
         require(msg.sender == tx.origin, "harvest::ONLY_EOA");
         require(deadline >= block.number, "harvest::TIMEOUT");
 
         BeetsStrategy strategy_ = strategy; // save some SLOADs
+=======
+    function harvest(bytes calldata /* extra */) external {
+        require(msg.sender == tx.origin, "harvest::ONLY_EOA");
+        
+        // avoid too many SLOADs
+        BeetsStrategy strategy_ = strategy;
+>>>>>>> 813cd76 ((feat): adds harvester contract for beets strategy)
         uint256 floatBefore = strategy_.float();
 
         strategy_.claimRewards();
         strategy_.sellRewards(minRewards);
 
         uint256 harvested = strategy_.float() - floatBefore;
+<<<<<<< HEAD
         uint256 harvestedSlipped = harvested * slippageIn / 1e18;
 
         strategy_.depositUnderlying(harvestedSlipped);
+=======
+
+        strategy.depositUnderlying(harvested * slippageIn / 1e18);
+>>>>>>> 813cd76 ((feat): adds harvester contract for beets strategy)
 
         emit Harvest(msg.sender, harvested);
     }
