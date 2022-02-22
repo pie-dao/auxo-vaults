@@ -107,6 +107,7 @@ contract TarotLenderStrategy is BaseStrategy {
 
     function redeemBorrowable(address borrowable, uint256 amount) internal {
         if(amount != 0) {
+            IBorrowable(borrowable).exchangeRate(); // update exchange rate
             uint256 redeemed = redeemBorrowableInternal(borrowable, IERC20(borrowable).balanceOf(address(this)));
             uint256 toReinvest = redeemed - amount;
             mintBorrowable(borrowable, toReinvest);
@@ -174,6 +175,12 @@ contract TarotLenderStrategy is BaseStrategy {
     /*///////////////////////////////////////////////////////////////
                         MANAGE ALLOCATIONS
     //////////////////////////////////////////////////////////////*/
+
+    function updateExchangeRates() external {
+        for(uint i = 0; i < allocations.length; i++) {
+            IBorrowable(allocations[i].bor).exchangeRate();
+        }
+    }
 
     function computeAllocationGivenBalance(uint256 amount, uint256 allocation)
         internal
