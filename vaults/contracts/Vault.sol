@@ -361,7 +361,7 @@ contract Vault is ERC20, Pausable {
     /// @notice Set new deposit limits for this vault.
     /// @param user New user deposit limit.
     /// @param vault New vault deposit limit.
-    function setUnderlyingCaps(uint256 user, uint256 vault) external onlyAdmin(msg.sender) {
+    function setDepositLimits(uint256 user, uint256 vault) external onlyAdmin(msg.sender) {
         userDepositLimit = user;
         vaultDepositLimit = vault;
 
