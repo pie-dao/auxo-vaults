@@ -1,7 +1,9 @@
 import pytest
 
-from brownie import accounts, chain, VaultBase, VaultAuthBase, MockToken, MockStrategy
+from brownie import accounts, chain, Vault, VaultAuthBase, MockToken, MockStrategy
 
+
+MAX_UINT256 = 115792089237316195423570985008687907853269984665640564039457584007913129639935
 
 @pytest.fixture
 def deployer():
@@ -27,7 +29,7 @@ def auth(deployer):
 
 @pytest.fixture
 def vault(deployer, token, auth):
-    vault_base = VaultBase.deploy({"from": deployer})
+    vault_base = Vault.deploy({"from": deployer})
     vault_base.initialize(
         token.address, auth, deployer.address, deployer.address, {"from": deployer}
     )
@@ -36,6 +38,7 @@ def vault(deployer, token, auth):
     auth.addHarvester(vault_base.address, deployer.address, {"from": deployer})
 
     vault_base.triggerPause({"from": deployer})
+    vault_base.setDepositLimits(MAX_UINT256, MAX_UINT256, {'from': deployer})
 
     return vault_base
 

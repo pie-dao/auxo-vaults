@@ -13,10 +13,10 @@ import {IVaultAuth} from "../interfaces/IVaultAuth.sol";
 import {SafeCastLib as SafeCast} from "./libraries/SafeCastLib.sol";
 import {FixedPointMathLib as FixedPointMath} from "./libraries/FixedPointMathLib.sol";
 
-/// @title VaultBase
+/// @title Vault
 /// @author dantop114
 /// @notice A vault seeking for yield.
-contract VaultBase is ERC20, Pausable {
+contract Vault is ERC20, Pausable {
     using SafeERC20 for ERC20;
     using SafeCast for uint256;
     using FixedPointMath for uint256;
@@ -162,6 +162,16 @@ contract VaultBase is ERC20, Pausable {
     /// @notice Maps social burning events rounds to batched burn details.
     mapping(uint256 => BatchBurn) public batchBurns;
 
+    /// @notice Amount of shares a single address can hold.
+    uint256 public userDepositLimit;
+
+    /// @notice Amount of underlying cap for this vault.
+    uint256 public vaultDepositLimit;
+
+    /// @notice Estimated return recorded during last harvest.
+    uint256 public estimatedReturn;
+
+
     /*///////////////////////////////////////////////////////////////
                                 EVENTS
     //////////////////////////////////////////////////////////////*/
@@ -253,6 +263,11 @@ contract VaultBase is ERC20, Pausable {
     /// @param underlyingAmount The amount of underlying tokens that were withdrawn.
     event StrategyWithdrawal(address indexed account, IStrategy indexed strategy, uint256 underlyingAmount);
 
+    /// @notice Event emitted when the deposit limits are updated.
+    /// @param perUser New underlying limit per address.
+    /// @param perVault New underlying limit per vault.
+    event DepositLimitsUpdated(uint256 perUser, uint256 perVault);
+
     /*///////////////////////////////////////////////////////////////
                             MODIFIERS
     //////////////////////////////////////////////////////////////*/
@@ -320,7 +335,7 @@ contract VaultBase is ERC20, Pausable {
         harvestFeeReceiver = harvestFeeReceiver_;
 
         // sets batchBurnRound to 1
-        // indicating 0 as an uninitialized withdraw request
+        // needed to have 0 as an uninitialized withdraw request
         batchBurnRound = 1;
 
         // sets initial BLOCKS_PER_YEAR value
@@ -340,6 +355,20 @@ contract VaultBase is ERC20, Pausable {
     }
 
     /*///////////////////////////////////////////////////////////////
+                    UNDERLYING CAP CONFIGURATION
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Set new deposit limits for this vault.
+    /// @param user New user deposit limit.
+    /// @param vault New vault deposit limit.
+    function setDepositLimits(uint256 user, uint256 vault) external onlyAdmin(msg.sender) {
+        userDepositLimit = user;
+        vaultDepositLimit = vault;
+
+        emit DepositLimitsUpdated(user, vault);
+    }
+
+    /*///////////////////////////////////////////////////////////////
                         AUTH CONFIGURATION
     //////////////////////////////////////////////////////////////*/
 
@@ -356,7 +385,7 @@ contract VaultBase is ERC20, Pausable {
 
     /// @notice Sets blocks per year.
     /// @param blocks Blocks in a given year.
-    function setBlocksPerYear(uint256 blocks) external {
+    function setBlocksPerYear(uint256 blocks) external onlyAdmin(msg.sender) {
         BLOCKS_PER_YEAR = blocks;
     }
 
@@ -626,6 +655,12 @@ contract VaultBase is ERC20, Pausable {
         uint256 shares,
         uint256 underlyingAmount
     ) internal virtual onlyDepositor(to) whenNotPaused {
+        uint256 userUnderlying = calculateUnderlying(balanceOf(to)) + underlyingAmount;
+        uint256 vaultUnderlying = totalUnderlying() + underlyingAmount;
+
+        require(userUnderlying <= userDepositLimit, "_deposit::USER_DEPOSIT_LIMITS_REACHED");
+        require(vaultUnderlying <= vaultDepositLimit, "_deposit::VAULT_DEPOSIT_LIMITS_REACHED");
+
         // Determine te equivalent amount of shares and mint them
         _mint(to, shares);
 
@@ -724,7 +759,12 @@ contract VaultBase is ERC20, Pausable {
         }
 
         // Update max unlocked profit based on any remaining locked profit plus new profit.
-        maxLockedProfit = (lockedProfit() + totalProfitAccrued - feesAccrued).safeCastTo128();
+        uint128 maxLockedProfit_ = (lockedProfit() + totalProfitAccrued - feesAccrued).safeCastTo128();
+        maxLockedProfit = maxLockedProfit_;
+
+        // Compute estimated returns
+        uint256 strategyHoldings = newTotalStrategyHoldings - uint256(maxLockedProfit_);
+        estimatedReturn = computeEstimatedReturns(strategyHoldings, uint256(maxLockedProfit_), lastHarvestIntervalInBlocks);
 
         // Set strategy holdings to our new total.
         totalStrategyHoldings = newTotalStrategyHoldings;
@@ -928,15 +968,11 @@ contract VaultBase is ERC20, Pausable {
         totalUnderlyingHeld += totalFloat();
     }
 
-    /// @notice Returns an estimated return for the vault.
-    /// @dev This method should not be used to get a precise estimate.
-    /// @return estimate A formatted APR value
-    function estimatedReturn() public view returns (uint256 estimate) {
-        uint256 supply = totalSupply();
-
-        if (supply != 0 && maxLockedProfit != 0) {
-            uint256 exchangeRateIncrease = uint256(maxLockedProfit).fdiv(supply, BASE_UNIT);
-            estimate = exchangeRateIncrease * (BLOCKS_PER_YEAR / lastHarvestIntervalInBlocks) * 100;
-        }
+    /// @notice Compute an estimated return given the auxoToken supply, initial exchange rate and locked profits.
+    /// @param invested The underlying deposited in strategies.
+    /// @param profit The profit derived from harvest.
+    /// @param interval The period during which `profit` was generated.
+    function computeEstimatedReturns(uint256 invested, uint256 profit, uint256 interval) internal view returns(uint256) {
+        return (invested == 0 || profit == 0) ? 0 : profit.fdiv(invested, BASE_UNIT) * (BLOCKS_PER_YEAR / interval) * 100;
     }
 }
