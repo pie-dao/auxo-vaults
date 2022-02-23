@@ -13,7 +13,6 @@ import {IHarvester} from "../interfaces/IHarvester.sol";
 /// @dev Owner of this contract should set `minRewards` (default 0) and `slippageIn` (default 0)
 ///      to manage minimum rewards to harvest.
 contract BeetsHarvester is IHarvester, Ownable {
-
     /*///////////////////////////////////////////////////////////////
                                 STORAGE
     //////////////////////////////////////////////////////////////*/
