@@ -135,7 +135,7 @@ contract HundredFinanceStrategy is BaseStrategy {
 
         (bool success, ) = router.call(
             abi.encodeWithSignature(
-                "swapExactTokensForTokens(uint,uint,address[],address,uint)",
+                "swapExactTokensForTokens(uint256,uint256,address[],address,uint256)",
                 amount,
                 minOut,
                 path,
