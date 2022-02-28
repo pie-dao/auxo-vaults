@@ -95,7 +95,7 @@ contract HundredFinanceStrategy is BaseStrategy {
         uint256 cTokenAmount = amount.divWadUp(cToken_.viewExchangeRate());
 
         IGauge(gauge).withdraw(cTokenAmount, false); // withdraw from gauge without claiming
-        ICERC20(cToken).redeemUnderlying(cTokenAmount); // redeem tokens
+        ICERC20(cToken).redeem(cTokenAmount); // redeem tokens
     }
 
     /*///////////////////////////////////////////////////////////////

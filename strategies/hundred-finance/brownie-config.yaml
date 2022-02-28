@@ -1,4 +1,5 @@
 dependencies:
+  - Openzeppelin/openzeppelin-contracts@4.4.2
   - OpenZeppelin/openzeppelin-contracts-upgradeable@4.3.2
 
 autofetch_sources: true
@@ -10,4 +11,5 @@ compiler:
       enabled: true
       runs: 9999
     remappings:
+      - "@oz=OpenZeppelin/openzeppelin-contracts@4.4.2"
       - "@oz-upgradeable=OpenZeppelin/openzeppelin-contracts-upgradeable@4.3.2"
