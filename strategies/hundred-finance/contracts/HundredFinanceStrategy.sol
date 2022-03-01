@@ -116,6 +116,10 @@ contract HundredFinanceStrategy is BaseStrategy {
         return IERC20(gauge).balanceOf(address(this));
     }
 
+    function rewardBalance() public view returns (uint256) {
+        return IERC20(reward).balanceOf(address(this));
+    }
+
     /*///////////////////////////////////////////////////////////////
                         REWARDS MANAGEMENT
     //////////////////////////////////////////////////////////////*/
