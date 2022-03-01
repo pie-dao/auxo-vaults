@@ -16,6 +16,7 @@ import {FixedPointMathLib} from "./libraries/FixedPointMathLib.sol";
 
 /// @title Hundred Finance Strategy
 /// @author dantop114
+/// @notice The contract lends underlying on Hundred Finance and harvests the governance token.
 contract HundredFinanceStrategy is BaseStrategy {
     using SafeERC20 for IERC20;
     using LibCompound for ICERC20;
@@ -80,22 +81,19 @@ contract HundredFinanceStrategy is BaseStrategy {
 
     function depositUnderlying(uint256 amount) external override {
         require(msg.sender == manager || msg.sender == strategist);
-        require(
-            ICERC20(cToken).mint(amount) == 0,
-            "depositUnderlying::MINT_REVERTED"
-        );
+        require(ICERC20(cToken).mint(amount) == 0, "depositUnderlying::MINT_REVERTED"); // mint tokens
 
-        IGauge(gauge).deposit(cTokenBalance(), address(this), false);
+        IGauge(gauge).deposit(cTokenBalance(), address(this), false); // deposit into gauge
     }
 
     function withdrawUnderlying(uint256 amount) external override {
         require(msg.sender == manager);
 
         ICERC20 cToken_ = ICERC20(cToken);
-        uint256 cTokenAmount = amount.divWadUp(cToken_.viewExchangeRate());
+        uint256 cTokenAmount = amount.divWadUp(cToken_.viewExchangeRate()); // get the number of cToken to redeem
 
         IGauge(gauge).withdraw(cTokenAmount, false); // withdraw from gauge without claiming
-        ICERC20(cToken).redeem(cTokenAmount); // redeem tokens
+        require(ICERC20(cToken).redeem(cTokenAmount) == 0, "withdrawUnderlying::REDEEM_REVERTED"); // redeem tokens
     }
 
     /*///////////////////////////////////////////////////////////////
@@ -110,16 +108,12 @@ contract HundredFinanceStrategy is BaseStrategy {
         return balance.mulWadDown(ICERC20(cToken).viewExchangeRate());
     }
 
-    function cTokenBalance() internal view returns (uint256) {
+    function cTokenBalance() public view returns (uint256) {
         return IERC20(cToken).balanceOf(address(this));
     }
 
-    function stakedBalance() internal view returns (uint256) {
+    function stakedBalance() public view returns (uint256) {
         return IERC20(gauge).balanceOf(address(this));
-    }
-
-    function availableRewards() external view returns (uint256) {
-        return IGauge(gauge).claimable_tokens(address(this));
     }
 
     /*///////////////////////////////////////////////////////////////
