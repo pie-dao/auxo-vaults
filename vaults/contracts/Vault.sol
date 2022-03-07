@@ -595,10 +595,8 @@ contract Vault is ERC20, Pausable {
         userBatchBurnReceipts[msg.sender].shares = 0;
 
         uint256 underlyingAmount = receipt.shares.fmul(batchBurns[receipt.round].amountPerShare, BASE_UNIT);
-        // can't underflow since underlyingAmount can't be greater than batchBurnBalance
-        unchecked {
-            batchBurnBalance -= underlyingAmount;
-        }
+
+        batchBurnBalance -= underlyingAmount;
         underlying.safeTransfer(msg.sender, underlyingAmount);
 
         emit ExitBatchBurn(batchBurnRound_, msg.sender, underlyingAmount);
@@ -705,7 +703,6 @@ contract Vault is ERC20, Pausable {
             lastHarvestWindowStartBlock = block.number;
 
             // Set the harvest window's start timestamp.
-            // Cannot overflow 64 bits on human timescales.
             lastHarvestWindowStart = uint64(block.timestamp);
         } else {
             // We know this harvest is not the first in the window so we need to ensure it's within it.
@@ -734,20 +731,17 @@ contract Vault is ERC20, Pausable {
             uint256 balanceLastHarvest = getStrategyData[strategy].balance;
             uint256 balanceThisHarvest = strategy.estimatedUnderlying();
 
-            // Update the strategy's stored balance. Cast overflow is unrealistic.
+            // Update the strategy's stored balance.
             getStrategyData[strategy].balance = balanceThisHarvest.safeCastTo248();
 
             // Increase/decrease newTotalStrategyHoldings based on the profit/loss registered.
             // We cannot wrap the subtraction in parenthesis as it would underflow if the strategy had a loss.
             newTotalStrategyHoldings = newTotalStrategyHoldings + balanceThisHarvest - balanceLastHarvest;
 
-            unchecked {
-                // Update the total profit accrued while counting losses as zero profit.
-                // Cannot overflow as we already increased total holdings without reverting.
-                totalProfitAccrued += balanceThisHarvest > balanceLastHarvest
-                    ? balanceThisHarvest - balanceLastHarvest // Profits since last harvest.
-                    : 0; // If the strategy registered a net loss we don't have any new profit.
-            }
+            // Update the total profit accrued while counting losses as zero profit.
+            totalProfitAccrued += balanceThisHarvest > balanceLastHarvest
+                ? balanceThisHarvest - balanceLastHarvest // Profits since last harvest.
+                : 0; // If the strategy registered a net loss we don't have any new profit.
         }
 
         // Compute fees as the fee percent multiplied by the profit.
@@ -770,7 +764,6 @@ contract Vault is ERC20, Pausable {
         totalStrategyHoldings = newTotalStrategyHoldings;
 
         // Update the last harvest timestamp.
-        // Cannot overflow on human timescales.
         lastHarvest = uint64(block.timestamp);
 
         emit Harvest(msg.sender, strategies);
@@ -807,11 +800,8 @@ contract Vault is ERC20, Pausable {
         // Increase totalStrategyHoldings to account for the deposit.
         totalStrategyHoldings += underlyingAmount;
 
-        unchecked {
-            // Without this the next harvest would count the deposit as profit.
-            // Cannot overflow as the balance of one strategy can't exceed the sum of all.
-            getStrategyData[strategy].balance += underlyingAmount.safeCastTo248();
-        }
+        // Without this the next harvest would count the deposit as profit.
+        getStrategyData[strategy].balance += underlyingAmount.safeCastTo248();
 
         emit StrategyDeposit(msg.sender, strategy, underlyingAmount);
 
@@ -836,11 +826,8 @@ contract Vault is ERC20, Pausable {
         // Without this the next harvest would count the withdrawal as a loss.
         getStrategyData[strategy].balance -= underlyingAmount.safeCastTo248();
 
-        unchecked {
-            // Decrease totalStrategyHoldings to account for the withdrawal.
-            // Cannot underflow as the balance of one strategy will never exceed the sum of all.
-            totalStrategyHoldings -= underlyingAmount;
-        }
+        // Decrease totalStrategyHoldings to account for the withdrawal.
+        totalStrategyHoldings -= underlyingAmount;
 
         emit StrategyWithdrawal(msg.sender, strategy, underlyingAmount);
 
@@ -873,33 +860,26 @@ contract Vault is ERC20, Pausable {
             // We want to pull as much as we can from the strategy, but no more than we need.
             uint256 amountToPull = (amountLeftToPull <= strategyBalance) ? amountLeftToPull : strategyBalance;
 
-            unchecked {
-                // Compute the balance of the strategy that will remain after we withdraw.
-                // Cannot underflow as we cap the amount to pull at the strategy's balance.
-                uint256 strategyBalanceAfterWithdrawal = strategyBalance - amountToPull;
+            // Compute the balance of the strategy that will remain after we withdraw.
+            uint256 strategyBalanceAfterWithdrawal = strategyBalance - amountToPull;
 
-                // Without this the next harvest would count the withdrawal as a loss.
-                getStrategyData[strategy].balance = strategyBalanceAfterWithdrawal.safeCastTo248();
+            // Without this the next harvest would count the withdrawal as a loss.
+            getStrategyData[strategy].balance = strategyBalanceAfterWithdrawal.safeCastTo248();
 
-                // Adjust our goal based on how much we can pull from the strategy.
-                // Cannot underflow as we cap the amount to pull at the amount left to pull.
-                amountLeftToPull -= amountToPull;
+            // Adjust our goal based on how much we can pull from the strategy.
+            amountLeftToPull -= amountToPull;
 
-                emit StrategyWithdrawal(msg.sender, strategy, amountToPull);
+            emit StrategyWithdrawal(msg.sender, strategy, amountToPull);
 
-                // Withdraw from the strategy and revert if returns an error code.
-                require(strategy.withdraw(amountToPull) == 0, "pullFromWithdrawalQueue::REDEEM_FAILED");
-            }
+            // Withdraw from the strategy and revert if returns an error code.
+            require(strategy.withdraw(amountToPull) == 0, "pullFromWithdrawalQueue::REDEEM_FAILED");
 
             // If we've pulled all we need, exit the loop.
             if (amountLeftToPull == 0) break;
         }
 
-        unchecked {
-            // Account for the withdrawals done in the loop above.
-            // Cannot underflow as the balances of some strategies cannot exceed the sum of all.
-            totalStrategyHoldings -= underlyingAmount;
-        }
+        // Account for the withdrawals done in the loop above.
+        totalStrategyHoldings -= underlyingAmount;
     }
 
     /*///////////////////////////////////////////////////////////////
@@ -928,11 +908,7 @@ contract Vault is ERC20, Pausable {
     /// @notice Returns the amount of underlying tokens that idly sit in the Vault.
     /// @return The amount of underlying tokens that sit idly in the Vault.
     function totalFloat() public view returns (uint256) {
-        // can't underlflow since batchBurnBalance will never be greater than
-        // the float itself
-        unchecked {
-            return underlying.balanceOf(address(this)) - batchBurnBalance;
-        }
+        return underlying.balanceOf(address(this)) - batchBurnBalance;
     }
 
     /// @notice Calculate the current amount of locked profit.
@@ -942,30 +918,20 @@ contract Vault is ERC20, Pausable {
         uint256 previousHarvest = lastHarvest;
         uint256 harvestInterval = harvestDelay;
 
-        unchecked {
-            // If the harvest delay has passed, there is no locked profit.
-            // Cannot overflow on human timescales since harvestInterval is capped.
-            if (block.timestamp >= previousHarvest + harvestInterval) return 0;
+        // If the harvest delay has passed, there is no locked profit.
+        if (block.timestamp >= previousHarvest + harvestInterval) return 0;
 
-            // Get the maximum amount we could return.
-            uint256 maximumLockedProfit = maxLockedProfit;
+        // Get the maximum amount we could return.
+        uint256 maximumLockedProfit = maxLockedProfit;
 
-            // Compute how much profit remains locked based on the last harvest and harvest delay.
-            // It's impossible for the previous harvest to be in the future, so this will never underflow.
-            return maximumLockedProfit - (maximumLockedProfit * (block.timestamp - previousHarvest)) / harvestInterval;
-        }
+        // Compute how much profit remains locked based on the last harvest and harvest delay.
+        return maximumLockedProfit - (maximumLockedProfit * (block.timestamp - previousHarvest)) / harvestInterval;
     }
 
     /// @notice Calculates the total amount of underlying tokens the Vault holds.
     /// @return totalUnderlyingHeld The total amount of underlying tokens the Vault holds.
-    function totalUnderlying() public view virtual returns (uint256 totalUnderlyingHeld) {
-        unchecked {
-            // Cannot underflow as locked profit can't exceed total strategy holdings.
-            totalUnderlyingHeld = totalStrategyHoldings - lockedProfit();
-        }
-
-        // Include floating underlying balance in the total.
-        totalUnderlyingHeld += totalFloat();
+    function totalUnderlying() public view virtual returns (uint256) {
+        return totalStrategyHoldings - lockedProfit() + totalFloat();
     }
 
     /// @notice Compute an estimated return given the auxoToken supply, initial exchange rate and locked profits.
