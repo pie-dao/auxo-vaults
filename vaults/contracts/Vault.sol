@@ -1,16 +1,26 @@
+//   ______
+//  /      \
+// /$$$$$$  | __    __  __    __   ______
+// $$ |__$$ |/  |  /  |/  \  /  | /      \
+// $$    $$ |$$ |  $$ |$$  \/$$/ /$$$$$$  |
+// $$$$$$$$ |$$ |  $$ | $$  $$<  $$ |  $$ |
+// $$ |  $$ |$$ \__$$ | /$$$$  \ $$ \__$$ |
+// $$ |  $$ |$$    $$/ /$$/ $$  |$$    $$/
+// $$/   $$/  $$$$$$/  $$/   $$/  $$$$$$/
+//
+// auxo.fi
+
 // SPDX-License-Identifier: AGPL-3.0-only
-pragma solidity ^0.8.10;
+pragma solidity 0.8.12;
 
-import {PausableUpgradeable as Pausable} from "@oz-upgradeable/contracts/security/PausableUpgradeable.sol";
-import {ERC20Upgradeable as ERC20} from "@oz-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
-import {SafeERC20Upgradeable as SafeERC20} from "@oz-upgradeable/contracts/token/ERC20/utils/SafeERC20Upgradeable.sol";
-
+import {Authority} from "./auth/Auth.sol";
 import {IVault} from "../interfaces/IVault.sol";
 import {IStrategy} from "../interfaces/IStrategy.sol";
-import {Authority} from "./auth/Auth.sol";
-
 import {SafeCastLib as SafeCast} from "./libraries/SafeCastLib.sol";
 import {FixedPointMathLib as FixedPointMath} from "./libraries/FixedPointMathLib.sol";
+import {ERC20Upgradeable as ERC20} from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+import {PausableUpgradeable as Pausable} from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
+import {SafeERC20Upgradeable as SafeERC20} from "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
 
 /// @title Vault
 /// @author dantop114

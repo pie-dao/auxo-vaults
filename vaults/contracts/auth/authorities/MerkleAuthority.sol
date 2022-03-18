@@ -1,9 +1,20 @@
-// SPDX-License-Identifier: AGPL-3.0-only
-pragma solidity ^0.8.10;
+//   ______
+//  /      \
+// /$$$$$$  | __    __  __    __   ______
+// $$ |__$$ |/  |  /  |/  \  /  | /      \
+// $$    $$ |$$ |  $$ |$$  \/$$/ /$$$$$$  |
+// $$$$$$$$ |$$ |  $$ | $$  $$<  $$ |  $$ |
+// $$ |  $$ |$$ \__$$ | /$$$$  \ $$ \__$$ |
+// $$ |  $$ |$$    $$/ /$$/ $$  |$$    $$/
+// $$/   $$/  $$$$$$/  $$/   $$/  $$$$$$/
+//
+// auxo.fi
 
-import {MerkleProofUpgradeable as MerkleProof} from "@oz-upgradeable/contracts/utils/cryptography/MerkleProofUpgradeable.sol";
+// SPDX-License-Identifier: AGPL-3.0-only
+pragma solidity >=0.8.0;
 
 import {Authority, MultiRolesAuthority} from "./MultiRolesAuthority.sol";
+import {MerkleProofUpgradeable as MerkleProof} from "@openzeppelin/contracts-upgradeable/utils/cryptography/MerkleProofUpgradeable.sol";
 
 /// @title MerkleAuth
 /// @author dantop114
