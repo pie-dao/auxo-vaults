@@ -55,7 +55,6 @@ contract Vault is ERC20, Pausable {
 
     /// @dev Packed struct of strategy data.
     /// @param trusted Whether the strategy is trusted.
-    /// @param mintable Whether the strategy can be withdrawn automagically
     /// @param balance The amount of underlying tokens held in the strategy.
     struct StrategyData {
         // Used to determine if the Vault will operate on a strategy.
@@ -295,26 +294,31 @@ contract Vault is ERC20, Pausable {
         paused() ? _unpause() : _pause();
     }
 
-    /// @notice The initialize method
-    /// @param underlying_ The underlying token the vault accepts
-    function initialize(
+    /// @notice Internal initializer method.
+    /// @param underlying_ The underlying token the vault accepts.
+    /// @param auth_ The Auth mo    dule that will be used for this Vault.
+    /// @param harvestFeeReceiver_ The harvesting fee receiver address.
+    /// @param burnFeeReceiver_ The batched burns fee receiver address.
+    /// @param name_ The Vault shares' name.
+    /// @param symbol_ The Vault shares' symbol.
+    function __Vault_init(
         ERC20 underlying_,
         Authority auth_,
         address harvestFeeReceiver_,
-        address burnFeeReceiver_
-    ) external initializer {
-        // init ERC20
-        string memory name_ = string(bytes.concat(N_PREFIX, " ", bytes(underlying_.name()), " ", N_SUFFIX));
-        string memory symbol_ = string(bytes.concat(S_PREFIX, bytes(underlying_.symbol())));
-
-        // super.initialize
+        address burnFeeReceiver_,
+        string memory name_,
+        string memory symbol_
+    ) internal initializer {
+        // Initialize ERC20 trait.
         __ERC20_init(name_, symbol_);
+
+        // Initialize Pausable trait.
         __Pausable_init();
 
-        // pause on initialize
+        // Initialize Pausable trait.
         _pause();
 
-        // init storage
+        // Initialize the storage.
         underlying = underlying_;
         baseUnit = 10**underlying_.decimals();
         underlyingDecimals = underlying_.decimals();
@@ -323,9 +327,31 @@ contract Vault is ERC20, Pausable {
         burningFeeReceiver = burnFeeReceiver_;
         harvestFeeReceiver = harvestFeeReceiver_;
 
-        // sets batchBurnRound to 1
-        // needed to have 0 as an uninitialized withdraw request
+        // Sets batchBurnRound to 1.
+        // NOTE: needed to have 0 as an uninitialized withdraw request.
         batchBurnRound = 1;
+    }
+
+    /// @notice The initialize method
+    /// @param underlying_ The underlying token the vault accepts.
+    /// @param auth_ The Auth module that will be used for this Vault.
+    /// @param harvestFeeReceiver_ The harvesting fee receiver address.
+    /// @param burnFeeReceiver_ The batched burns fee receiver address.
+    function initialize(
+        ERC20 underlying_,
+        Authority auth_,
+        address harvestFeeReceiver_,
+        address burnFeeReceiver_
+    ) external initializer {
+        // Initialize the Vault.
+        __Vault_init(
+            underlying_,
+            auth_,
+            harvestFeeReceiver_,
+            burnFeeReceiver_,
+            string(bytes.concat(N_PREFIX, bytes(underlying_.name()), N_SUFFIX)),
+            string(bytes.concat(S_PREFIX, bytes(underlying_.symbol())))
+        );
     }
 
     /*///////////////////////////////////////////////////////////////
@@ -392,7 +418,7 @@ contract Vault is ERC20, Pausable {
 
     /// @notice Set a new burning fee percentage.
     /// @param newFeePercent The new fee percentage.
-    function setBatchedBurningFeePercent(uint256 newFeePercent) external requiresAuth(msg.sender) {
+    function setBurningFeePercent(uint256 newFeePercent) external requiresAuth(msg.sender) {
         // A fee percentage over 100% doesn't make sense.
         require(newFeePercent <= 1e18, "setBatchedBurningFeePercent::FEE_TOO_HIGH");
 
@@ -525,15 +551,6 @@ contract Vault is ERC20, Pausable {
     /// @return shares The amount of shares minted using `underlyingAmount`.
     function deposit(address to, uint256 underlyingAmount) external requiresAuth(to) returns (uint256 shares) {
         _deposit(to, (shares = calculateShares(underlyingAmount)), underlyingAmount);
-    }
-
-    /// @notice Deposit a specific amount of underlying tokens.
-    /// @dev User needs to approve `underlyingAmount` of underlying tokens to spend.
-    /// @param to The address to receive shares corresponding to the deposit.
-    /// @param shares The amount of Vault's shares to mint.
-    /// @return underlyingAmount The amount needed to mint `shares` amount of shares.
-    function mint(address to, uint256 shares) external requiresAuth(to) returns (uint256 underlyingAmount) {
-        _deposit(to, shares, (underlyingAmount = calculateUnderlying(shares)));
     }
 
     /// @notice Enter a batched burn event.
