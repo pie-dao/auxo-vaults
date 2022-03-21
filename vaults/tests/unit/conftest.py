@@ -1,6 +1,13 @@
 import pytest
 
-from brownie import ZERO_ADDRESS, MockToken, MultiRolesAuthority, Vault, VaultFactory
+from brownie import (
+    ZERO_ADDRESS,
+    MockToken,
+    MockStrategy,
+    MultiRolesAuthority,
+    Vault,
+    VaultFactory,
+)
 
 
 GOV_ROLE = 0
@@ -57,7 +64,9 @@ def misc_accounts(accounts):
 @pytest.fixture
 def create_token(gov):
     def create_token(name="Mock Token", symbol="MCK"):
-        return gov.deploy(MockToken, name, symbol)
+        token = gov.deploy(MockToken, name, symbol)
+        token.mint(gov, 1_000_000 * 1e18)
+        return token
 
     yield create_token
 
@@ -123,7 +132,6 @@ def factory(create_factory):
 def create_vault(gov, token, auth, factory):
     def create_vault():
         tx = factory.deployVault(token, auth, ZERO_ADDRESS, ZERO_ADDRESS, {"from": gov})
-
         return tx.return_value
 
     yield create_vault
@@ -132,3 +140,19 @@ def create_vault(gov, token, auth, factory):
 @pytest.fixture
 def vault(create_vault):
     yield create_vault()
+
+
+@pytest.fixture
+def create_strategy(gov, keeper, token, vault):
+    def create_strategy():
+        strategy = gov.deploy(MockStrategy)
+        strategy.initialize(vault, token, gov, keeper, "MockStrategy")
+
+        return strategy
+
+    yield create_strategy
+
+
+@pytest.fixture
+def strategy(create_strategy):
+    yield create_strategy()
