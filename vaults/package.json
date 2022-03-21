@@ -7,11 +7,11 @@
     "solhint": "^3.3.6"
   },
   "scripts": {
-    "prettier": "prettier --write 'src/**/*.sol'",
-    "prettier:list": "prettier --list-different 'src/**/*.sol'",
-    "prettier:check": "prettier --check 'src/**/*.sol'",
-    "solhint": "solhint --config ./.solhint.json 'src/**/*.sol' --fix",
-    "solhint:check": "solhint --config ./.solhint.json 'src/**/*.sol'",
+    "prettier": "prettier --write 'contracts/**/*.sol'",
+    "prettier:list": "prettier --list-different 'contracts/**/*.sol'",
+    "prettier:check": "prettier --check 'contracts/**/*.sol'",
+    "solhint": "solhint --config ./.solhint.json 'contracts/**/*.sol' --fix",
+    "solhint:check": "solhint --config ./.solhint.json 'contracts/**/*.sol'",
     "lint": "npm run prettier && npm run solhint",
     "lint:check": "npm run prettier:check && npm run solhint:check"
   }
