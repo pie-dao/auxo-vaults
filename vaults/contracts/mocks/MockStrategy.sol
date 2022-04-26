@@ -37,8 +37,8 @@ contract MockStrategy is BaseStrategy {
     /// @notice Deposit a specific amount of underlying tokens.
     /// @param amount The amount of underlying tokens to deposit.
     function deposit(uint256 amount) external override returns (uint8 succ) {
-        if(!success) return 1;
-        
+        if (!success) return 1;
+
         require(msg.sender == address(vault), "deposit::NOT_VAULT");
 
         depositedUnderlying += amount;
