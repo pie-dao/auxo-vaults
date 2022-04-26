@@ -156,3 +156,15 @@ def create_strategy(gov, keeper, token, vault):
 @pytest.fixture
 def strategy(create_strategy):
     yield create_strategy()
+
+
+@pytest.fixture
+def create_factory(gov):
+    def create_factory():
+        return gov.deploy(VaultFactory)
+    
+    yield create_factory
+
+@pytest.fixture
+def factory(create_factory):
+    yield create_factory()

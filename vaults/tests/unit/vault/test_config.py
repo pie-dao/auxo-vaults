@@ -78,9 +78,44 @@ def test_vault_configuration(gov, token, auth, Vault):
     vault.setHarvestDelay(1000)
     assert vault.harvestDelay() == 1000
 
+    vault.setHarvestDelay(2000)
+    assert vault.harvestDelay() == 1000
+    assert vault.nextHarvestDelay() == 2000
+
     vault.setHarvestWindow(10)
     assert vault.harvestWindow() == 10
 
     # asserts for withdrawal queue
     vault.setWithdrawalQueue([ZERO_ADDRESS])
     assert vault.getWithdrawalQueue() == [ZERO_ADDRESS]
+
+def test_misconfigs_should_fail(gov, token, auth, Vault):
+    # deploy the vault
+    vault = gov.deploy(Vault)
+    vault.initialize(token, auth, ZERO_ADDRESS, ZERO_ADDRESS)
+
+    # setBurningFeePercent should fail if > 1e18
+    with brownie.reverts("setBatchedBurningFeePercent::FEE_TOO_HIGH"):
+        vault.setBurningFeePercent(1e19)
+    
+    # setHarvestFeePercent should fail if > 1e18
+    with brownie.reverts("setHarvestFeePercent::FEE_TOO_HIGH"):
+        vault.setHarvestFeePercent(1e19)
+    
+    # setHarvestDelay should fail if equals 0
+    with brownie.reverts("setHarvestDelay::DELAY_CANNOT_BE_ZERO"):
+        vault.setHarvestDelay(0)
+    
+    # setHarvestDelay should fail if > 365 days
+    with brownie.reverts("setHarvestDelay::DELAY_TOO_LONG"):
+        vault.setHarvestDelay(86400 * 366)
+    
+    vault.setHarvestDelay(86400 * 2)
+
+    # setHarvestWindow should fail if > harvestDelay (actually equals 0)
+    with brownie.reverts("setHarvestWindow::WINDOW_TOO_LONG"):
+        vault.setHarvestWindow(86400 * 3)
+    
+    # setWithdrawalQueue should fail if number of strategies > MAX_STRATEGIES
+    with brownie.reverts("setWithdrawalQueue::QUEUE_TOO_BIG"):
+        vault.setWithdrawalQueue([ZERO_ADDRESS] * 21)

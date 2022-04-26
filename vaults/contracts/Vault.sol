@@ -408,7 +408,7 @@ contract Vault is ERC20, Pausable {
     /// @param newFeePercent The new fee percentage.
     function setHarvestFeePercent(uint256 newFeePercent) external requiresAuth(msg.sender) {
         // A fee percentage over 100% doesn't make sense.
-        require(newFeePercent <= 1e18, "setFeePercent::FEE_TOO_HIGH");
+        require(newFeePercent <= 1e18, "setHarvestFeePercent::FEE_TOO_HIGH");
 
         // Update the fee percentage.
         harvestFeePercent = newFeePercent;
@@ -616,7 +616,6 @@ contract Vault is ERC20, Pausable {
         // burning 0 shares is not convenient
         require(totalShares != 0, "batchBurn::TOTAL_SHARES_CANNOT_BE_ZERO");
 
-        // Determine the equivalent amount of underlying tokens and withdraw from strategies if needed.
         uint256 underlyingAmount = totalShares.fmul(exchangeRate(), baseUnit);
         require(underlyingAmount <= totalFloat(), "batchBurn::NOT_ENOUGH_UNDERLYING");
 
@@ -629,6 +628,7 @@ contract Vault is ERC20, Pausable {
 
             underlying.safeTransfer(burningFeeReceiver, accruedFees);
         }
+
         batchBurns[batchBurnRound_].amountPerShare = underlyingAmount.fdiv(totalShares, baseUnit);
         batchBurnBalance += underlyingAmount;
 

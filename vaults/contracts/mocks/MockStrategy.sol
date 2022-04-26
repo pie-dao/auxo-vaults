@@ -10,6 +10,8 @@ import {IVault} from "../../interfaces/IVault.sol";
 contract MockStrategy is BaseStrategy {
     using SafeERC20 for IERC20;
 
+    bool internal success = true;
+
     function initialize(
         IVault vault_,
         IERC20 underlying_,
@@ -18,6 +20,33 @@ contract MockStrategy is BaseStrategy {
         string calldata name_
     ) external {
         __initialize(vault_, underlying_, manager_, strategist_, name_);
+    }
+
+    /*///////////////////////////////////////////////////////////////
+                            MOCK METHODS
+    //////////////////////////////////////////////////////////////*/
+
+    function setSuccess(bool s) external {
+        success = s;
+    }
+
+    /*///////////////////////////////////////////////////////////////
+                            DEPOSIT/WITHDRAW
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Deposit a specific amount of underlying tokens.
+    /// @param amount The amount of underlying tokens to deposit.
+    function deposit(uint256 amount) external override returns (uint8 succ) {
+        if(!success) return 1;
+        
+        require(msg.sender == address(vault), "deposit::NOT_VAULT");
+
+        depositedUnderlying += amount;
+        underlying.safeTransferFrom(msg.sender, address(this), amount);
+
+        emit Deposit(IVault(msg.sender), amount);
+
+        succ = SUCCESS;
     }
 
     /*///////////////////////////////////////////////////////////////
