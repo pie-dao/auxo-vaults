@@ -1,14 +1,18 @@
 {
   "name": "mono-vaults",
-  "version": "0.0.0",
+  "version": "0.2",
   "devDependencies": {
     "prettier": "^2.5.1",
     "prettier-plugin-solidity": "^1.0.0-beta.19",
-    "pretty-quick": "^3.1.3"
+    "solhint": "^3.3.6"
   },
   "scripts": {
-    "lint": "solhint \"contracts/**/*.sol\"",
-    "format": "prettier --write contracts/**/*.sol interfaces/**/*.sol",
-    "format:check": "prettier --check contracts/**/*.sol interfaces/**/*.sol"
+    "prettier": "prettier --write 'contracts/**/*.sol'",
+    "prettier:list": "prettier --list-different 'contracts/**/*.sol'",
+    "prettier:check": "prettier --check 'contracts/**/*.sol'",
+    "solhint": "solhint --config ./.solhint.json 'contracts/**/*.sol' --fix",
+    "solhint:check": "solhint --config ./.solhint.json 'contracts/**/*.sol'",
+    "lint": "npm run prettier && npm run solhint",
+    "lint:check": "npm run prettier:check && npm run solhint:check"
   }
 }

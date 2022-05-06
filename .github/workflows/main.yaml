@@ -28,7 +28,7 @@ jobs:
     
     - name: Run formatter
       working-directory: ./vaults
-      run: yarn format:check
+      run: yarn prettier:check
 
     # TODO: Slither or some other static analysis tool
 
