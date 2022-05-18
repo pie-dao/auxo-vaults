@@ -75,7 +75,6 @@ contract Reporter {
     uint256 public interval;
     uint16 public immutable dstChainId;
     address public immutable dstAddr;
-    address public immutable originChainId;
     bool isBriding = false;
 
     constructor(
@@ -83,7 +82,6 @@ contract Reporter {
         address _vault,
         uint16 _dstChainId, // Chain ID of the destination chain whete the xVaultStrategy is deployed
         address _dstAddr, // Address of the xVaultStrategy on the destination chain
-        uint16 _originChainId,
         address _anyRouter
     ) {
         endpoint = _endpoint;
@@ -92,7 +90,6 @@ contract Reporter {
         underlying = ERC20(vault.underlying());
         dstChainId = _dstChainId;
         dstAddr = _dstAddr;
-        originChainId = _originChainId;
         AnyRouter = AnyswapRouter(_anyRouter);
     }
 
@@ -133,7 +130,7 @@ contract Reporter {
             address(underlying),
             dstAddr,
             totalAmount,
-            originChainId
+            dstChainId
         );
         isBriding = false;
     }
