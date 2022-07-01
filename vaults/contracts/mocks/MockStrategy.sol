@@ -41,7 +41,6 @@ contract MockStrategy is BaseStrategy {
 
         require(msg.sender == address(vault), "deposit::NOT_VAULT");
 
-        depositedUnderlying += amount;
         underlying.safeTransferFrom(msg.sender, address(this), amount);
 
         emit Deposit(IVault(msg.sender), amount);

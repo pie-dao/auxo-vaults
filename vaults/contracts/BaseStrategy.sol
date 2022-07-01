@@ -24,8 +24,9 @@ import {IERC20Upgradeable as IERC20} from "@openzeppelin/contracts-upgradeable/t
 import {SafeERC20Upgradeable as SafeERC20} from "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
 
 import {IVault} from "../interfaces/IVault.sol";
+import {IStrategy} from "../interfaces/IStrategy.sol";
 
-abstract contract BaseStrategy is Initializable {
+abstract contract BaseStrategy is IStrategy, Initializable {
     using SafeERC20 for IERC20;
 
     /*///////////////////////////////////////////////////////////////

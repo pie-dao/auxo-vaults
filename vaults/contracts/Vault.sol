@@ -187,7 +187,7 @@ contract Vault is ERC20, Pausable {
     event AuthUpdated(Authority newAuth);
 
     /// @notice Emitted when the number of blocks is updated.
-    /// @param newBlocksPerYear The new number of blocks per year.
+    /// @param blocks The new number of blocks per year.
     event BlocksPerYearUpdated(uint256 blocks);
 
     /// @notice Emitted when the fee percentage is updated.
