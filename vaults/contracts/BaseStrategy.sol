@@ -53,42 +53,11 @@ abstract contract BaseStrategy is Initializable {
     /// @notice The Vault managing this strategy.
     IVault public vault;
 
-    /// @notice Deposited underlying.
-    uint256 depositedUnderlying;
-
     /// @notice The strategy manager.
     address public manager;
 
     /// @notice The strategist.
     address public strategist;
-
-    /*///////////////////////////////////////////////////////////////
-                            EVENTS
-    //////////////////////////////////////////////////////////////*/
-
-    /// @notice Event emitted when a new manager is set for this strategy.
-    event UpdateManager(address indexed manager);
-
-    /// @notice Event emitted when a new strategist is set for this strategy.
-    event UpdateStrategist(address indexed strategist);
-
-    /// @notice Event emitted when rewards are sold.
-    event RewardsHarvested(address indexed reward, uint256 rewards, uint256 underlying);
-
-    /// @notice Event emitted when underlying is deposited in this strategy.
-    event Deposit(IVault indexed vault, uint256 amount);
-
-    /// @notice Event emitted when underlying is withdrawn from this strategy.
-    event Withdraw(IVault indexed vault, uint256 amount);
-
-    /// @notice Event emitted when underlying is deployed.
-    event DepositUnderlying(uint256 deposited);
-
-    /// @notice Event emitted when underlying is removed from other contracts and returned to the strategy.
-    event WithdrawUnderlying(uint256 amount);
-
-    /// @notice Event emitted when tokens are sweeped from this strategy.
-    event Sweep(IERC20 indexed asset, uint256 amount);
 
     /*///////////////////////////////////////////////////////////////
                             INITIALIZE
@@ -139,7 +108,6 @@ abstract contract BaseStrategy is Initializable {
     function deposit(uint256 amount) external virtual returns (uint8 success) {
         require(msg.sender == address(vault), "deposit::NOT_VAULT");
 
-        depositedUnderlying += amount;
         underlying.safeTransferFrom(msg.sender, address(this), amount);
 
         emit Deposit(IVault(msg.sender), amount);
@@ -148,24 +116,18 @@ abstract contract BaseStrategy is Initializable {
     }
 
     /// @notice Withdraw a specific amount of underlying tokens.
+    /// @dev This method uses the `float` amount to check for available amount.
+    /// @dev If a withdraw process is possible, override this.
     /// @param amount The amount of underlying to withdraw.
     function withdraw(uint256 amount) external virtual returns (uint8 success) {
         require(msg.sender == address(vault), "withdraw::NOT_VAULT");
-
-        /// underflow should not stop vault from withdrawing
-        uint256 depositedUnderlying_ = depositedUnderlying;
-        if (depositedUnderlying_ >= amount) {
-            unchecked {
-                depositedUnderlying = depositedUnderlying_ - amount;
-            }
-        }
 
         if (float() < amount) {
             success = NOT_ENOUGH_UNDERLYING;
         } else {
             underlying.transfer(msg.sender, amount);
-
             emit Withdraw(IVault(msg.sender), amount);
+            success = SUCCESS;
         }
     }
 

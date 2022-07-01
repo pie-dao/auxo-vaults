@@ -186,6 +186,10 @@ contract Vault is ERC20, Pausable {
     /// @param newAuth The new Authority module.
     event AuthUpdated(Authority newAuth);
 
+    /// @notice Emitted when the number of blocks is updated.
+    /// @param newBlocksPerYear The new number of blocks per year.
+    event BlocksPerYearUpdated(uint256 blocks);
+
     /// @notice Emitted when the fee percentage is updated.
     /// @param newFeePercent The new fee percentage.
     event HarvestFeePercentUpdated(uint256 newFeePercent);
@@ -398,6 +402,7 @@ contract Vault is ERC20, Pausable {
     /// @param blocks Blocks in a given year.
     function setBlocksPerYear(uint256 blocks) external requiresAuth(msg.sender) {
         blocksPerYear = blocks;
+        emit BlocksPerYearUpdated(blocks);
     }
 
     /*///////////////////////////////////////////////////////////////
@@ -875,7 +880,17 @@ contract Vault is ERC20, Pausable {
     /// @notice Calculates the total amount of underlying tokens the Vault holds.
     /// @return totalUnderlyingHeld The total amount of underlying tokens the Vault holds.
     function totalUnderlying() public view virtual returns (uint256) {
-        return totalStrategyHoldings - lockedProfit() + totalFloat();
+        uint256 float = totalFloat();
+        uint256 locked = lockedProfit();
+        uint256 holdings = totalStrategyHoldings;
+
+        // If a withdrawal from a strategy occourred after an harvest
+        // `lockedProfit` may be greater than `totalStrategyHoldings`.
+        // So we have two cases:
+        //   - if `holdings` > `locked`, `totalUnderlying` is `holdings - locked + float`
+        //   - else if `holdings` < `locked`, we need to lock some funds from float (`totalUnderlying` is `float - locked`)
+
+        return (holdings >= locked) ? holdings - locked + float : float - locked;
     }
 
     /// @notice Compute an estimated return given the auxoToken supply, initial exchange rate and locked profits.

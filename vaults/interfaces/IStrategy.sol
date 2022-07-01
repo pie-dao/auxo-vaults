@@ -21,6 +21,34 @@ import {IVault} from "./IVault.sol";
 /// @notice Basic Vault Strategy interface.
 interface IStrategy {
     /*///////////////////////////////////////////////////////////////
+                            EVENTS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Event emitted when a new manager is set for this strategy.
+    event UpdateManager(address indexed manager);
+
+    /// @notice Event emitted when a new strategist is set for this strategy.
+    event UpdateStrategist(address indexed strategist);
+
+    /// @notice Event emitted when rewards are sold.
+    event RewardsHarvested(address indexed reward, uint256 rewards, uint256 underlying);
+
+    /// @notice Event emitted when underlying is deposited in this strategy.
+    event Deposit(IVault indexed vault, uint256 amount);
+
+    /// @notice Event emitted when underlying is withdrawn from this strategy.
+    event Withdraw(IVault indexed vault, uint256 amount);
+
+    /// @notice Event emitted when underlying is deployed.
+    event DepositUnderlying(uint256 deposited);
+
+    /// @notice Event emitted when underlying is removed from other contracts and returned to the strategy.
+    event WithdrawUnderlying(uint256 amount);
+
+    /// @notice Event emitted when tokens are sweeped from this strategy.
+    event Sweep(IERC20 indexed asset, uint256 amount);
+
+    /*///////////////////////////////////////////////////////////////
                              GENERAL INFO
     //////////////////////////////////////////////////////////////*/
 
@@ -47,8 +75,8 @@ interface IStrategy {
     /// @notice The underlying token the strategy accepts.
     function underlying() external view returns (IERC20);
 
-    /// @notice The amount deposited by the Vault in this strategy.
-    function depositedUnderlying() external returns (uint256);
+    /// @notice The float amount of underlying.
+    function float() external view returns (uint256);
 
     /// @notice An estimate amount of underlying managed by the strategy.
     function estimatedUnderlying() external returns (uint256);
