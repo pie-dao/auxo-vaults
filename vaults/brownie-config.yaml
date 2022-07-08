@@ -1,15 +1,16 @@
 dependencies:
-  - Openzeppelin/openzeppelin-contracts@4.4.2
-  - OpenZeppelin/openzeppelin-contracts-upgradeable@4.3.2
+    - Openzeppelin/openzeppelin-contracts@4.4.2
+    - OpenZeppelin/openzeppelin-contracts-upgradeable@4.3.2
 
 autofetch_sources: true
+dotenv: .env
 
 compiler:
-  solc:
-    version: 0.8.12
-    optimizer:
-      enabled: true
-      runs: 200
-    remappings:
-      - "@openzeppelin/contracts=Openzeppelin/openzeppelin-contracts@4.4.2/contracts"
-      - "@openzeppelin/contracts-upgradeable=OpenZeppelin/openzeppelin-contracts-upgradeable@4.3.2/contracts"
+    solc:
+        version: 0.8.12
+        optimizer:
+            enabled: true
+            runs: 200
+        remappings:
+            - "@openzeppelin/contracts=Openzeppelin/openzeppelin-contracts@4.4.2/contracts"
+            - "@openzeppelin/contracts-upgradeable=OpenZeppelin/openzeppelin-contracts-upgradeable@4.3.2/contracts"
