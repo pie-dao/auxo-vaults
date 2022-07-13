@@ -23,10 +23,12 @@ jobs:
         name: setup
     
     - name: Install dependencies
+      working-directory: ./vaults
       run: yarn --frozen-lockfile
     
     - name: Run formatter
-      run: yarn format:check
+      working-directory: ./vaults
+      run: yarn prettier:check
 
     # TODO: Slither or some other static analysis tool
 
@@ -49,6 +51,7 @@ jobs:
       uses: actions/setup-node@v1
 
     - name: Install Ganache
+      working-directory: ./vaults
       run: npm install -g ganache-cli@6.10.2
 
     - name: Setup Python 3.8
@@ -57,7 +60,9 @@ jobs:
         python-version: 3.8
 
     - name: Install Requirements
+      working-directory: ./vaults
       run: pip install -r requirements.txt
 
     - name: Run Tests
+      working-directory: ./vaults
       run: brownie test
