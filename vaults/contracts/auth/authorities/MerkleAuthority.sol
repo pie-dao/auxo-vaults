@@ -34,9 +34,6 @@ contract MerkleAuth is MultiRolesAuthority {
     /// @notice Event emitted when the Merkle Root is set.
     event MerkleRootUpdate(bytes32 merkleRoot);
 
-    /// @notice Event emitted when VaultAuth admin is updated.
-    event AuthorityUpdate(address indexed admin);
-
     /*///////////////////////////////////////////////////////////////
                                 CONSTRUCTOR   
     //////////////////////////////////////////////////////////////*/
