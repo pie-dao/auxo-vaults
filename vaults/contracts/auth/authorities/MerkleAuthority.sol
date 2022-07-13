@@ -79,4 +79,16 @@ contract MerkleAuth is MultiRolesAuthority {
 
         emit UserRoleUpdated(toAuthorize, role, true);
     }
+
+    /// @notice Authorize a user manually
+    /// @dev This method can be called by the Owner.
+    function authorizeManual(address toAuthorize, uint8 role) external {
+        require(msg.sender == owner, "authorizeManual::NOT_OWNER");
+        require(!doesUserHaveRole(toAuthorize, role), "authorizeDepositor::ALREADY_AUTHORIZED");
+
+        // sets the user role
+        getUserRoles[toAuthorize] |= bytes32(1 << role);
+
+        emit UserRoleUpdated(toAuthorize, role, true);
+    }
 }
