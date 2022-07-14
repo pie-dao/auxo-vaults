@@ -27,6 +27,8 @@ You need to have the API key ETHERSCAN_TOKEN
 # check you are on the correct network, add this:
 # brownie networks add live optimism-kovan host=https://kovan.optimism.io chainid=69 explorer=https://api-kovan-optimistic.etherscan.io/api
 # brownie networks add live arbitrum-rinkeby host=https://rinkeby.arbitrum.io/rpc chainid=421611 explorer=https://api-testnet.arbiscan.io/api
+# brownie networks add live ftm-testnet host=https://rpc.testnet.fantom.network chainid=4002 explorer=https://api-testnet.ftmscan.com/api
+
 
 
 # check network
@@ -96,10 +98,10 @@ set_capabilities_for_auth(auth, GOV_ROLE, GOV_CAPABILITIES)
 
 # deploy the actual vault
 
-# USDC_ADDRESS = "0x567f39d9e6d02078F357658f498F80eF087059aa" # opt-kov
+USDC_ADDRESS = "0x567f39d9e6d02078F357658f498F80eF087059aa" # opt-kov
 USDC_ADDRESS = "0x1EA8Fb2F671620767f41559b663b86B1365BBc3d"  # arb rink
 usdc = interface.IERC20(USDC_ADDRESS)
-vault_factory.deployVault(usdc, auth, ZERO_ADDRESS, ZERO_ADDRESS, {"from": gov})
+vault_factory.deployVault(usdc, auth, gov, gov, {"from": gov})
 
 
 # approve deposits
@@ -115,13 +117,13 @@ vault_proxy.setDepositLimits(MAX_INT, MAX_INT, {"from": gov})
 vault_proxy.deposit(gov, 1e9, {"from": gov})
 
 # validate: should equal deposits
-vault.proxy.balanceOf(gov)
+vault_proxy.balanceOf(gov)
 
 # Trust a strategy
-KOVAN_XCHAIN_STRAT = "0xfa0299ef90f0351918ecdc8f091053335dcfb8c9"
+KOVAN_XCHAIN_STRAT = "0xf79e37019c3ae3f26c562ed7d9e730c0bbba5725"
 vault_proxy.trustStrategy(KOVAN_XCHAIN_STRAT, {"from": gov})
 
-ARBITRUM_XCHAIN_STRAT = "0x69b8c988b17bd77bb56bee902b7ab7e64f262f35"
+ARBITRUM_XCHAIN_STRAT = "0x0eb222c4e1af1894dc46b816313aee379f53be79"
 vault_proxy.trustStrategy(ARBITRUM_XCHAIN_STRAT, {"from": gov})
 
 # deposit into the strategy
