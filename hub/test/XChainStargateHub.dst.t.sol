@@ -2,11 +2,11 @@
 pragma solidity ^0.8.12;
 pragma abicoder v2;
 
-import "forge-std/Test.sol";
-import "forge-std/console.sol";
+import "@std/Test.sol";
+import "@std/console.sol";
 import "@oz/token/ERC20/ERC20.sol";
 
-import {XChainStargateHub} from "@contracts/XChainStargateHub.sol";
+import {XChainStargateHub} from "@hub/XChainStargateHub.sol";
 import {XChainStargateHubMockReducer, XChainStargateHubMockLzSend, XChainStargateHubMockActions} from "./mocks/MockXChainStargateHub.sol";
 import {MockStargateRouter} from "@mocks/MockStargateRouter.sol";
 

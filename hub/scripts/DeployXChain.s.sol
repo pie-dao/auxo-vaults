@@ -2,10 +2,10 @@
 pragma solidity ^0.8.0;
 pragma abicoder v2;
 
-import "forge-std/Script.sol";
+import "@std/Script.sol";
 
-import {XChainStrategyStargate} from "src/strategy/XChainStrategyStargate.sol";
-import {XChainStargateHub} from "src/XChainStargateHub.sol";
+import {XChainStrategyStargate} from "@hub/strategy/XChainStrategyStargate.sol";
+import {XChainStargateHub} from "@hub/XChainStargateHub.sol";
 
 import {IVault} from "@interfaces/IVault.sol";
 import {IStargateRouter} from "@interfaces/IStargateRouter.sol";

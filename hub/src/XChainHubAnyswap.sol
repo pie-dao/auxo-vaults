@@ -13,9 +13,9 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity 0.8.12;
 
-import {Ownable} from "openzeppelin/access/Ownable.sol";
-import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
-import {SafeERC20} from "openzeppelin/token/ERC20/utils/SafeERC20.sol";
+import {Ownable} from "@oz/access/Ownable.sol";
+import {IERC20} from "@oz/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 
 import {IVault} from "./interfaces/IVault.sol";
 import {LayerZeroApp} from "./LayerZeroApp.sol";

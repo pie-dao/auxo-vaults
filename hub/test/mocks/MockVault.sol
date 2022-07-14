@@ -5,6 +5,8 @@ import "@oz/token/ERC20/ERC20.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 import {Pausable} from "@oz/security/Pausable.sol";
 
+// import {Vault} from "@vaults/Vault.sol";
+
 /// @notice A vault seeking for yield.
 contract MockVault is ERC20, Pausable {
     using SafeERC20 for ERC20;

@@ -1,0 +1,7 @@
+@oz/=lib/openzeppelin-contracts/contracts/
+openzeppelin/=lib/openzeppelin-contracts/contracts/
+@oz-upgradeable/=lib/openzeppelin-contracts-upgradeable.git/contracts/
+@interfaces/=src/interfaces/
+@mocks/=test/mocks/
+@hub/=src/
+@std/=lib/forge-std/src

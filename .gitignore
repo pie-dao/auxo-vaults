@@ -8,7 +8,6 @@ reports/
 env/
 venv/
 node_modules/
-remappings.txt
 
 
 cache/
@@ -18,3 +17,5 @@ node_modules/
 .env
 broadcast/
 /broadcast/
+soljson-*
+bin/
