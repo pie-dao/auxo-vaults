@@ -9,3 +9,12 @@ env/
 venv/
 node_modules/
 remappings.txt
+
+
+cache/
+out/
+node_modules/
+.ignore.*
+.env
+broadcast/
+/broadcast/

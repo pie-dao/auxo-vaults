@@ -1,0 +1,18 @@
+{
+  "name": "auxo-x-chain",
+  "version": "1.0.0",
+  "main": "",
+  "repository": "https://github.com/pie-dao/auxo-x-chain.git",
+  "author": "PieDAO",
+  "license": "MIT",
+  "devDependencies": {
+    "prettier": "^2.7.1",
+    "prettier-plugin-solidity": "^1.0.0-beta.19",
+    "solhint": "^3.3.7",
+    "solhint-plugin-prettier": "^0.0.5"
+  },
+  "scripts": {
+    "lint": "yarn pretty && yarn solhint -f table src/**/*.sol",
+    "pretty": "yarn prettier --write src/**/*.sol"
+  }
+}
