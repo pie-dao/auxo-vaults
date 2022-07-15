@@ -47,3 +47,14 @@ brownie test
 - Yearn
 - Rari Capital
 - Authors of EIP4626
+
+
+# Foundry
+
+Ensure you have Foundry installed with `foundryup`, then install the required dependencies:
+
+```sh
+forge install foundry-rs/forge-std
+forge install OpenZeppelin/openzeppelin-contracts
+forge install OpenZeppelin/openzeppelin-contracts-upgradeable
+```
