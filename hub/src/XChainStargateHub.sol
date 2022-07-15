@@ -11,7 +11,7 @@
 // auxo.fi
 
 // SPDX-License-Identifier: AGPL-3.0-only
-pragma solidity 0.8.12;
+pragma solidity >=0.8.0;
 
 import {Ownable} from "@oz/access/Ownable.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
@@ -84,7 +84,7 @@ contract XChainStargateHub is CallFacet, LayerZeroApp, IStargateReceiver {
     uint64 internal constant REPORT_DELAY = 6 hours;
 
     /// @notice https://stargateprotocol.gitbook.io/stargate/developers/official-erc20-addresses
-    IStargateRouter public immutable stargateRouter;
+    IStargateRouter public stargateRouter;
 
     // --------------------------
     // Single Chain Mappings
@@ -718,7 +718,7 @@ contract XChainStargateHub is CallFacet, LayerZeroApp, IStargateReceiver {
     }
 
     /// TODO
-    function emergecyWithdraw() virtual {}
+    function emergecyWithdraw() external virtual {}
 
-    function setPause() virtual {} // + modifier
+    function setPause() external virtual {} // + modifier
 }

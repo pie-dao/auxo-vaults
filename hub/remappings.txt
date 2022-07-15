@@ -4,4 +4,6 @@ openzeppelin/=lib/openzeppelin-contracts/contracts/
 @interfaces/=src/interfaces/
 @mocks/=test/mocks/
 @hub/=src/
+@hub-test/=test/
 @std/=lib/forge-std/src
+@prb/test/=lib/prb-test/src/

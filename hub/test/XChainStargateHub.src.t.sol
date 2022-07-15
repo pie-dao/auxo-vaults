@@ -2,24 +2,23 @@
 pragma solidity ^0.8.12;
 pragma abicoder v2;
 
-import "forge-std/Test.sol";
-import "forge-std/console.sol";
+import {PRBTest} from "@prb/test/PRBTest.sol";
 import "@oz/token/ERC20/ERC20.sol";
 
-import {XChainStargateHub} from "@contracts/XChainStargateHub.sol";
-import {XChainStargateHubMockReducer, XChainStargateHubMockLzSend, XChainStargateHubMockActions} from "./mocks/MockXChainStargateHub.sol";
-import {MockStargateRouter} from "@mocks/MockStargateRouter.sol";
+import {XChainStargateHub} from "@hub/XChainStargateHub.sol";
+import {XChainStargateHubMockReducer, XChainStargateHubMockLzSend, XChainStargateHubMockActions} from "@hub-test/mocks/MockXChainStargateHub.sol";
+import {MockRouterPayloadCapture} from "@hub-test/mocks/MockStargateRouter.sol";
 
-import {AuxoTest} from "@mocks/MockERC20.sol";
-import {MockVault} from "@mocks/MockVault.sol";
-import {MockStrat} from "@mocks/MockStrategy.sol";
+import {AuxoTest} from "@hub-test/mocks/MockERC20.sol";
+import {MockVault} from "@hub-test/mocks/MockVault.sol";
+import {MockStrat} from "@hub-test/mocks/MockStrategy.sol";
 
 import {IStargateRouter} from "@interfaces/IStargateRouter.sol";
 import {IVault} from "@interfaces/IVault.sol";
 import {IHubPayload} from "@interfaces/IHubPayload.sol";
 
 /// @notice unit tests for functions executed on the source chain only
-contract TestXChainStargateHubSrc is Test {
+contract TestXChainStargateHubSrc is PRBTest {
     address public stargate;
     address public lz;
     address public refund;
@@ -261,7 +260,7 @@ contract TestXChainStargateHubSrc is Test {
         assertEq(hubSrc.refundAddresses(0), refund);
     }
 
-    function _decodeDepositCalldata(MockStargateRouter mockRouter)
+    function _decodeDepositCalldata(MockRouterPayloadCapture mockRouter)
         internal
         returns (IHubPayload.Message memory, IHubPayload.DepositPayload memory)
     {
@@ -345,7 +344,7 @@ contract TestXChainStargateHubSrc is Test {
         uint256 amount = token.balanceOf(address(this));
 
         // instantiate the mock
-        MockStargateRouter mockRouter = new MockStargateRouter();
+        MockRouterPayloadCapture mockRouter = new MockRouterPayloadCapture();
         XChainStargateHub hubMockRouter = new XChainStargateHub(
             address(mockRouter),
             lz,

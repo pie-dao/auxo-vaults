@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-pragma solidity 0.8.12;
-import {XChainStargateHub} from "src/XChainStargateHub.sol";
+pragma solidity >=0.8.0;
+import {XChainStargateHub} from "@hub/XChainStargateHub.sol";
 import {IHubPayload} from "@interfaces/IHubPayload.sol";
 import {IVault} from "@interfaces/IVault.sol";
 
@@ -41,10 +41,14 @@ contract XChainStargateHubMockReducer is XChainStargateHub {
         bytes memory _srcAddress,
         IHubPayload.Message memory message
     ) external {
-        super._reducer(_srcChainId, _srcAddress, message);
+        super._reducer(_srcChainId, _srcAddress, message, 0);
     }
 
-    function _depositAction(uint16, bytes memory) internal override {
+    function _depositAction(
+        uint16,
+        bytes memory,
+        uint256
+    ) internal override {
         lastCall = DEPOSIT_ACTION;
     }
 
@@ -148,8 +152,12 @@ contract XChainStargateHubMockActions is XChainStargateHub {
         address _refundRecipient
     ) XChainStargateHub(_stargateEndpoint, _lzEndpoint, _refundRecipient) {}
 
-    function depositAction(uint16 _srcChainId, bytes memory _payload) external {
-        return _depositAction(_srcChainId, _payload);
+    function depositAction(
+        uint16 _srcChainId,
+        bytes memory _payload,
+        uint256 _amount
+    ) external {
+        return _depositAction(_srcChainId, _payload, _amount);
     }
 
     function requestWithdrawAction(uint16 _srcChainId, bytes memory _payload)

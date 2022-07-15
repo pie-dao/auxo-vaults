@@ -2,6 +2,13 @@
 src = 'src'
 out = 'out'
 libs = ['lib']
-solc_version = "0.8.12"
+solc_version = "0.8.15"
+
+# Ignoring warnings that clutter test suite
+# 2519: shadowed declarations
+# 5667: unused function parameter
+# 2072: unused local variable
+# 2018: state mutability 
+ignored_error_codes = [2519,5667,2072,2018]
 
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config

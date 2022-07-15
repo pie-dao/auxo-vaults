@@ -7,3 +7,9 @@
 [submodule "lib/openzeppelin-contracts"]
 	path = lib/openzeppelin-contracts
 	url = https://github.com/OpenZeppelin/openzeppelin-contracts
+[submodule "lib/prb-test"]
+	path = lib/prb-test
+	url = https://github.com/paulrberg/prb-test
+[submodule "hub/lib/prb-test"]
+	path = hub/lib/prb-test
+	url = https://github.com/paulrberg/prb-test

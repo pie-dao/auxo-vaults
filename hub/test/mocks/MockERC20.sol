@@ -1,9 +1,9 @@
 // auxo.fi
 
 // SPDX-License-Identifier: AGPL-3.0-only
-pragma solidity 0.8.12;
+pragma solidity >=0.8.0;
 
-import "lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
+import "@oz/token/ERC20/ERC20.sol";
 
 contract AuxoTest is ERC20 {
     constructor() ERC20("AuxoTest", "TST") {
