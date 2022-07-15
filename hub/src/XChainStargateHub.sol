@@ -22,12 +22,13 @@ import {IHubPayload} from "@interfaces/IHubPayload.sol";
 import {IStrategy} from "@interfaces/IStrategy.sol";
 
 import {LayerZeroApp} from "./LayerZeroApp.sol";
+import {CallFacet} from "./CallFacet.sol";
 import {IStargateReceiver} from "@interfaces/IStargateReceiver.sol";
 import {IStargateRouter} from "@interfaces/IStargateRouter.sol";
 
 /// @title XChainHub
 /// @dev Expect this contract to change in future.
-contract XChainStargateHub is LayerZeroApp, IStargateReceiver {
+contract XChainStargateHub is CallFacet, LayerZeroApp, IStargateReceiver {
     using SafeERC20 for IERC20;
 
     // --------------------------
@@ -153,6 +154,10 @@ contract XChainStargateHub is LayerZeroApp, IStargateReceiver {
     // --------------------------
     // Single Chain Functions
     // --------------------------
+
+    function setStargateEndpoint(address _stargateEndpoint) external onlyOwner {
+        stargateRouter = IStargateRouter(_stargateEndpoint);
+    }
 
     /// @notice updates a vault on the current chain to be either trusted or untrusted
     function setTrustedVault(address vault, bool trusted) external onlyOwner {
@@ -322,8 +327,7 @@ contract XChainStargateHub is LayerZeroApp, IStargateReceiver {
             _refundAddress, // refunds sent to operator
             _amount,
             _minOut,
-            // 200k gas limit (default), no native tokens sent, no recipient for native tokens
-            IStargateRouter.lzTxObj(200000, 0, "0x"),
+            IStargateRouter.lzTxObj(200000, 0, "0x"), /// @dev review this default value
             abi.encodePacked(_dstHub), // This hub must implement sgReceive
             abi.encode(message)
         );
@@ -429,7 +433,8 @@ contract XChainStargateHub is LayerZeroApp, IStargateReceiver {
     function _reducer(
         uint16 _srcChainId,
         bytes memory _srcAddress,
-        IHubPayload.Message memory message
+        IHubPayload.Message memory message,
+        uint256 amount
     ) internal {
         require(
             msg.sender == address(this) ||
@@ -444,7 +449,7 @@ contract XChainStargateHub is LayerZeroApp, IStargateReceiver {
         }
 
         if (message.action == DEPOSIT_ACTION) {
-            _depositAction(_srcChainId, message.payload);
+            _depositAction(_srcChainId, message.payload, amount);
         } else if (message.action == REQUEST_WITHDRAW_ACTION) {
             _requestWithdrawAction(_srcChainId, message.payload);
         } else if (message.action == FINALIZE_WITHDRAW_ACTION) {
@@ -468,9 +473,9 @@ contract XChainStargateHub is LayerZeroApp, IStargateReceiver {
     function sgReceive(
         uint16 _srcChainId,
         bytes memory _srcAddress,
-        uint256,
-        address,
-        uint256,
+        uint256, // nonce
+        address, // the token contract on the local chain
+        uint256 amountLD, // the qty of local _token contract tokens
         bytes memory _payload
     ) external override {
         require(
@@ -490,7 +495,7 @@ contract XChainStargateHub is LayerZeroApp, IStargateReceiver {
                 "XChainHub::sgRecieve:PROHIBITED ACTION"
             );
 
-            _reducer(_srcChainId, _srcAddress, message);
+            _reducer(_srcChainId, _srcAddress, message, amountLD);
         }
     }
 
@@ -518,7 +523,7 @@ contract XChainStargateHub is LayerZeroApp, IStargateReceiver {
                 "XChainHub::_nonblockingLzReceive:PROHIBITED ACTION"
             );
 
-            _reducer(_srcChainId, _srcAddress, message);
+            _reducer(_srcChainId, _srcAddress, message, 0);
         }
     }
 
@@ -528,17 +533,18 @@ contract XChainStargateHub is LayerZeroApp, IStargateReceiver {
 
     /// @param _srcChainId what layerZero chainId was the request initiated from
     /// @param _payload abi encoded as IHubPayload.DepositPayload
-    function _depositAction(uint16 _srcChainId, bytes memory _payload)
-        internal
-        virtual
-    {
+    function _depositAction(
+        uint16 _srcChainId,
+        bytes memory _payload,
+        uint256 _amountReceived
+    ) internal virtual {
         IHubPayload.DepositPayload memory payload = abi.decode(
             _payload,
             (IHubPayload.DepositPayload)
         );
 
         IVault vault = IVault(payload.vault);
-        uint256 amount = payload.amountUnderyling;
+        uint256 amount = _amountReceived;
 
         require(
             trustedVault[address(vault)],
@@ -548,10 +554,6 @@ contract XChainStargateHub is LayerZeroApp, IStargateReceiver {
         IERC20 underlying = vault.underlying();
 
         uint256 vaultBalance = vault.balanceOf(address(this));
-
-        /// @dev remove this with a better solution
-        uint256 balance = underlying.balanceOf(address(this));
-        if (amount > balance) amount = balance;
 
         underlying.safeApprove(address(vault), amount);
         vault.deposit(address(this), amount);
@@ -714,4 +716,9 @@ contract XChainStargateHub is LayerZeroApp, IStargateReceiver {
 
         IStrategy(payload.strategy).report(payload.amountToReport);
     }
+
+    /// TODO
+    function emergecyWithdraw() virtual {}
+
+    function setPause() virtual {} // + modifier
 }
