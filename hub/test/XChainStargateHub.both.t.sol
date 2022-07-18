@@ -12,11 +12,20 @@ import {MockStrat} from "@hub-test/mocks/MockStrategy.sol";
 import {AuxoTest} from "@hub-test/mocks/MockERC20.sol";
 import {MockVault} from "@hub-test/mocks/MockVault.sol";
 import {StargateRouterMock} from "@hub-test/mocks/MockStargateRouter.sol";
+import {XChainStargateHubMockActionsNoLz as XChainStargateHub} from "@hub-test/mocks/MockXChainStargateHub.sol";
 
-import {XChainStargateHub} from "@hub/XChainStargateHub.sol";
+// import {XChainStargateHubMockActions} from "@hub/XChainStargateHub.sol";
+
+// import {XChainStargateHub} from "@hub/XChainStargateHub.sol";
 
 /// @notice unit tests for functions executed on the source chain only
 contract TestXChainStargateHubSrcAndDst is PRBTest {
+    event EnterBatchBurn(
+        uint256 indexed round,
+        address indexed account,
+        uint256 amount
+    );
+
     uint16 private constant chainIdSrc = 10001;
     uint16 private constant chainIdDst = 10002;
 
@@ -66,8 +75,8 @@ contract TestXChainStargateHubSrcAndDst is PRBTest {
 
         // set destination endpoints
         // this is saying: set the layerzero endpoint for contract A and B to the mock
-        lzSrc.setDestLzEndpoint(address(hubSrc), address(lzDst));
-        lzDst.setDestLzEndpoint(address(hubDst), address(lzSrc));
+        lzSrc.setDestLzEndpoint(address(hubDst), address(lzDst));
+        lzDst.setDestLzEndpoint(address(hubSrc), address(lzSrc));
 
         routerSrc.setDestSgEndpoint(address(hubDst), address(routerDst));
         routerDst.setDestSgEndpoint(address(hubSrc), address(routerSrc));
@@ -128,6 +137,43 @@ contract TestXChainStargateHubSrcAndDst is PRBTest {
         assertEq(
             hubDst.sharesPerStrategy(chainIdSrc, address(strategy)),
             amount - fees
+        );
+    }
+
+    function testRequestWithdraw(uint256 amount, uint8 round) public {
+        hubSrc.setTrustedStrategy(address(strategy), true);
+
+        hubDst.setTrustedVault(address(vault), true);
+        hubDst.setExiting(address(vault), true);
+
+        /// @dev - these are non-standard operations
+        vault.mint(address(hubDst), amount);
+        hubDst.setSharesPerStrategy(chainIdSrc, address(strategy), amount);
+        hubDst.setCurrentRoundPerStrategy(chainIdSrc, address(strategy), round);
+        vault.setBatchBurnRound(uint256(round));
+
+        vm.prank(address(strategy));
+
+        vm.expectEmit(false, false, false, true);
+        emit EnterBatchBurn(0, address(hubDst), amount);
+        hubSrc.requestWithdrawFromChain(
+            chainIdDst,
+            address(vault),
+            amount,
+            bytes(""),
+            payable(address(0x0))
+        );
+
+        assertEq(vault.balanceOf(address(hubDst)), 0);
+        assertEq(vault.balanceOf(address(vault)), amount);
+        assertEq(hubDst.sharesPerStrategy(chainIdSrc, address(strategy)), 0);
+        assertEq(
+            hubDst.exitingSharesPerStrategy(chainIdSrc, address(strategy)),
+            amount
+        );
+        assertEq(
+            hubDst.currentRoundPerStrategy(chainIdSrc, address(strategy)),
+            round
         );
     }
 }

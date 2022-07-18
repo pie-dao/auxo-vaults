@@ -13,6 +13,12 @@ contract MockVault is ERC20, Pausable {
     ERC20 public underlying;
     uint256 public baseUnit = 10**18;
 
+    event EnterBatchBurn(
+        uint256 indexed round,
+        address indexed account,
+        uint256 amount
+    );
+
     event Deposit(address indexed from, address indexed to, uint256 value);
 
     uint256 public batchBurnRound;
@@ -78,6 +84,10 @@ contract MockVault is ERC20, Pausable {
         returns (uint256)
     {
         return (sharesAmount * exchangeRate()) / baseUnit;
+    }
+
+    function setBatchBurnRound(uint256 _round) external {
+        batchBurnRound = _round;
     }
 
     function _deposit(
@@ -166,8 +176,7 @@ contract MockVault is ERC20, Pausable {
         batchBurns[batchBurnRound_].totalShares += shares;
 
         require(transfer(address(this), shares));
-
-        // emit EnterBatchBurn(batchBurnRound_, msg.sender, shares);
+        emit EnterBatchBurn(batchBurnRound, msg.sender, shares);
     }
 
     function mint(address _to, uint256 _shares) external {

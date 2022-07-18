@@ -13,6 +13,9 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity >=0.8.0;
 
+/// @dev delete before production commit!
+import "@std/console.sol";
+
 import {Ownable} from "@oz/access/Ownable.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
@@ -348,6 +351,10 @@ contract XChainStargateHub is CallFacet, LayerZeroApp, IStargateReceiver {
             trustedStrategy[msg.sender],
             "XChainHub::requestWithdrawFromChain:UNTRUSTED"
         );
+        require(
+            dstVault != address(0x0),
+            "XChainHub::requestWithdrawFromChain:NO DST VAULT"
+        );
 
         IHubPayload.Message memory message = IHubPayload.Message({
             action: REQUEST_WITHDRAW_ACTION,
@@ -359,6 +366,8 @@ contract XChainStargateHub is CallFacet, LayerZeroApp, IStargateReceiver {
                 })
             )
         });
+
+        console.logBytes(message.payload);
 
         _lzSend(
             dstChainId,
@@ -569,7 +578,6 @@ contract XChainStargateHub is CallFacet, LayerZeroApp, IStargateReceiver {
         IVault vault = IVault(decoded.vault);
         address strategy = decoded.strategy;
         uint256 amountVaultShares = decoded.amountVaultShares;
-
         uint256 round = vault.batchBurnRound();
         uint256 currentRound = currentRoundPerStrategy[_srcChainId][strategy];
 
@@ -604,6 +612,7 @@ contract XChainStargateHub is CallFacet, LayerZeroApp, IStargateReceiver {
         // will revert if amount is more than what we have.
         // RESP: tests pass but potentially need to test the case where vault
         // shares exceeds some aribtrary value
+
         vault.enterBatchBurn(amountVaultShares);
     }
 

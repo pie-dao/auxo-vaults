@@ -257,3 +257,78 @@ contract XChainStargateHubMockActions is XChainStargateHub {
         }
     }
 }
+
+/// @dev grant access to internal functions - no lzero
+/// @dev can we use composition here?
+contract XChainStargateHubMockActionsNoLz is XChainStargateHub {
+    constructor(
+        address _stargateEndpoint,
+        address _lzEndpoint,
+        address _refundRecipient
+    ) XChainStargateHub(_stargateEndpoint, _lzEndpoint, _refundRecipient) {}
+
+    function depositAction(
+        uint16 _srcChainId,
+        bytes memory _payload,
+        uint256 _amount
+    ) external {
+        return _depositAction(_srcChainId, _payload, _amount);
+    }
+
+    function requestWithdrawAction(uint16 _srcChainId, bytes memory _payload)
+        external
+    {
+        _requestWithdrawAction(_srcChainId, _payload);
+    }
+
+    function finalizeWithdrawAction(uint16 _srcChainId, bytes memory _payload)
+        external
+    {
+        _finalizeWithdrawAction(_srcChainId, _payload);
+    }
+
+    function setCurrentRoundPerStrategy(
+        uint16 _srcChainId,
+        address _strategy,
+        uint256 _round
+    ) external {
+        currentRoundPerStrategy[_srcChainId][_strategy] = _round;
+    }
+
+    function setSharesPerStrategy(
+        uint16 _srcChainId,
+        address _strategy,
+        uint256 _shares
+    ) external {
+        sharesPerStrategy[_srcChainId][_strategy] = _shares;
+    }
+
+    function setExitingSharesPerStrategy(
+        uint16 _srcChainId,
+        address _strategy,
+        uint256 _shares
+    ) external {
+        exitingSharesPerStrategy[_srcChainId][_strategy] = _shares;
+    }
+
+    function calculateStrategyAmountForWithdraw(
+        IVault _vault,
+        uint16 _srcChainId,
+        address _strategy
+    ) external returns (uint256) {
+        return
+            _calculateStrategyAmountForWithdraw(_vault, _srcChainId, _strategy);
+    }
+
+    function reportUnderlyingAction(bytes memory _payload) external {
+        _reportUnderlyingAction(_payload);
+    }
+
+    function setLatestReport(
+        uint16 chainId,
+        address strategy,
+        uint256 timestamp
+    ) external {
+        latestUpdate[chainId][strategy] = timestamp;
+    }
+}
