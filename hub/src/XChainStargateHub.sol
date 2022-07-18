@@ -293,13 +293,6 @@ contract XChainStargateHub is CallFacet, LayerZeroApp, IStargateReceiver {
         uint256 _minOut,
         address payable _refundAddress
     ) external payable {
-        /* 
-            Possible reverts:
-            -- null address checks
-            -- null pool checks
-            -- Pool doesn't match underlying
-        */
-
         require(
             trustedStrategy[msg.sender],
             "XChainHub::depositToChain:UNTRUSTED"
@@ -442,12 +435,6 @@ contract XChainStargateHub is CallFacet, LayerZeroApp, IStargateReceiver {
             "XChainHub::_reducer:UNAUTHORIZED"
         );
 
-        address srcAddress;
-        // solhint-disable-next-line no-inline-assembly
-        assembly {
-            srcAddress := mload(add(_srcAddress, 20))
-        }
-
         if (message.action == DEPOSIT_ACTION) {
             _depositAction(_srcChainId, message.payload, amount);
         } else if (message.action == REQUEST_WITHDRAW_ACTION) {
@@ -544,8 +531,6 @@ contract XChainStargateHub is CallFacet, LayerZeroApp, IStargateReceiver {
         );
 
         IVault vault = IVault(payload.vault);
-        uint256 amount = _amountReceived;
-
         require(
             trustedVault[address(vault)],
             "XChainHub::_depositAction:UNTRUSTED"
@@ -555,8 +540,9 @@ contract XChainStargateHub is CallFacet, LayerZeroApp, IStargateReceiver {
 
         uint256 vaultBalance = vault.balanceOf(address(this));
 
-        underlying.safeApprove(address(vault), amount);
-        vault.deposit(address(this), amount);
+        underlying.safeApprove(address(vault), _amountReceived);
+
+        vault.deposit(address(this), _amountReceived);
 
         uint256 mintedShares = vault.balanceOf(address(this)) - vaultBalance;
 

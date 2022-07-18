@@ -3,15 +3,33 @@ pragma solidity >=0.8.0;
 
 import {IStargateRouter} from "@interfaces/IStargateRouter.sol";
 import {IStargateReceiver} from "@interfaces/IStargateReceiver.sol";
+import {IERC20} from "@interfaces/IERC20.sol";
+
+import "@std/console.sol";
 
 contract StargateRouterMock is IStargateRouter {
     bytes[] public callparams;
+    address public immutable feeCollector;
     mapping(address => address) public sgEndpointLookup;
     uint8 public swapFeePc;
     mapping(uint16 => address) public tokenLookup;
+    uint16 public immutable chainId;
 
-    constructor(uint16 _dstChainId, address _token) {
-        tokenLookup[_dstChainId] = _token;
+    constructor(uint16 _chainId, address _feeCollector) {
+        feeCollector = _feeCollector;
+        chainId = _chainId;
+    }
+
+    // encode swap params to avoid stack deep errors
+    struct Params {
+        uint16 srcChainId;
+        uint16 dstChainId;
+        bytes srcAddress;
+        uint256 amountLD;
+        uint256 minAmountLD;
+        uint256 nonce;
+        bytes destination;
+        bytes payload;
     }
 
     struct StargateCallDataParams {
@@ -29,6 +47,10 @@ contract StargateRouterMock is IStargateRouter {
     function setSwapFeePc(uint8 _feePc) external {
         require(_feePc <= 100, "sgMock::setSwapFeePc:FEE > 100%");
         swapFeePc = _feePc;
+    }
+
+    function setTokenForChain(uint16 _chainId, address _token) external {
+        tokenLookup[_chainId] = _token;
     }
 
     // give 20 bytes, return the decoded address
@@ -57,78 +79,115 @@ contract StargateRouterMock is IStargateRouter {
         return data;
     }
 
-    function getSelf(bytes calldata _dst) public returns (StargateRouterMock) {
-        address _destination = packedBytesToAddr(_dst);
-        address _ep = sgEndpointLookup[_destination];
-        return StargateRouterMock(_ep);
+    // get the router mock from the destination
+    function getStargateRouterMock(bytes calldata _dst)
+        public
+        returns (StargateRouterMock)
+    {
+        address destination = packedBytesToAddr(_dst);
+        address endpoint = sgEndpointLookup[destination];
+        return StargateRouterMock(endpoint);
     }
 
-    modifier requiresEndpoint(bytes calldata _dst) {
-        require(
-            sgEndpointLookup[packedBytesToAddr(_dst)] != address(0),
-            "sgMock::swap:ENDPOINT NOT FOUND"
+    function hasEndpoint(bytes calldata _dst) internal returns (bool) {
+        return sgEndpointLookup[packedBytesToAddr(_dst)] != address(0);
+    }
+
+    function saveParams(
+        uint16 _dstChainId,
+        uint256 _srcPoolId, // pool ids
+        uint256 _dstPoolId,
+        address payable _refundAddress,
+        uint256 _amountLD,
+        uint256 _minAmountLD,
+        lzTxObj memory _lzTxParams,
+        bytes calldata _destination,
+        bytes calldata _payload
+    ) internal {
+        bytes memory params = abi.encode(
+            _dstChainId,
+            _srcPoolId,
+            _dstPoolId,
+            _refundAddress,
+            _amountLD,
+            _minAmountLD,
+            _lzTxParams,
+            _destination,
+            _payload
         );
-        _;
+        if (callparams.length == 0) {
+            callparams = [params];
+        } else {
+            callparams.push(params);
+        }
     }
 
-    struct Amounts {
-        uint256 min;
-        uint256 actual;
+    function _swap(
+        uint256 _amountLD,
+        uint256 _minAmountLD,
+        bytes calldata _destination
+    ) internal returns (uint256) {
+        // calculate swap fees
+        uint256 fee = (_amountLD * swapFeePc) / 100;
+        uint256 amountActual = _amountLD - fee;
+
+        require(amountActual >= _minAmountLD, "sgMock::swap:BELOW MIN QTY");
+        IERC20 underlying = IERC20(tokenLookup[chainId]);
+        underlying.transferFrom(msg.sender, address(this), _amountLD);
+
+        // make the transfers to the destination hub
+        underlying.transfer(feeCollector, fee);
+        underlying.transfer(packedBytesToAddr(_destination), amountActual);
+
+        return amountActual;
     }
 
     function swap(
         uint16 _dstChainId,
-        uint256, // pool ids
-        uint256, // pool ids
-        address payable,
+        uint256 _srcPoolId, // pool ids
+        uint256 _dstPoolId,
+        address payable _refundAddress,
         uint256 _amountLD,
         uint256 _minAmountLD,
-        lzTxObj memory,
+        lzTxObj memory _lzTxParams,
         bytes calldata _destination,
         bytes calldata _payload
-    ) external payable override requiresEndpoint(_destination) {
-        Amounts memory amounts = Amounts({
-            min: _minAmountLD,
-            actual: _amountLD
-        });
-
-        getSelf(_destination).receivePayload(
-            1, // srcChainId,
-            addrToPackedBytes(address(msg.sender)),
-            packedBytesToAddr(_destination),
-            0, // nonce,
-            0,
-            _payload,
+    ) external payable override {
+        require(hasEndpoint(_destination), "sgMock::swap:ENDPOINT NOT FOUND");
+        saveParams(
             _dstChainId,
-            amounts
+            _srcPoolId,
+            _dstPoolId,
+            _refundAddress,
+            _amountLD,
+            _minAmountLD,
+            _lzTxParams,
+            _destination,
+            _payload
+        );
+        uint256 amountActual = _swap(_amountLD, _minAmountLD, _destination);
+        getStargateRouterMock(_destination).receivePayload(
+            Params({
+                srcChainId: chainId,
+                srcAddress: addrToPackedBytes(address(msg.sender)),
+                dstChainId: _dstChainId,
+                amountLD: amountActual,
+                nonce: 0,
+                minAmountLD: _minAmountLD,
+                destination: _destination,
+                payload: _payload
+            })
         );
     }
 
-    function receivePayload(
-        uint16 _srcChainId,
-        bytes calldata _srcAddress,
-        address _dstAddress,
-        uint64 _nonce,
-        uint256, /*_gasLimit*/
-        bytes calldata _payload,
-        uint16 _dstChainId,
-        Amounts memory _amounts
-    ) external {
-        address _token = tokenLookup[_dstChainId];
-        uint256 _amountActual = _amounts.actual -
-            (_amounts.actual * swapFeePc) /
-            100;
-        require(
-            _amountActual >= _amounts.min,
-            "sgMock::receivePayload:BELOW MIN QTY"
-        );
-        IStargateReceiver(_dstAddress).sgReceive( // we ignore the gas limit because this call is made in one tx due to being "same chain"
-            _srcChainId,
-            _srcAddress,
-            _nonce,
-            _token,
-            _amountActual,
-            _payload
+    function receivePayload(Params calldata params) external {
+        IStargateReceiver(packedBytesToAddr(params.destination)).sgReceive( // we ignore the gas limit because this call is made in one tx due to being "same chain"
+            params.srcChainId,
+            params.srcAddress,
+            params.nonce,
+            tokenLookup[params.dstChainId],
+            params.amountLD,
+            params.payload
         );
     }
 
