@@ -10,7 +10,4 @@
 [submodule "lib/prb-test"]
 	path = lib/prb-test
 	url = https://github.com/paulrberg/prb-test
-[submodule "hub/lib/prb-test"]
-	path = hub/lib/prb-test
-	url = https://github.com/paulrberg/prb-test
-	branch = "0.1.2"
+	branch = 0.1.2
