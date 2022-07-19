@@ -11,7 +11,10 @@
 // auxo.fi
 
 // SPDX-License-Identifier: AGPL-3.0-only
-pragma solidity 0.8.12;
+pragma solidity >=0.8.0;
+
+/// @dev delete before production commit!
+import "@std/console.sol";
 
 import {Ownable} from "@oz/access/Ownable.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
@@ -84,7 +87,7 @@ contract XChainStargateHub is CallFacet, LayerZeroApp, IStargateReceiver {
     uint64 internal constant REPORT_DELAY = 6 hours;
 
     /// @notice https://stargateprotocol.gitbook.io/stargate/developers/official-erc20-addresses
-    IStargateRouter public immutable stargateRouter;
+    IStargateRouter public stargateRouter;
 
     // --------------------------
     // Single Chain Mappings
@@ -293,13 +296,6 @@ contract XChainStargateHub is CallFacet, LayerZeroApp, IStargateReceiver {
         uint256 _minOut,
         address payable _refundAddress
     ) external payable {
-        /* 
-            Possible reverts:
-            -- null address checks
-            -- null pool checks
-            -- Pool doesn't match underlying
-        */
-
         require(
             trustedStrategy[msg.sender],
             "XChainHub::depositToChain:UNTRUSTED"
@@ -354,6 +350,10 @@ contract XChainStargateHub is CallFacet, LayerZeroApp, IStargateReceiver {
         require(
             trustedStrategy[msg.sender],
             "XChainHub::requestWithdrawFromChain:UNTRUSTED"
+        );
+        require(
+            dstVault != address(0x0),
+            "XChainHub::requestWithdrawFromChain:NO DST VAULT"
         );
 
         IHubPayload.Message memory message = IHubPayload.Message({
@@ -441,12 +441,6 @@ contract XChainStargateHub is CallFacet, LayerZeroApp, IStargateReceiver {
                 msg.sender == address(stargateRouter),
             "XChainHub::_reducer:UNAUTHORIZED"
         );
-
-        address srcAddress;
-        // solhint-disable-next-line no-inline-assembly
-        assembly {
-            srcAddress := mload(add(_srcAddress, 20))
-        }
 
         if (message.action == DEPOSIT_ACTION) {
             _depositAction(_srcChainId, message.payload, amount);
@@ -544,8 +538,6 @@ contract XChainStargateHub is CallFacet, LayerZeroApp, IStargateReceiver {
         );
 
         IVault vault = IVault(payload.vault);
-        uint256 amount = _amountReceived;
-
         require(
             trustedVault[address(vault)],
             "XChainHub::_depositAction:UNTRUSTED"
@@ -555,8 +547,9 @@ contract XChainStargateHub is CallFacet, LayerZeroApp, IStargateReceiver {
 
         uint256 vaultBalance = vault.balanceOf(address(this));
 
-        underlying.safeApprove(address(vault), amount);
-        vault.deposit(address(this), amount);
+        underlying.safeApprove(address(vault), _amountReceived);
+
+        vault.deposit(address(this), _amountReceived);
 
         uint256 mintedShares = vault.balanceOf(address(this)) - vaultBalance;
 
@@ -583,7 +576,6 @@ contract XChainStargateHub is CallFacet, LayerZeroApp, IStargateReceiver {
         IVault vault = IVault(decoded.vault);
         address strategy = decoded.strategy;
         uint256 amountVaultShares = decoded.amountVaultShares;
-
         uint256 round = vault.batchBurnRound();
         uint256 currentRound = currentRoundPerStrategy[_srcChainId][strategy];
 
@@ -618,6 +610,7 @@ contract XChainStargateHub is CallFacet, LayerZeroApp, IStargateReceiver {
         // will revert if amount is more than what we have.
         // RESP: tests pass but potentially need to test the case where vault
         // shares exceeds some aribtrary value
+
         vault.enterBatchBurn(amountVaultShares);
     }
 
@@ -655,6 +648,7 @@ contract XChainStargateHub is CallFacet, LayerZeroApp, IStargateReceiver {
             (IHubPayload.FinalizeWithdrawPayload)
         );
 
+        // Vault and strategy must both be on the dst chain
         IVault vault = IVault(payload.vault);
         address strategy = payload.strategy;
 
@@ -673,14 +667,14 @@ contract XChainStargateHub is CallFacet, LayerZeroApp, IStargateReceiver {
             "XChainHub::_finalizeWithdrawAction:NO WITHDRAWS"
         );
 
-        currentRoundPerStrategy[_srcChainId][strategy] = 0;
-        exitingSharesPerStrategy[_srcChainId][strategy] = 0;
-
         uint256 strategyAmount = _calculateStrategyAmountForWithdraw(
             vault,
             _srcChainId,
             strategy
         );
+
+        currentRoundPerStrategy[_srcChainId][strategy] = 0;
+        exitingSharesPerStrategy[_srcChainId][strategy] = 0;
 
         /// @dev - do we need this
         // require(
@@ -718,7 +712,7 @@ contract XChainStargateHub is CallFacet, LayerZeroApp, IStargateReceiver {
     }
 
     /// TODO
-    function emergecyWithdraw() virtual {}
+    function emergecyWithdraw() external virtual {}
 
-    function setPause() virtual {} // + modifier
+    function setPause() external virtual {} // + modifier
 }

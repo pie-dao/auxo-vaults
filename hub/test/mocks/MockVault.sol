@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-pragma solidity 0.8.12;
+pragma solidity >=0.8.0;
 
 import "@oz/token/ERC20/ERC20.sol";
+import "@std/console.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 import {Pausable} from "@oz/security/Pausable.sol";
 
@@ -13,12 +14,17 @@ contract MockVault is ERC20, Pausable {
     ERC20 public underlying;
     uint256 public baseUnit = 10**18;
 
+    event EnterBatchBurn(
+        uint256 indexed round,
+        address indexed account,
+        uint256 amount
+    );
+
     event Deposit(address indexed from, address indexed to, uint256 value);
 
     uint256 public batchBurnRound;
     uint256 private amountPerShare = 100;
     uint256 private shares = 1e21;
-    uint256 public expectedWithdrawal;
 
     struct BatchBurn {
         uint256 totalShares;
@@ -36,7 +42,6 @@ contract MockVault is ERC20, Pausable {
 
     constructor(ERC20 _underyling) ERC20("Auxo Test", "auxoTST") {
         underlying = _underyling;
-        expectedWithdrawal = shares * amountPerShare;
         batchBurnRound = 2;
     }
 
@@ -59,6 +64,14 @@ contract MockVault is ERC20, Pausable {
         batchBurns[round] = batchBurn;
     }
 
+    // set batch burn receipts artificially for testing
+    function setBatchBurnReceiptsForSender(
+        address _sender,
+        BatchBurnReceipt memory _receipt
+    ) external {
+        userBatchBurnReceipts[_sender] = _receipt;
+    }
+
     // add small diff
     function exchangeRate() public view returns (uint256) {
         return baseUnit + 1e16;
@@ -78,6 +91,10 @@ contract MockVault is ERC20, Pausable {
         returns (uint256)
     {
         return (sharesAmount * exchangeRate()) / baseUnit;
+    }
+
+    function setBatchBurnRound(uint256 _round) external {
+        batchBurnRound = _round;
     }
 
     function _deposit(
@@ -117,24 +134,21 @@ contract MockVault is ERC20, Pausable {
     }
 
     function exitBatchBurn() external {
-        uint256 batchBurnRound_ = batchBurnRound;
-        BatchBurnReceipt memory receipt = BatchBurnReceipt({
-            round: 1,
-            shares: shares
-        });
-
-        userBatchBurnReceipts[msg.sender] = receipt;
+        BatchBurnReceipt memory receipt = userBatchBurnReceipts[msg.sender];
 
         require(receipt.round != 0, "exitBatchBurn::NO_DEPOSITS");
         require(
-            receipt.round < batchBurnRound_,
+            receipt.round < batchBurnRound,
             "exitBatchBurn::ROUND_NOT_EXECUTED"
         );
 
         userBatchBurnReceipts[msg.sender].round = 0;
         userBatchBurnReceipts[msg.sender].shares = 0;
 
-        uint256 underlyingAmount = receipt.shares * amountPerShare;
+        BatchBurn memory batchBurn = batchBurns[batchBurnRound];
+
+        uint256 underlyingAmount = (receipt.shares * batchBurn.amountPerShare) /
+            10**18;
 
         // batchBurnBalance -= underlyingAmount;
         underlying.transfer(msg.sender, underlyingAmount);
@@ -166,8 +180,7 @@ contract MockVault is ERC20, Pausable {
         batchBurns[batchBurnRound_].totalShares += shares;
 
         require(transfer(address(this), shares));
-
-        // emit EnterBatchBurn(batchBurnRound_, msg.sender, shares);
+        emit EnterBatchBurn(batchBurnRound, msg.sender, shares);
     }
 
     function mint(address _to, uint256 _shares) external {

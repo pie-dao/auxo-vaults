@@ -1,25 +1,24 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.12;
+pragma solidity >=0.8.0;
 pragma abicoder v2;
 
-import "@std/Test.sol";
-import "@std/console.sol";
+import {PRBTest} from "@prb/test/PRBTest.sol";
 import "@oz/token/ERC20/ERC20.sol";
 
 import {XChainStargateHub} from "@hub/XChainStargateHub.sol";
-import {XChainStargateHubMockReducer, XChainStargateHubMockLzSend, XChainStargateHubMockActions} from "./mocks/MockXChainStargateHub.sol";
-import {MockStargateRouter} from "@mocks/MockStargateRouter.sol";
+import {XChainStargateHubMockReducer, XChainStargateHubMockLzSend, XChainStargateHubMockActions} from "@hub-test/mocks/MockXChainStargateHub.sol";
+import {MockRouterPayloadCapture, StargateCallDataParams} from "@hub-test/mocks/MockStargateRouter.sol";
 
-import {AuxoTest, AuxoTestDecimals} from "@mocks/MockERC20.sol";
-import {MockVault} from "@mocks/MockVault.sol";
-import {MockStrat} from "@mocks/MockStrategy.sol";
+import {AuxoTest, AuxoTestDecimals} from "@hub-test/mocks/MockERC20.sol";
+import {MockVault} from "@hub-test/mocks/MockVault.sol";
+import {MockStrat} from "@hub-test/mocks/MockStrategy.sol";
 
 import {IStargateRouter} from "@interfaces/IStargateRouter.sol";
 import {IVault} from "@interfaces/IVault.sol";
 import {IHubPayload} from "@interfaces/IHubPayload.sol";
 
 /// @notice unit tests for functions executed on the destination chain only
-contract TestXChainStargateHubDst is Test {
+contract TestXChainStargateHubDst is PRBTest {
     address public stargate;
     address public lz;
     address public refund;
@@ -177,7 +176,7 @@ contract TestXChainStargateHubDst is Test {
         );
 
         vm.expectRevert("XChainHub::_depositAction:UNTRUSTED");
-        hubMockActions.depositAction(1, payload);
+        hubMockActions.depositAction(1, payload, 0);
     }
 
     function testDepositActionRevertsWithInsufficientMint() public {
@@ -197,7 +196,7 @@ contract TestXChainStargateHubDst is Test {
         vm.expectRevert(
             bytes("XChainHub::_depositAction:INSUFFICIENT MINTED SHARES")
         );
-        hubMockActions.depositAction(1, payload);
+        hubMockActions.depositAction(1, payload, 0);
     }
 
     function testDepositAction(uint256 amount) public {
@@ -215,7 +214,7 @@ contract TestXChainStargateHubDst is Test {
             })
         );
 
-        hubMockActions.depositAction(1, payload);
+        hubMockActions.depositAction(1, payload, amount);
         uint256 shares = hubMockActions.sharesPerStrategy(1, stratAddr);
         assertEq(shares, amount);
         assertEq(_vault.balanceOf(stratAddr), shares);
@@ -433,10 +432,9 @@ contract TestXChainStargateHubDst is Test {
         );
     }
 
-    function _decodeFinalizeWithdrawCalldata(MockStargateRouter mockRouter)
-        internal
-        returns (MockStargateRouter.StargateCallDataParams memory)
-    {
+    function _decodeFinalizeWithdrawCalldata(
+        MockRouterPayloadCapture mockRouter
+    ) internal returns (StargateCallDataParams memory) {
         // the mock intercepts and stores payloads that we can inspect
         bytes memory payload = mockRouter.callparams(0);
 
@@ -467,7 +465,7 @@ contract TestXChainStargateHubDst is Test {
             );
 
         return
-            MockStargateRouter.StargateCallDataParams({
+            StargateCallDataParams({
                 _dstChainId: _dstChainId,
                 _srcPoolId: _srcPoolId,
                 _dstPoolId: _dstPoolId,
@@ -482,9 +480,9 @@ contract TestXChainStargateHubDst is Test {
 
     function testFinalizeWithdrawAction() public {
         // setup the mocks and initialize
-        MockStargateRouter mockStargateRouter = new MockStargateRouter();
+        MockRouterPayloadCapture MockRouterPayloadCapture = new MockRouterPayloadCapture();
         hubMockActions = new XChainStargateHubMockActions(
-            address(mockStargateRouter),
+            address(MockRouterPayloadCapture),
             lz,
             refund
         );
@@ -525,8 +523,9 @@ contract TestXChainStargateHubDst is Test {
         hubMockActions.finalizeWithdrawAction(1, payload);
 
         // grab payloads stored against the mock
-        MockStargateRouter.StargateCallDataParams
-            memory params = _decodeFinalizeWithdrawCalldata(mockStargateRouter);
+        StargateCallDataParams memory params = _decodeFinalizeWithdrawCalldata(
+            MockRouterPayloadCapture
+        );
 
         // run through relevant calldata
         assertEq(params._dstChainId, 1);

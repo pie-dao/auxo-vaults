@@ -7,5 +7,6 @@
     "[solidity]": {
       "editor.defaultFormatter": "JuanBlanco.solidity"
     },
-    "solidity.defaultCompiler": "remote"
+    "solidity.defaultCompiler": "localFile",
+    "solidity.compileUsingLocalVersion": "/home/jordan/Documents/Dev/crypto/PieDAO/auxo-vaults/hub/soljson-v0.8.12+commit.f00d7308.js",
 }  

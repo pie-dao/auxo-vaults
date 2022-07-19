@@ -1,4 +1,4 @@
-pragma solidity 0.8.12;
+pragma solidity >=0.8.0;
 
 import {ReentrancyGuard} from "@oz/security/ReentrancyGuard.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
