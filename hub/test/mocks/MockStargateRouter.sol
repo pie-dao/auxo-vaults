@@ -133,11 +133,29 @@ contract StargateRouterMock is IStargateRouter {
 
         require(amountActual >= _minAmountLD, "sgMock::swap:BELOW MIN QTY");
         IERC20 underlying = IERC20(tokenLookup[chainId]);
+
+        console.log("Swap transfer 1", _amountLD);
+
+        uint256 balanceSender = underlying.balanceOf(msg.sender);
+
+        console.log("address of sender");
+        console.log(msg.sender);
+        console.log("Balance of sender", balanceSender);
         underlying.transferFrom(msg.sender, address(this), _amountLD);
 
         // make the transfers to the destination hub
+        console.log("Swap transfer 2 fee collector");
         underlying.transfer(feeCollector, fee);
+
+        console.log("Swap transfer 3 dst", amountActual);
+        console.log("Balance of here", underlying.balanceOf(address(this)));
+        console.log("destination");
+        console.log(packedBytesToAddr(_destination));
         underlying.transfer(packedBytesToAddr(_destination), amountActual);
+        console.log(
+            "Balance of strat after transfer",
+            underlying.balanceOf(packedBytesToAddr(_destination))
+        );
 
         return amountActual;
     }
@@ -165,7 +183,10 @@ contract StargateRouterMock is IStargateRouter {
             _destination,
             _payload
         );
+        console.log("Inside the mock");
+
         uint256 amountActual = _swap(_amountLD, _minAmountLD, _destination);
+
         getStargateRouterMock(_destination).receivePayload(
             Params({
                 srcChainId: chainId,

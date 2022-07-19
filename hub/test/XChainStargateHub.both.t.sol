@@ -6,6 +6,8 @@ import {PRBTest} from "@prb/test/PRBTest.sol";
 import "@std/console.sol";
 import "@oz/token/ERC20/ERC20.sol";
 
+import {IVault} from "@interfaces/IVault.sol";
+
 import {LZEndpointMock} from "@hub-test/mocks/MockLayerZeroEndpoint.sol";
 import {LZEndpointMock} from "@hub-test/mocks/MockLayerZeroEndpoint.sol";
 import {MockStrat} from "@hub-test/mocks/MockStrategy.sol";
@@ -13,10 +15,6 @@ import {AuxoTest} from "@hub-test/mocks/MockERC20.sol";
 import {MockVault} from "@hub-test/mocks/MockVault.sol";
 import {StargateRouterMock} from "@hub-test/mocks/MockStargateRouter.sol";
 import {XChainStargateHubMockActionsNoLz as XChainStargateHub} from "@hub-test/mocks/MockXChainStargateHub.sol";
-
-// import {XChainStargateHubMockActions} from "@hub/XChainStargateHub.sol";
-
-// import {XChainStargateHub} from "@hub/XChainStargateHub.sol";
 
 /// @notice unit tests for functions executed on the source chain only
 contract TestXChainStargateHubSrcAndDst is PRBTest {
@@ -81,6 +79,10 @@ contract TestXChainStargateHubSrcAndDst is PRBTest {
         routerSrc.setDestSgEndpoint(address(hubDst), address(routerDst));
         routerDst.setDestSgEndpoint(address(hubSrc), address(routerSrc));
 
+        // for finalize withdraw: allow the strategy to receive tokens
+        routerDst.setDestSgEndpoint(address(strategy), address(routerSrc));
+        strategy.setStargateRouter(address(routerSrc));
+
         // trusted remote needs converting address to bytes
         byteAddressHubSrc = abi.encodePacked(address(hubSrc));
         byteAddressHubDst = abi.encodePacked(address(hubDst));
@@ -140,13 +142,18 @@ contract TestXChainStargateHubSrcAndDst is PRBTest {
         );
     }
 
-    function testRequestWithdraw(uint256 amount, uint8 round) public {
+    // function testRequestWithdraw(uint256 amount, uint8 round) public {
+    function testRequestWithdraw() public {
+        uint256 amount = 1e19;
+        uint8 round = 1;
+
         hubSrc.setTrustedStrategy(address(strategy), true);
 
         hubDst.setTrustedVault(address(vault), true);
         hubDst.setExiting(address(vault), true);
 
         /// @dev - these are non-standard operations
+        token.transfer(address(vault), amount);
         vault.mint(address(hubDst), amount);
         hubDst.setSharesPerStrategy(chainIdSrc, address(strategy), amount);
         hubDst.setCurrentRoundPerStrategy(chainIdSrc, address(strategy), round);
@@ -164,6 +171,7 @@ contract TestXChainStargateHubSrcAndDst is PRBTest {
             payable(address(0x0))
         );
 
+        assertEq(token.balanceOf(address(vault)), amount);
         assertEq(vault.balanceOf(address(hubDst)), 0);
         assertEq(vault.balanceOf(address(vault)), amount);
         assertEq(hubDst.sharesPerStrategy(chainIdSrc, address(strategy)), 0);
@@ -175,5 +183,82 @@ contract TestXChainStargateHubSrcAndDst is PRBTest {
             hubDst.currentRoundPerStrategy(chainIdSrc, address(strategy)),
             round
         );
+    }
+
+    function testFinalizeWithdrawal() public {
+        uint256 _amount = 100;
+
+        console.log("Amount", _amount);
+        uint256 _round = 2;
+
+        // setup an initial state of tokens
+        token.transfer(address(vault), _amount);
+        vault.mint(address(vault), _amount);
+
+        MockVault.BatchBurn memory batchBurn = MockVault.BatchBurn({
+            totalShares: 100 ether,
+            amountPerShare: 10**vault.decimals()
+        });
+
+        // receipts are saved for previous rounds
+        MockVault.BatchBurnReceipt memory receipt = MockVault.BatchBurnReceipt({
+            round: _round - 1,
+            shares: _amount
+        });
+
+        vault.setBatchBurnReceiptsForSender(address(hubDst), receipt);
+        vault.setBatchBurnRound(_round);
+        vault.setBatchBurnForRound(_round, batchBurn);
+
+        hubDst.setCurrentRoundPerStrategy(
+            chainIdSrc,
+            address(strategy),
+            _round
+        );
+        hubDst.setExitingSharesPerStrategy(
+            chainIdSrc,
+            address(strategy),
+            _amount
+        );
+
+        // set trusted
+        hubSrc.setTrustedStrategy(address(strategy), true);
+        hubDst.setTrustedVault(address(vault), true);
+
+        console.log("sg router on dst");
+        console.log(address(routerDst));
+
+        console.log("Address of the hubSrc");
+        console.log(address(hubSrc));
+
+        console.log("Address of the hubDst");
+        console.log(address(hubDst));
+
+        console.log("Address of the strat");
+        console.log(address(strategy));
+
+        // execute the batch burn process
+        hubDst.finalizeWithdrawFromVault(IVault(address(vault)));
+
+        vm.prank(address(strategy));
+        hubSrc.finalizeWithdrawFromChain(
+            chainIdDst,
+            address(vault),
+            bytes(""),
+            payable(address(0x0)),
+            1,
+            1,
+            0
+        );
+
+        // ensure the destination is cleared out
+        assertEq(token.balanceOf(address(vault)), 0);
+        assertEq(token.balanceOf(address(hubDst)), 0);
+
+        // strategy now has the tokens
+        assertEq(token.balanceOf(address(strategy)), _amount);
+
+        // check tokens not in the hub
+        assertEq(token.balanceOf(address(hubSrc)), 0);
     }
 }

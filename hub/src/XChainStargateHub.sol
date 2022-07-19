@@ -633,6 +633,9 @@ contract XChainStargateHub is CallFacet, LayerZeroApp, IStargateReceiver {
         // check vault on this chain for batch burn data for the current round
         IVault.BatchBurn memory batchBurn = _vault.batchBurns(currentRound);
 
+        console.log("------- Params -------");
+        console.log(batchBurn.amountPerShare, exitingShares, currentRound);
+
         // calculate amount in underlying
         return ((batchBurn.amountPerShare * exitingShares) /
             (10**_vault.decimals()));
@@ -650,6 +653,7 @@ contract XChainStargateHub is CallFacet, LayerZeroApp, IStargateReceiver {
             (IHubPayload.FinalizeWithdrawPayload)
         );
 
+        // Vault and strategy must both be on the dst chain
         IVault vault = IVault(payload.vault);
         address strategy = payload.strategy;
 
@@ -668,14 +672,16 @@ contract XChainStargateHub is CallFacet, LayerZeroApp, IStargateReceiver {
             "XChainHub::_finalizeWithdrawAction:NO WITHDRAWS"
         );
 
-        currentRoundPerStrategy[_srcChainId][strategy] = 0;
-        exitingSharesPerStrategy[_srcChainId][strategy] = 0;
-
         uint256 strategyAmount = _calculateStrategyAmountForWithdraw(
             vault,
             _srcChainId,
             strategy
         );
+
+        console.log("The strategy Amount", strategyAmount);
+
+        currentRoundPerStrategy[_srcChainId][strategy] = 0;
+        exitingSharesPerStrategy[_srcChainId][strategy] = 0;
 
         /// @dev - do we need this
         // require(
@@ -685,6 +691,14 @@ contract XChainStargateHub is CallFacet, LayerZeroApp, IStargateReceiver {
 
         IERC20 underlying = vault.underlying();
         underlying.safeApprove(address(stargateRouter), strategyAmount);
+
+        console.log("Performing the sg Swap");
+        console.log(address(stargateRouter));
+
+        console.log("Amount", strategyAmount);
+
+        console.log("The destination");
+        console.log(address(strategy));
 
         /// @dev review and change txParams before moving to production
         stargateRouter.swap{value: msg.value}(

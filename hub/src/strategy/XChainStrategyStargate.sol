@@ -13,14 +13,15 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity >=0.8.0;
 
-import {XChainStargateHub} from "../XChainStargateHub.sol";
-import {IVault} from "../interfaces/IVault.sol";
-import {BaseStrategy} from "./BaseStrategy.sol";
+import {XChainStargateHub} from "@hub/XChainStargateHub.sol";
+import {BaseStrategy} from "@hub/strategy/BaseStrategy.sol";
 
-import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
-import {SafeERC20} from "openzeppelin/token/ERC20/utils/SafeERC20.sol";
+import {IVault} from "@interfaces/IVault.sol";
+import {IStargateReceiver} from "@interfaces/IStargateReceiver.sol";
+import {IERC20} from "@oz/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 
-contract XChainStrategyStargate is BaseStrategy {
+contract XChainStrategyStargate is BaseStrategy, IStargateReceiver {
     using SafeERC20 for IERC20;
 
     // possible states:
@@ -64,6 +65,8 @@ contract XChainStrategyStargate is BaseStrategy {
 
     uint256 public reportedUnderlying;
 
+    address public stargateRouter;
+
     constructor(
         XChainStargateHub hub_,
         IVault vault_,
@@ -74,6 +77,10 @@ contract XChainStrategyStargate is BaseStrategy {
     ) {
         __initialize(vault_, underlying_, manager_, strategist_, name_);
         hub = hub_;
+    }
+
+    function setStargateRouter(address _router) external {
+        stargateRouter = _router;
     }
 
     function depositUnderlying(
@@ -110,6 +117,26 @@ contract XChainStrategyStargate is BaseStrategy {
             minAmount,
             params.refundAddress
         );
+    }
+
+    /// @notice called by the stargate application on the dstChain
+    /// @dev invoked when IStargateRouter.swap is called
+    /// @param _srcChainId layerzero chain id on src
+    /// @param _srcAddress inital sender of the tx on src chain
+    /// @param _payload encoded payload data as IHubPayload.Message
+    function sgReceive(
+        uint16 _srcChainId,
+        bytes memory _srcAddress,
+        uint256, // nonce
+        address, // the token contract on the local chain
+        uint256 amountLD, // the qty of local _token contract tokens
+        bytes memory _payload
+    ) external override {
+        require(
+            msg.sender == address(stargateRouter),
+            "XChainHub::sgRecieve:NOT STARGATE ROUTER"
+        );
+        revert("NOT IMPLEMENTED");
     }
 
     function withdrawUnderlying(

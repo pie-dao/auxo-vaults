@@ -5,7 +5,7 @@ pragma abicoder v2;
 import {PRBTest} from "@prb/test/PRBTest.sol";
 import "@oz/token/ERC20/ERC20.sol";
 
-import {XChainStargateHub} from "@hub/XChainStargateHub.sol";
+import {XChainStargateHubMockActionsNoLz as XChainStargateHub} from "@hub-test/mocks/MockXChainStargateHub.sol";
 import {XChainStargateHubMockReducer, XChainStargateHubMockLzSend, XChainStargateHubMockActions} from "@hub-test/mocks/MockXChainStargateHub.sol";
 import {MockRouterPayloadCapture} from "@hub-test/mocks/MockStargateRouter.sol";
 
@@ -91,6 +91,7 @@ contract TestXChainStargateHubSrc is PRBTest {
     }
 
     function testFinalizeWithdrawFromVault() public {
+        uint256 _round = 2;
         // setup the token
         ERC20 token = new AuxoTest();
         assertEq(token.balanceOf(address(this)), 1e27);
@@ -101,14 +102,26 @@ contract TestXChainStargateHubSrc is PRBTest {
         token.transfer(address(_vault), 1e26); // 1/2 balance
         assertEq(token.balanceOf(address(_vault)), 1e26);
 
+        MockVault.BatchBurn memory batchBurn = MockVault.BatchBurn({
+            totalShares: 100 ether,
+            amountPerShare: 10**18
+        });
+
+        // receipts are saved for previous rounds
+        MockVault.BatchBurnReceipt memory receipt = MockVault.BatchBurnReceipt({
+            round: _round - 1,
+            shares: 1e26
+        });
+
+        _vault.setBatchBurnReceiptsForSender(address(hub), receipt);
+        _vault.setBatchBurnRound(_round);
+        _vault.setBatchBurnForRound(_round, batchBurn);
+
         // execute the action
         hub.finalizeWithdrawFromVault(tVault);
 
         // check the value, corresponds to the mock vault expected outcome
-        assertEq(
-            hub.withdrawnPerRound(address(_vault), 2),
-            _vault.expectedWithdrawal()
-        );
+        assertEq(hub.withdrawnPerRound(address(_vault), 2), 1e26);
     }
 
     function testRequestWithdrawFromChainFailsWithUntrustedStrategy(
