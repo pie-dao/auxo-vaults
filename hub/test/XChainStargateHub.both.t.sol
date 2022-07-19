@@ -44,6 +44,9 @@ contract TestXChainStargateHubSrcAndDst is PRBTest {
     MockVault public vault;
     address feesRecipient = 0x63BCe354DBA7d6270Cb34dAA46B869892AbB3A79;
 
+    address[] strategies;
+    uint16[] dstChains;
+
     function setUp() public {
         token = new AuxoTest();
         strategy = new MockStrat(token);
@@ -185,10 +188,9 @@ contract TestXChainStargateHubSrcAndDst is PRBTest {
         );
     }
 
-    function testFinalizeWithdrawal() public {
-        uint256 _amount = 100;
-
-        console.log("Amount", _amount);
+    function testFinalizeWithdrawal(uint256 _amount) public {
+        // we mint 1e27 tokens
+        vm.assume(_amount <= 1e27);
         uint256 _round = 2;
 
         // setup an initial state of tokens
@@ -225,18 +227,6 @@ contract TestXChainStargateHubSrcAndDst is PRBTest {
         hubSrc.setTrustedStrategy(address(strategy), true);
         hubDst.setTrustedVault(address(vault), true);
 
-        console.log("sg router on dst");
-        console.log(address(routerDst));
-
-        console.log("Address of the hubSrc");
-        console.log(address(hubSrc));
-
-        console.log("Address of the hubDst");
-        console.log(address(hubDst));
-
-        console.log("Address of the strat");
-        console.log(address(strategy));
-
         // execute the batch burn process
         hubDst.finalizeWithdrawFromVault(IVault(address(vault)));
 
@@ -260,5 +250,30 @@ contract TestXChainStargateHubSrcAndDst is PRBTest {
 
         // check tokens not in the hub
         assertEq(token.balanceOf(address(hubSrc)), 0);
+    }
+
+    function testReportUnderlying() public {
+        MockStrat stratDst = new MockStrat(token);
+
+        strategies.push(address(stratDst));
+        dstChains.push(chainIdDst);
+
+        uint256 shares = 1e21;
+
+        hubSrc.setTrustedVault(address(vault), true);
+        hubSrc.setSharesPerStrategy(dstChains[0], strategies[0], shares);
+        hubSrc.setLatestReport(dstChains[0], strategies[0], block.timestamp);
+
+        // report delay is 6 hours
+        vm.warp(block.timestamp + 6 hours);
+
+        hubSrc.reportUnderlying(
+            IVault(address(vault)),
+            dstChains,
+            strategies,
+            bytes("")
+        );
+
+        assertEq(stratDst.reported(), (shares * vault.exchangeRate()) / 10**18);
     }
 }

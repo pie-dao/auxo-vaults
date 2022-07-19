@@ -147,18 +147,11 @@ contract MockVault is ERC20, Pausable {
 
         BatchBurn memory batchBurn = batchBurns[batchBurnRound];
 
-        console.log("vault");
-        console.log(receipt.shares, batchBurnRound, batchBurn.amountPerShare);
-
         uint256 underlyingAmount = (receipt.shares * batchBurn.amountPerShare) /
             10**18;
 
-        console.log("underlying", underlyingAmount);
-        // underlyingAmount = 100;
-
         // batchBurnBalance -= underlyingAmount;
         underlying.transfer(msg.sender, underlyingAmount);
-        // underlying.transfer(msg.sender, 100);
     }
 
     function enterBatchBurn(uint256 shares) external {
