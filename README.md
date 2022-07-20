@@ -42,20 +42,18 @@ brownie test
 
 # Foundry
 
+Full details are in the [Hub Repo](./hub/README.md)
+
 Ensure you have Foundry installed with `foundryup`, then install the required dependencies:
 
 ```sh
 forge install foundry-rs/forge-std
 forge install OpenZeppelin/openzeppelin-contracts
 forge install OpenZeppelin/openzeppelin-contracts-upgradeable
-
-# if this doesn't work, install 0.1.1 but do NOT use 0.8.12 compiler
 forge install paulrberg/prb-test@0.1.2
 
 
 ```
-PRB Test 0.1.1 will not work with the 0.8.12 compiler.
-
 # Monorepo Gotchas
 
 This repo is in a somewhat transitive state, we would like to move to a full monorepo style setup but the solidity tooling is still young.
@@ -63,7 +61,7 @@ For the time being, you can do the following:
 
 - For single-package testing, cd into the relevant directory and either run the tests with brownie or foundry
     - Make sure to activate the venv if using brownie
-    - For foundry, make sure to install dependencies in the [package]/lib folder
+    - For foundry, make sure to install dependencies in the [PACKAGE_NAME]/lib folder
     - For foundry, make sure your remappings.txt file in the package uses the same identifiers as in the root, but, importantly, point the identifier to the package location. Example
 
 

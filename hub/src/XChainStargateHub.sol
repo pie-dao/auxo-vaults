@@ -19,6 +19,7 @@ import "@std/console.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
+import {Pausable} from "@oz/security/Pausable.sol";
 
 import {IVault} from "@interfaces/IVault.sol";
 import {IHubPayload} from "@interfaces/IHubPayload.sol";
@@ -31,7 +32,12 @@ import {IStargateRouter} from "@interfaces/IStargateRouter.sol";
 
 /// @title XChainHub
 /// @dev Expect this contract to change in future.
-contract XChainStargateHub is CallFacet, LayerZeroApp, IStargateReceiver {
+contract XChainStargateHub is
+    CallFacet,
+    LayerZeroApp,
+    IStargateReceiver,
+    Pausable
+{
     using SafeERC20 for IERC20;
 
     // --------------------------
@@ -158,6 +164,7 @@ contract XChainStargateHub is CallFacet, LayerZeroApp, IStargateReceiver {
     // Single Chain Functions
     // --------------------------
 
+    /// @dev can this be removed? the router is unlikely to change
     function setStargateEndpoint(address _stargateEndpoint) external onlyOwner {
         stargateRouter = IStargateRouter(_stargateEndpoint);
     }
@@ -184,7 +191,11 @@ contract XChainStargateHub is CallFacet, LayerZeroApp, IStargateReceiver {
     /// @notice calls the vault on the current chain to exit batch burn
     /// @dev this looks like it completes the exit process but need to confirm
     ///      how this aligns with the rest of the contract
-    function finalizeWithdrawFromVault(IVault vault) external onlyOwner {
+    function finalizeWithdrawFromVault(IVault vault)
+        external
+        onlyOwner
+        whenNotPaused
+    {
         uint256 round = vault.batchBurnRound();
         IERC20 underlying = vault.underlying();
         uint256 balanceBefore = underlying.balanceOf(address(this));
@@ -214,7 +225,7 @@ contract XChainStargateHub is CallFacet, LayerZeroApp, IStargateReceiver {
         uint16[] memory dstChains,
         address[] memory strats,
         bytes memory adapterParams
-    ) external payable onlyOwner {
+    ) external payable onlyOwner whenNotPaused {
         require(
             trustedVault[address(vault)],
             "XChainHub::reportUnderlying:UNTRUSTED"
@@ -295,7 +306,7 @@ contract XChainStargateHub is CallFacet, LayerZeroApp, IStargateReceiver {
         uint256 _amount,
         uint256 _minOut,
         address payable _refundAddress
-    ) external payable {
+    ) external payable whenNotPaused {
         require(
             trustedStrategy[msg.sender],
             "XChainHub::depositToChain:UNTRUSTED"
@@ -346,7 +357,7 @@ contract XChainStargateHub is CallFacet, LayerZeroApp, IStargateReceiver {
         uint256 amountVaultShares,
         bytes memory adapterParams,
         address payable refundAddress
-    ) external payable {
+    ) external payable whenNotPaused {
         require(
             trustedStrategy[msg.sender],
             "XChainHub::requestWithdrawFromChain:UNTRUSTED"
@@ -393,7 +404,7 @@ contract XChainStargateHub is CallFacet, LayerZeroApp, IStargateReceiver {
         uint16 srcPoolId,
         uint16 dstPoolId,
         uint256 minOutUnderlying
-    ) external payable {
+    ) external payable whenNotPaused {
         require(
             trustedStrategy[msg.sender],
             "XChainHub::finalizeWithdrawFromChain:UNTRUSTED"
@@ -693,9 +704,9 @@ contract XChainStargateHub is CallFacet, LayerZeroApp, IStargateReceiver {
             payable(refundRecipient),
             strategyAmount,
             payload.minOutUnderlying,
-            IStargateRouter.lzTxObj(200000, 0, "0x"),
+            IStargateRouter.lzTxObj(200000, 0, "0x"), // default gas, no airdrop
             abi.encodePacked(strategy),
-            bytes("")
+            bytes("") // send no payload
         );
     }
 
@@ -711,8 +722,21 @@ contract XChainStargateHub is CallFacet, LayerZeroApp, IStargateReceiver {
         IStrategy(payload.strategy).report(payload.amountToReport);
     }
 
-    /// TODO
-    function emergecyWithdraw() external virtual {}
+    /// @notice remove funds from the contract in the event that a revert locks them in
+    /// @dev this could happen because of a revert on one of the forwarding functions
+    /// @param _amount the quantity of tokens to remove
+    /// @param _token the address of the token to withdraw
+    /// @dev this assumes no state variables have been updated
+    function emergencyWithdraw(uint256 _amount, address _token)
+        external
+        onlyOwner
+    {
+        IERC20 underlying = IERC20(_token);
+        underlying.safeTransfer(msg.sender, _amount);
+    }
 
-    function setPause() external virtual {} // + modifier
+    /// @notice Triggers the Vault's pause
+    function triggerPause() external onlyOwner {
+        paused() ? _unpause() : _pause();
+    }
 }
