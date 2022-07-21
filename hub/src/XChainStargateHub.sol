@@ -23,6 +23,7 @@ import {Pausable} from "@oz/security/Pausable.sol";
 
 import {IVault} from "@interfaces/IVault.sol";
 import {IHubPayload} from "@interfaces/IHubPayload.sol";
+import {IXChainHub} from "@interfaces/IXChainHub.sol";
 import {IStrategy} from "@interfaces/IStrategy.sol";
 
 import {LayerZeroApp} from "./LayerZeroApp.sol";

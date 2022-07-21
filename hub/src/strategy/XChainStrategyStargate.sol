@@ -18,6 +18,7 @@ import {BaseStrategy} from "@hub/strategy/BaseStrategy.sol";
 
 import {IVault} from "@interfaces/IVault.sol";
 import {IStargateReceiver} from "@interfaces/IStargateReceiver.sol";
+import {IXChainHub} from "@interfaces/IXChainHub.sol";
 import {IStargateRouter} from "@interfaces/IStargateRouter.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
@@ -28,12 +29,44 @@ import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 contract XChainStrategyStargate is BaseStrategy, IStargateReceiver {
     using SafeERC20 for IERC20;
 
+    /// ------------------
+    /// Events
+    /// ------------------
+
+    /// @notice emitted when a cross chain deposit request is sent from this strategy
+    event DepositXChain(uint256 deposited, uint16 dstChainId);
+
+    /// @notice emitted when a request to burn vault shares is sent
+    event WithdrawRequestXChain(uint256 vaultShares, uint16 srcChainId);
+
+    /// @notice emitted with a request to exit batch burn is sent
+    event WithdrawFinalizeXChain(uint16 dstChainId);
+
+    /// @notice emitted when tokens underlying have been successfully received after exiting batch burn
+    event ReceiveXChain(uint256 amount, uint16 srcChainId);
+
+    /// @notice emitted when the reported quantity of underlying held in other chains changes
+    event ReportXChain(uint256 oldQty, uint256 newQty);
+
+    /// @notice emitted when the address of the stargate router is updated
+    event UpdateRouter(address indexed newRouter);
+
+    /// @notice emitted when the address of the XChainHub is updated
+    event UpdateHub(address indexed newHub);
+
+    /// @notice emitted when the address of the vault is updated
+    event UpdateVault(address indexed newVault);
+
+    /// ------------------
+    /// Structs
+    /// ------------------
+
     /// @notice restricts XChainStrategy actions to certain lifecycle states
     /// possible states:
-    ///  - not deposited: strategy withdrawn
-    ///  - Depositing: strategy is depositing
+    ///  - not deposited: initial state OR strategy withdrawn
+    ///  - Depositing: strategy is depositing, awaiting
     ///  - Deposited: strategy has deposited
-    ///  - withdrawing: strategy is withdrawing
+    ///  - withdrawing: strategy is withdrawing, awaiting receipt of tokens
     enum DepositState {
         NOT_DEPOSITED,
         DEPOSITING,
@@ -45,18 +78,22 @@ contract XChainStrategyStargate is BaseStrategy, IStargateReceiver {
     /// @param state see DepositState enum
     /// @param amountDeposited the current amount deposited cross chain
     struct Deposit {
-        state DepositState;
+        DepositState state;
         uint256 amountDeposited;
     }
 
+    /// ------------------
+    /// Variables
+    /// ------------------
+
     /// @notice the XChainHub managing this strategy
-    XChainStargateHub private hub;
+    IXChainHub private hub;
 
     /// @notice the current enumerated state of the contract
     DepositState public state;
 
     /// @notice a globally available struct containing deposit data
-    Deposit public xChainDeposit;
+    Deposit public XChainDeposit;
 
     /// @notice the latest amount of underlying tokens reported as being held in the strategy
     uint256 public reportedUnderlying;
@@ -64,14 +101,18 @@ contract XChainStrategyStargate is BaseStrategy, IStargateReceiver {
     /// @notice the address of the stargateRouter on the current chain
     address public stargateRouter;
 
+    /// ------------------
+    /// Constructor
+    /// ------------------
+
     /// @param hub_ the hub on this chain that the strategy will be interacting with
     /// @param vault_ the vault on this chain that has deposited into this strategy
     /// @param underlying_ the underlying ERC20 token
     /// @param manager_ the address of the EOA with manager permissions
     /// @param strategist_ the address of the EOA with strategist permissions
-    /// @param name a human readable identifier for this strategy
+    /// @param name_ a human readable identifier for this strategy
     constructor(
-        XChainStargateHub hub_,
+        address hub_,
         IVault vault_,
         IERC20 underlying_,
         address manager_,
@@ -79,28 +120,60 @@ contract XChainStrategyStargate is BaseStrategy, IStargateReceiver {
         string memory name_
     ) {
         __initialize(vault_, underlying_, manager_, strategist_, name_);
-        hub = hub_;
+        hub = IXChainHub(hub_);
     }
+
+    /// ------------------
+    /// View Functions
+    /// ------------------
+
+    /// @notice fetches the estimated qty of underlying tokens in the strategy
+    function estimatedUnderlying() external view override returns (uint256) {
+        return
+            XChainDeposit.state == DepositState.NOT_DEPOSITED
+                ? float()
+                : reportedUnderlying + float();
+    }
+
+    /// @dev does this belong in the hub?
+    function estimateDepositFees() external returns (uint256) {
+        revert("NOT IMPEMENTED");
+        return 0;
+        // IStargateRouter(stargateRouter).quoteLayerZeroFee(_dstChainId, 1, _toAddress, _transferAndCallPayload, _lzTxParams);
+    }
+
+    /// ------------------
+    /// Setters
+    /// ------------------
 
     /// @notice sets the stargate router
     /// @dev a separate setter does not require rewriting all deploy scripts
     function setStargateRouter(address _router) external {
         require(msg.sender == manager, "XChainStrategy::setHub:UNAUTHORIZED");
         stargateRouter = _router;
+        emit UpdateRouter(_router);
     }
 
     /// @notice updates the cross chain hub to which this strategy is connected
     /// @dev make sure to trust this strategy on the new hub
+    /// @param _hub the address of the XChainHub contract on this chain
     function setHub(address _hub) external {
         require(msg.sender == manager, "XChainStrategy::setHub:UNAUTHORIZED");
-        hub = _hub;
+        hub = IXChainHub(_hub);
+        emit UpdateHub(_hub);
     }
 
     /// @notice updates the vault to which this strategy is connected
+    /// @param _vault the address of the vault proxy on this chain
     function setVault(address _vault) external {
         require(msg.sender == manager, "XChainStrategy::setVault:UNAUTHORIZED");
-        vault = _vault;
+        vault = IVault(_vault);
+        emit UpdateVault(_vault);
     }
+
+    /// ------------------
+    /// Cross Chain Functions
+    /// ------------------
 
     /// @notice makes a deposit of underlying tokens into a vault on the destination chain
     function depositUnderlying(
@@ -114,6 +187,11 @@ contract XChainStrategyStargate is BaseStrategy, IStargateReceiver {
         address payable refundAddress
     ) external payable {
         require(
+            msg.value > 0,
+            "XChainStrategy::depositUnderlying:NO GAS FOR FEES"
+        );
+
+        require(
             msg.sender == manager || msg.sender == strategist,
             "XChainStrategy::depositUnderlying:UNAUTHORIZED"
         );
@@ -126,7 +204,7 @@ contract XChainStrategyStargate is BaseStrategy, IStargateReceiver {
         );
 
         XChainDeposit.state = DepositState.DEPOSITING;
-        xChainDeposit.amountDeposited += amount;
+        XChainDeposit.amountDeposited += amount;
 
         underlying.safeApprove(address(hub), amount);
 
@@ -141,20 +219,16 @@ contract XChainStrategyStargate is BaseStrategy, IStargateReceiver {
             minAmount,
             refundAddress
         );
-    }
 
-    /// @dev does this belong in the hub?
-    function estimateDepositFees() external returns (uint256) {
-        revert("NOT IMPEMENTED");
-        return 0;
-        // IStargateRouter(stargateRouter).quoteLayerZeroFee(_dstChainId, 1, _toAddress, _transferAndCallPayload, _lzTxParams);
+        emit DepositXChain(amount, dstChain);
     }
 
     /// @notice called by the stargate application on the dstChain when IStargateRouter.swap
     /// @dev required for finalizeWithdraw
+    /// @param srcChainId chainId from where the request was received
     /// @param amountLD underlying tokens received, minus fees
     function sgReceive(
-        uint16, // src chaind
+        uint16 srcChainId, // src chaind
         bytes memory, // src address
         uint256, // nonce
         address, // the token contract on the local chain
@@ -170,24 +244,23 @@ contract XChainStrategyStargate is BaseStrategy, IStargateReceiver {
             "XChainStrategy::sgReceive:WRONG STATE"
         );
 
-        // reset the state - if you want to zero it, call report
+        // if you want to reset state, call report with zero value
         XChainDeposit.state = DepositState.DEPOSITED;
 
         // do we need to reset the amount deposited?
         // how to account for swap fees?
-        xChainDeposit.amountDeposited -= amountLD;
+        XChainDeposit.amountDeposited -= amountLD;
 
-        // vault can now call the withdraw method
-
-        // emit SomeEvent();
+        emit ReceiveXChain(amountLD, srcChainId);
     }
 
+    /// @notice makes a request to the remote hub to begin the withdrawal process
     function withdrawUnderlying(
         uint256 amountVaultShares,
         bytes memory adapterParams,
         address payable refundAddress,
         uint16 dstChain,
-        uint16 dstVault
+        address dstVault
     ) external {
         require(
             msg.sender == manager || msg.sender == strategist,
@@ -210,13 +283,16 @@ contract XChainStrategyStargate is BaseStrategy, IStargateReceiver {
             adapterParams,
             refundAddress
         );
+
+        emit WithdrawRequestXChain(amountVaultShares, dstChain);
     }
 
+    /// @notice completes the withdrawal process once the batch burn is completed
     function finalizeWithdraw(
         bytes memory adapterParams,
         address payable refundAddress,
         uint16 dstChain,
-        uint16 dstVault,
+        address dstVault,
         uint16 srcPoolId,
         uint16 dstPoolId,
         uint256 minOutUnderlying
@@ -226,7 +302,6 @@ contract XChainStrategyStargate is BaseStrategy, IStargateReceiver {
             "XChainStrategy::finalizeWithdraw:UNAUTHORIZED"
         );
 
-        /// @dev should this be 'withdraw ready?'
         require(
             XChainDeposit.state == DepositState.WITHDRAWING,
             "XChainStrategy::finalizeWithdraw:WRONG STATE"
@@ -241,15 +316,8 @@ contract XChainStrategyStargate is BaseStrategy, IStargateReceiver {
             dstPoolId,
             minOutUnderlying
         );
-    }
 
-    /// @notice fetches the estimated qty of underlying tokens in the strategy
-    /// @dev
-    function estimatedUnderlying() external view override returns (uint256) {
-        return
-            XChainDeposit.state == DepositState.NOT_DEPOSITED
-                ? float()
-                : reportedUnderlying + float();
+        emit WithdrawFinalizeXChain(dstChain);
     }
 
     /// @notice allows the hub to update the qty of tokens held in the account
@@ -271,7 +339,8 @@ contract XChainStrategyStargate is BaseStrategy, IStargateReceiver {
         // zero value indicates the strategy is closed
         if (_reportedUnderlying == 0) {
             XChainDeposit.state = DepositState.NOT_DEPOSITED;
-            xChainDeposit.amountDeposited = 0;
+            emit ReportXChain(XChainDeposit.amountDeposited, 0);
+            XChainDeposit.amountDeposited = 0;
             return;
         }
 
@@ -279,6 +348,7 @@ contract XChainStrategyStargate is BaseStrategy, IStargateReceiver {
             XChainDeposit.state = DepositState.DEPOSITED;
         }
 
+        emit ReportXChain(reportedUnderlying, _reportedUnderlying);
         reportedUnderlying = _reportedUnderlying;
     }
 }
