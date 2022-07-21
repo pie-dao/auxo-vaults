@@ -187,3 +187,15 @@ Some implications:
 
 ### Considerations
 - L0 does not revert if the message goes through, it just fails on the dstChain. For reporting, how are we handling such cases?
+
+
+Changes Requested:
+[x] At least 0.8.14 - check changelog for .15
+[x] Remove setter on stargate router and set to immutable
+[x/U] Check to make sure sg/lz only called by our hub
+- Revert if minOutTooHigh - stargate router
+- rename to _finalizeWithdrawFromChainAction
+
+- can we store underlying qty on withdraw and pull it
+- change nonBlockingLzReceive to lzReceive and define the exceptions
+

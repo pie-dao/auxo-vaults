@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-pragma solidity >=0.8.0;
+pragma solidity 0.8.14;
 import {XChainStargateHub} from "@hub/XChainStargateHub.sol";
 import {IHubPayload} from "@interfaces/IHubPayload.sol";
 import {IVault} from "@interfaces/IVault.sol";

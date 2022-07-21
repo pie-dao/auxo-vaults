@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity >=0.8.0;
+pragma solidity 0.8.14;
 pragma abicoder v2;
 
 import {PRBTest} from "@prb/test/PRBTest.sol";

@@ -11,7 +11,7 @@
 // auxo.fi
 
 // SPDX-License-Identifier: AGPL-3.0-only
-pragma solidity >=0.8.0;
+pragma solidity 0.8.14;
 
 import {Ownable} from "@oz/access/Ownable.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
