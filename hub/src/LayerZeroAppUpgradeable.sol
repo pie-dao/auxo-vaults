@@ -2,21 +2,24 @@
 
 pragma solidity 0.8.14;
 
-import {Ownable} from "@oz/access/Ownable.sol";
+import {BaseUpgradeable} from "./BaseUpgradeable.sol";
+// import {Initializable} from "@oz-upgradeable/proxy/utils/Initializable.sol";
+// import {OwnableUpgradeable as Ownable} from "@oz-upgradeable/access/OwnableUpgradeable.sol";
+// import {PausableUpgradeable as Pausable} from "@oz-upgradeable/security/PausableUpgradeable.sol";
 
 import {ILayerZeroReceiver} from "./interfaces/ILayerZeroReceiver.sol";
 import {ILayerZeroEndpoint} from "./interfaces/ILayerZeroEndpoint.sol";
 import {ILayerZeroUserApplicationConfig} from "./interfaces/ILayerZeroUserApplicationConfig.sol";
 
-/// @title LayerZeroApp
+/// @title LayerZeroAppUpgradeable
 /// @notice A generic app template that uses LayerZero.
-abstract contract LayerZeroApp is
-    Ownable,
+abstract contract LayerZeroAppUpgradeable is
+    BaseUpgradeable,
     ILayerZeroReceiver,
     ILayerZeroUserApplicationConfig
 {
     /// @notice The LayerZero endpoint for the current chain.
-    ILayerZeroEndpoint public immutable layerZeroEndpoint;
+    ILayerZeroEndpoint public layerZeroEndpoint;
 
     /// @notice The remote trusted parties.
     mapping(uint16 => bytes) public trustedRemoteLookup;
@@ -42,9 +45,12 @@ abstract contract LayerZeroApp is
         bytes payload
     );
 
-    /// @notice Initialize contract.
-    /// @param endpoint The LayerZero endpoint.
-    constructor(address endpoint) {
+    constructor() {
+        _disableInitializers();
+    }
+
+    function initialize(address endpoint) public onlyInitializing {
+        BaseUpgradeable.initialize();
         layerZeroEndpoint = ILayerZeroEndpoint(endpoint);
     }
 

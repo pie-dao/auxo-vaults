@@ -1,7 +1,7 @@
 
 @oz/=lib/openzeppelin-contracts/contracts/
 openzeppelin/=lib/openzeppelin-contracts/contracts/
-@oz-upgradeable/=lib/openzeppelin-contracts-upgradeable.git/contracts/
+@oz-upgradeable/=lib/openzeppelin-contracts-upgradeable/contracts/
 @std/=lib/forge-std/src/
 @prb/test/=lib/prb-test/src/
 
