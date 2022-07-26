@@ -176,26 +176,136 @@ Some implications:
 4. We cannot make a further withdrawal at this stage due to the guard clauses.
 5. We would need to make a further deposit to bring the state back to DEPOSITED, then withdraw again. 
 
-### Questions
-- How does the BaseStrategy handle the case where underlying changes? Is this expected to be implemented in the inherited contract?
-- A lot of the XChainStrategy logic is replicated in the XChainHub. What exactly is the purpose of this contract? Is the aim that it is extended with 'real' strategies.
-- BaseStrategy defines 2 virtual methods `depositUnderlying` and `withdrawUnderlying`, but XChain withdrawals from vaults need to go through a batch burn process after requesting withdrawal. Is there a 3rd method that is needed?
-- It looks technically possible to make cross chain deposits to multiple places, from the same XChain strategy, is this what we want?
-    - We could change the chain
-    - We could change the vault
-    - How does that work?
+# Addressing Security Considerations in sgReceive
 
-### Considerations
-- L0 does not revert if the message goes through, it just fails on the dstChain. For reporting, how are we handling such cases?
+While LayerZero Endpoints expose the `srcAddress` of the sending contract, Stargate Receiever only exposes the address of the Stargate Router on the source chain.
+
+This exposes a particular attack vector on all sgReceive functions:
+
+- The address of the Auxo Hub is public
+- The contract code of the Auxo Hub is also made public
+- Anyone can send a message to the Stargate Receiever, forwarding the message to the Auxo Hub.
+
+An attacker could therefore:
+
+- Call the Stargate Router on any chain, encoding a malicious payload with a destination of the Hub.
+- Stargate will forward the message to the Hub, which will be accepted as the sgReceive function accepts all calls from the Stargate Router.
+- The attacker has full control of the `_payload` data, so in the Payload.Message can encode the exploit.
+
+## Potential exploit
+
+- We whitelist specific actions then forward them through the _reducer function. We will be exploring the `DEPOSIT_ACTION` (86) which will be sent to the `_depositAction` function:
+
+```sol
+    function _depositAction(
+        uint16 _srcChainId,
+        bytes memory _payload,
+        uint256 _amountReceived
+    ) internal virtual {
+
+        /// at this point, we cannot trust the authenticity of the payload
+
+        IHubPayload.DepositPayload memory payload = abi.decode(
+            _payload,
+            (IHubPayload.DepositPayload)
+        );
+
+        /// vault must be trusted, but it might not match the strategy
+
+        IVault vault = IVault(payload.vault);
+        require(
+            trustedVault[address(vault)],
+            "XChainHub::_depositAction:UNTRUSTED"
+        );
+
+        /// underyling is derived from vault, so it is safe at the moment
+
+        IERC20 underlying = vault.underlying();
+
+        uint256 vaultBalance = vault.balanceOf(address(this));
+
+        /// _amountReceived is passed from stargate swap - assume safe for now
+
+        underlying.safeApprove(address(vault), _amountReceived);
+
+        /// deposit performs validations and will revert the tx if amount and balance don't line up
+
+        vault.deposit(address(this), _amountReceived);
+
+        uint256 mintedShares = vault.balanceOf(address(this)) - vaultBalance;
+
+        require(
+            mintedShares >= payload.min,
+            "XChainHub::_depositAction:INSUFFICIENT MINTED SHARES"
+        );
+
+        /// This is the exploit: 
+        /// First, strategy is not checked, it can be any address
+        /// Secondly, _srcChainId comes from stargate BUT there is no guarantee it corresponds to the correct strategy on that chain
+        /// Attacker can break reporting by sending from (eg) Optimism
+        /// with strategy address on (eg) Arbitrum. 
+
+        sharesPerStrategy[_srcChainId][payload.strategy] += mintedShares;
+    }
+```
+
+## Fix
+
+One fix is to change the structure of the XChainHub. Instead of having a universal Hub accounting for multiple strategies and vaults, we can change the setup to have a single hub, responsible for a single vault. 
 
 
-Changes Requested:
-[x] At least 0.8.14 - check changelog for .15
-[x] Remove setter on stargate router and set to immutable
-[x/U] Check to make sure sg/lz only called by our hub
-- Revert if minOutTooHigh - stargate router
-- rename to _finalizeWithdrawFromChainAction
+```py
+Vault_Chain_Token_Src -----┐                                           
+                           ↓	                                         |
+                XChainStrategy_Chain_Token ---> Hub_Vault_Src ---//|
+                                                                         |
 
-- can we store underlying qty on withdraw and pull it
-- change nonBlockingLzReceive to lzReceive and define the exceptions
+
+|
+|// ----> Hub_Vault_Dst ----> Vault_Chain_Token_Dst
+|
+                                                                    
+```
+
+In this situation, the vault is not encoded in the payload, instead it can be set by the admin.
+
+The situation therefore would be:
+
+- Each Hub is responsible for one vault. 
+- Any XChainStrategy depositing into the Hub will therefore deposit into a corresponding Vault
+- Each XChainStrategy will be unique to a ChainId and Token.
+
+Potential Exploits:
+- It is still possible to make deposits into the Hub from an unknown place. For example, an attacker could send 100 USDC to a USDC Vault through Stargate:
+
+Deposit Workflow
+
+- The hub would accept the deposit
+- ~ 1000 USDC would be added to the vault
+- The vault would send ~ 1000 auxoUSDC to the hub
+- We can check the # shares by calling auxoUSDC{chain}.balanceOf(hub)
+OR 
+- Keep shares per chain
+
+- The strategy would be unaware that +1000 USDC were sent.
+- When report is called, reportedUnderlying would increase by 1000
+- Our amount depositied would be low, so we would report a very large APY if we take raw numbers from the vault.
+- The attacker has caused some confusion, but as yet no clear profit nor DoS
+
+Report Workflow
+- sharesPerStrategy is replaced with sharesPerChain, reporting would operate as normal but with the aforementioned jump in reportedUnderlying
+
+Withdraw Workflow:
+- Finalize Withdraw will be called on the DST chain and will send tokens to the destination hub using stargate swap. This needs a rewrite.
+
+Withdraw from Hub:
+- The strategy can withdraw from the src hub when available
+
+Questions/Comments:
+- We cannot trust APY coming from the change in underlying, needs to be computed off chain most likely on %age basis (not differentials)
+- What if someone sent AuxoTokens to the hub (we need shares per chain)
+
+
+
+
 

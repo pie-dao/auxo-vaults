@@ -23,7 +23,6 @@ import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 
 /// @title A Cross Chain Strategy enabled to use Stargate Finance
 /// @notice Handles interactions with the Auxo cross chain hub
-/// @dev implements IStargateReceiver in order to receive Stargate Swaps
 /// @dev how to manage the names of this - filename?
 contract XChainStrategyStargate is BaseStrategy {
     using SafeERC20 for IERC20;
@@ -70,9 +69,11 @@ contract XChainStrategyStargate is BaseStrategy {
     /// @notice global deposit data
     /// @param state see DepositState enum
     /// @param amountDeposited the current amount deposited cross chain
+    /// @param amountWithdrawn the current amount withdrawn, can be > deposited with positive yield
     struct Deposit {
         DepositState state;
         uint256 amountDeposited;
+        uint256 amountWithdrawn;
     }
 
     /// ------------------
@@ -151,10 +152,7 @@ contract XChainStrategyStargate is BaseStrategy {
     /// ------------------
 
     /// @notice makes a deposit of underlying tokens into a vault on the destination chain
-    /// could this be virtual
-    /// override?
-    /// internal?
-    function _depositUnderlying(
+    function depositUnderlying(
         uint256 amount,
         uint256 minAmount,
         uint16 dstChain, // this will be hardcoded or set as state variables
@@ -163,7 +161,7 @@ contract XChainStrategyStargate is BaseStrategy {
         address dstHub, // this will be hardcoded or set as state variables
         address dstVault, // this will be hardcoded or set as state variables
         address payable refundAddress
-    ) internal payable {
+    ) external payable {
         require(
             msg.value > 0,
             "XChainStrategy::depositUnderlying:NO GAS FOR FEES"
@@ -180,11 +178,6 @@ contract XChainStrategyStargate is BaseStrategy {
             currentState != DepositState.WITHDRAWING,
             "XChainStrategy::depositUnderlying:WRONG STATE"
         );
-
-        /**
-            depositUnderlying(chainid 1, dstVault: 0xbeef, 50% USDC)
-            depositUnderlying(chainid 1, dstVault: 0xcoffee, 50% USDC)
-         */
 
         XChainDeposit.state = DepositState.DEPOSITING;
         XChainDeposit.amountDeposited += amount;
@@ -204,6 +197,27 @@ contract XChainStrategyStargate is BaseStrategy {
         );
 
         emit DepositXChain(amount, dstChain);
+    }
+
+    /// @notice when underlying tokens have been sent to the hub on this chain, retrieve them into the strategy
+    /// @param _amount the quantity of native tokens to withdraw from the hub
+    /// @dev must approve the strategy for withdrawal before withdrawing
+    function withdrawFromHub(uint256 _amount) external {
+        require(
+            msg.sender == manager || msg.sender == strategist,
+            "XChainStrategy::withdrawFromHub:UNAUTHORIZED"
+        );
+
+        require(
+            XChainDeposit.state == DepositState.WITHDRAWING,
+            "XChainStrategy::withdrawFromHub:WRONG STATE"
+        );
+
+        // we can't subtract deposits because we might erroneously report 0 deposits with leftover yield
+        XChainDeposit.state = DepositState.DEPOSITED;
+        XChainDeposit.amountWithdrawn += _amount;
+
+        underlying.safeTransferFrom(address(hub), address(this), _amount);
     }
 
     /// @notice makes a request to the remote hub to begin the withdrawal process
@@ -256,6 +270,7 @@ contract XChainStrategyStargate is BaseStrategy {
         );
 
         // zero value indicates the strategy is closed
+        // @dev add reportedUnderlying
         if (_reportedUnderlying == 0) {
             XChainDeposit.state = DepositState.NOT_DEPOSITED;
             emit ReportXChain(XChainDeposit.amountDeposited, 0);
