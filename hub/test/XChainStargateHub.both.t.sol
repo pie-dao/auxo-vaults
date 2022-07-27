@@ -14,10 +14,10 @@ import {MockStrat} from "@hub-test/mocks/MockStrategy.sol";
 import {AuxoTest} from "@hub-test/mocks/MockERC20.sol";
 import {MockVault} from "@hub-test/mocks/MockVault.sol";
 import {StargateRouterMock} from "@hub-test/mocks/MockStargateRouter.sol";
-import {XChainStargateHubMockActionsNoLz as XChainStargateHub} from "@hub-test/mocks/MockXChainStargateHub.sol";
+import {XChainHubMockActionsNoLz as XChainHub} from "@hub-test/mocks/MockXChainHub.sol";
 
 /// @notice unit tests for functions executed on the source chain only
-contract TestXChainStargateHubSrcAndDst is PRBTest {
+contract TestXChainHubSrcAndDst is PRBTest {
     event EnterBatchBurn(
         uint256 indexed round,
         address indexed account,
@@ -30,8 +30,8 @@ contract TestXChainStargateHubSrcAndDst is PRBTest {
     LZEndpointMock public lzSrc;
     LZEndpointMock public lzDst;
 
-    XChainStargateHub public hubSrc;
-    XChainStargateHub public hubDst;
+    XChainHub public hubSrc;
+    XChainHub public hubDst;
 
     StargateRouterMock public routerSrc;
     StargateRouterMock public routerDst;
@@ -62,13 +62,13 @@ contract TestXChainStargateHubSrcAndDst is PRBTest {
         lzDst = new LZEndpointMock(chainIdDst);
 
         // deploy the xchain contracts
-        hubSrc = new XChainStargateHub(
+        hubSrc = new XChainHub(
             address(routerSrc),
             address(lzSrc),
             address(0x0)
         );
 
-        hubDst = new XChainStargateHub(
+        hubDst = new XChainHub(
             address(routerDst),
             address(lzDst),
             address(0x0)
@@ -234,11 +234,10 @@ contract TestXChainStargateHubSrcAndDst is PRBTest {
         hubSrc.finalizeWithdrawFromChain(
             chainIdDst,
             address(vault),
-            bytes(""),
-            payable(address(0x0)),
+            address(strategy),
+            0,
             1,
-            1,
-            0
+            1
         );
 
         // ensure the destination is cleared out

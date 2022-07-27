@@ -260,7 +260,6 @@ Vault_Chain_Token_Src -----┐
                 XChainStrategy_Chain_Token ---> Hub_Vault_Src ---//|
                                                                          |
 
-
 |
 |// ----> Hub_Vault_Dst ----> Vault_Chain_Token_Dst
 |
@@ -306,6 +305,16 @@ Questions/Comments:
 - What if someone sent AuxoTokens to the hub (we need shares per chain)
 
 
+Todo:
+[]: Replace shares per strate
 
+
+
+
+/**
+    single chain strategies
+    Changes ~~~~~~ sgReceive functions - make external functions external
+
+*/
 
 

@@ -40,15 +40,9 @@ interface IHubPayload {
 
     /// @param vault on the dst chain
     /// @param strategy (to withdraw from?)
-    /// @param srcPoolId stargate pool id on the src
-    /// @param dstPoolId stargate pool id on  the dst
-    /// @param minOutUnderlying minimum underlying we will accept from the stargate swap on dst
     struct FinalizeWithdrawPayload {
         address vault;
         address strategy;
-        uint16 srcPoolId;
-        uint16 dstPoolId;
-        uint256 minOutUnderlying;
     }
 
     /// @param vault on the destinationc chain

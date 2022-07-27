@@ -53,6 +53,7 @@ contract MockVault is ERC20, Pausable {
             (shares = calculateShares(underlyingAmount)),
             underlyingAmount
         );
+        return 0;
     }
 
     // set batch burn artificially for testing

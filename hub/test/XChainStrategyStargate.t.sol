@@ -6,7 +6,7 @@ import {PRBTest} from "@prb/test/PRBTest.sol";
 import "@oz/token/ERC20/ERC20.sol";
 import "@std/console.sol";
 
-import {XChainStrategyStargate} from "@hub/strategy/XChainStrategyStargate.sol";
+import {XChainStrategy} from "@hub/strategy/XChainStrategy.sol";
 
 import {AuxoTest} from "@hub-test/mocks/MockERC20.sol";
 import {MockVault} from "@hub-test/mocks/MockVault.sol";
@@ -50,7 +50,7 @@ contract MockHub {
 
 contract Test is PRBTest {
     MockHub hub;
-    XChainStrategyStargate strategy;
+    XChainStrategy strategy;
     address vaultAddr;
     ERC20 token;
 
@@ -60,7 +60,7 @@ contract Test is PRBTest {
     function setUp() public {
         hub = new MockHub();
         token = new AuxoTest();
-        strategy = new XChainStrategyStargate(
+        strategy = new XChainStrategy(
             address(hub),
             IVault(vaultAddr),
             token,

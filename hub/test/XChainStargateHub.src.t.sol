@@ -5,8 +5,8 @@ pragma abicoder v2;
 import {PRBTest} from "@prb/test/PRBTest.sol";
 import "@oz/token/ERC20/ERC20.sol";
 
-import {XChainStargateHubMockActionsNoLz as XChainStargateHub} from "@hub-test/mocks/MockXChainStargateHub.sol";
-import {XChainStargateHubMockReducer, XChainStargateHubMockLzSend, XChainStargateHubMockActions} from "@hub-test/mocks/MockXChainStargateHub.sol";
+import {XChainHubMockActionsNoLz as XChainHub} from "@hub-test/mocks/MockXChainHub.sol";
+import {XChainHubMockReducer, XChainHubMockLzSend, XChainHubMockActions} from "@hub-test/mocks/MockXChainHub.sol";
 import {MockRouterPayloadCapture} from "@hub-test/mocks/MockStargateRouter.sol";
 
 import {AuxoTest} from "@hub-test/mocks/MockERC20.sol";
@@ -18,13 +18,14 @@ import {IVault} from "@interfaces/IVault.sol";
 import {IHubPayload} from "@interfaces/IHubPayload.sol";
 
 /// @notice unit tests for functions executed on the source chain only
-contract TestXChainStargateHubSrc is PRBTest {
+contract TestXChainHubSrc is PRBTest {
     address public stargate;
+
     address public lz;
     address public refund;
     address public vaultAddr;
     IVault public vault;
-    XChainStargateHub public hub;
+    XChainHub public hub;
     address[] public strategies;
     uint16[] public dstChains;
     // random addr
@@ -39,7 +40,7 @@ contract TestXChainStargateHubSrc is PRBTest {
             0x63BCe354DBA7d6270Cb34dAA46B869892AbB3A79,
             0x675e75A6f90E0610d150f415e4406B4989AaD023
         );
-        hub = new XChainStargateHub(stargate, lz, refund);
+        hub = new XChainHub(stargate, lz, refund);
     }
 
     // test initial state of the contract
@@ -148,7 +149,7 @@ contract TestXChainStargateHubSrc is PRBTest {
         address _trustedStrat = 0x69b8C988b17BD77Bb56BEe902b7aB7E64F262F35;
 
         // instantiate the mock
-        XChainStargateHubMockLzSend hubSrc = new XChainStargateHubMockLzSend(
+        XChainHubMockLzSend hubSrc = new XChainHubMockLzSend(
             stargate,
             lz,
             refund
@@ -203,17 +204,14 @@ contract TestXChainStargateHubSrc is PRBTest {
         vm.assume(untrusted != trustedStrat);
 
         vm.prank(untrusted);
-        vm.expectRevert(
-            bytes("XChainHub::finalizeWithdrawFromChain:UNTRUSTED")
-        );
+        vm.expectRevert(bytes("Ownable: caller is not the owner"));
         hub.finalizeWithdrawFromChain(
             _mockChainIdDst,
             _dstAddress,
-            bytes(""),
-            payable(refund),
+            trustedStrat,
+            minOutUnderlying,
             srcPoolId,
-            dstPoolId,
-            minOutUnderlying
+            dstPoolId
         );
     }
 
@@ -222,89 +220,73 @@ contract TestXChainStargateHubSrc is PRBTest {
         uint16 _mockChainIdDst = 2;
         address _dstAddress = address(hub);
         address _trustedStrat = 0x69b8C988b17BD77Bb56BEe902b7aB7E64F262F35;
+        ERC20 token = new AuxoTest();
+        MockVault _trustedVault = new MockVault(token);
+
         uint16 srcPoolId = 1;
         uint16 dstPoolId = 2;
-        uint256 minOutUnderlying = 1e21;
+        uint256 minOutUnderlying = 0;
+
+        MockRouterPayloadCapture mockRouter = new MockRouterPayloadCapture();
 
         // instantiate the mock
-        XChainStargateHubMockLzSend hubSrc = new XChainStargateHubMockLzSend(
-            stargate,
+        XChainHubMockActions hubSrc = new XChainHubMockActions(
+            address(mockRouter),
             lz,
             refund
         );
 
-        // minimal whitelisting
+        // setup state
         hubSrc.setTrustedStrategy(_trustedStrat, true);
         hubSrc.setTrustedRemote(_mockChainIdDst, abi.encodePacked(_dstAddress));
+        hubSrc.setTrustedHub(_dstAddress, _mockChainIdDst, true);
+        hubSrc.setTrustedVault(address(_trustedVault), true);
+        hubSrc.setCurrentRoundPerStrategy(_mockChainIdDst, _trustedStrat, 1);
 
-        vm.prank(_trustedStrat);
         hubSrc.finalizeWithdrawFromChain(
             _mockChainIdDst,
-            _dstAddress,
-            bytes(""),
-            payable(refund),
+            address(_trustedVault),
+            _trustedStrat,
+            minOutUnderlying,
             srcPoolId,
-            dstPoolId,
-            minOutUnderlying
+            dstPoolId
         );
 
-        // the mock intercepts and stores payloads that we can inspect
-        bytes memory payload = hubSrc.payloads(0);
-
-        // decode the outer message
-        IHubPayload.Message memory message = abi.decode(
-            payload,
-            (IHubPayload.Message)
-        );
-
-        // decode the inner payload
-        IHubPayload.FinalizeWithdrawPayload memory decoded = abi.decode(
-            message.payload,
-            (IHubPayload.FinalizeWithdrawPayload)
-        );
+        // grab payloads stored against the mock
+        (
+            IHubPayload.Message memory message,
+            IHubPayload.FinalizeWithdrawPayload memory decoded
+        ) = _decodeFinalizeWithdrawCallData(mockRouter);
 
         // run through relevant calldata
         assertEq(message.action, hub.FINALIZE_WITHDRAW_ACTION());
-        assertEq(decoded.vault, _dstAddress);
-        assertEq(decoded.strategy, _trustedStrat);
-        assertEq(decoded.minOutUnderlying, minOutUnderlying);
-        assertEq(decoded.srcPoolId, srcPoolId);
-        assertEq(decoded.dstPoolId, dstPoolId);
-        assertEq(hubSrc.refundAddresses(0), refund);
+        assertEq(decoded.vault, address(_trustedVault));
+        assertEq(decoded.strategy, address(_trustedStrat));
     }
 
     function _decodeDepositCalldata(MockRouterPayloadCapture mockRouter)
         internal
+        view
         returns (IHubPayload.Message memory, IHubPayload.DepositPayload memory)
     {
         // the mock intercepts and stores payloads that we can inspect
         bytes memory payload = mockRouter.callparams(0);
 
         // decode the calldata
-        (
-            uint16 _dstChainId,
-            uint256 _srcPoolId,
-            uint256 _dstPoolId,
-            address payable _refundAddress,
-            uint256 _amountLD,
-            uint256 _minAmountLD,
-            IStargateRouter.lzTxObj memory _lzTxParams,
-            bytes memory _to,
-            bytes memory _payload
-        ) = abi.decode(
-                payload,
-                (
-                    uint16,
-                    uint256,
-                    uint256,
-                    address,
-                    uint256,
-                    uint256,
-                    IStargateRouter.lzTxObj,
-                    bytes,
-                    bytes
-                )
-            );
+        (, , , , , , , , bytes memory _payload) = abi.decode(
+            payload,
+            (
+                uint16,
+                uint256,
+                uint256,
+                address,
+                uint256,
+                uint256,
+                IStargateRouter.lzTxObj,
+                bytes,
+                bytes
+            )
+        );
 
         // decode the outer message
         IHubPayload.Message memory message = abi.decode(
@@ -316,6 +298,50 @@ contract TestXChainStargateHubSrc is PRBTest {
         IHubPayload.DepositPayload memory decoded = abi.decode(
             message.payload,
             (IHubPayload.DepositPayload)
+        );
+
+        return (message, decoded);
+    }
+
+    function _decodeFinalizeWithdrawCallData(
+        MockRouterPayloadCapture mockRouter
+    )
+        internal
+        view
+        returns (
+            IHubPayload.Message memory,
+            IHubPayload.FinalizeWithdrawPayload memory
+        )
+    {
+        // the mock intercepts and stores payloads that we can inspect
+        bytes memory payload = mockRouter.callparams(0);
+
+        // decode the calldata
+        (, , , , , , , , bytes memory _payload) = abi.decode(
+            payload,
+            (
+                uint16,
+                uint256,
+                uint256,
+                address,
+                uint256,
+                uint256,
+                IStargateRouter.lzTxObj,
+                bytes,
+                bytes
+            )
+        );
+
+        // decode the outer message
+        IHubPayload.Message memory message = abi.decode(
+            _payload,
+            (IHubPayload.Message)
+        );
+
+        // decode the inner payload
+        IHubPayload.FinalizeWithdrawPayload memory decoded = abi.decode(
+            message.payload,
+            (IHubPayload.FinalizeWithdrawPayload)
         );
 
         return (message, decoded);
@@ -358,7 +384,7 @@ contract TestXChainStargateHubSrc is PRBTest {
 
         // instantiate the mock
         MockRouterPayloadCapture mockRouter = new MockRouterPayloadCapture();
-        XChainStargateHub hubMockRouter = new XChainStargateHub(
+        XChainHub hubMockRouter = new XChainHub(
             address(mockRouter),
             lz,
             refund
@@ -435,7 +461,7 @@ contract TestXChainStargateHubSrc is PRBTest {
     function testReportUnderlyingRevertsIfFirstStratHasNoDeposits() public {
         ERC20 token = new AuxoTest();
         MockVault vault = new MockVault(token);
-        XChainStargateHubMockActions _hub = new XChainStargateHubMockActions(
+        XChainHubMockActions _hub = new XChainHubMockActions(
             stargate,
             lz,
             refund
@@ -458,7 +484,7 @@ contract TestXChainStargateHubSrc is PRBTest {
     function testReportUnderlyingRevertsIfFirstStratIsTooRecent() public {
         ERC20 token = new AuxoTest();
         MockVault vault = new MockVault(token);
-        XChainStargateHubMockActions _hub = new XChainStargateHubMockActions(
+        XChainHubMockActions _hub = new XChainHubMockActions(
             stargate,
             lz,
             refund
@@ -482,7 +508,7 @@ contract TestXChainStargateHubSrc is PRBTest {
     function testReportUnderlying1Strat() public {
         ERC20 token = new AuxoTest();
         MockVault vault = new MockVault(token);
-        XChainStargateHubMockActions _hub = new XChainStargateHubMockActions(
+        XChainHubMockActions _hub = new XChainHubMockActions(
             stargate,
             lz,
             refund

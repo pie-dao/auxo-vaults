@@ -1,21 +1,21 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity 0.8.14;
-import {XChainStargateHub} from "@hub/XChainStargateHub.sol";
+import {XChainHub} from "@hub/XChainHub.sol";
 import {IHubPayload} from "@interfaces/IHubPayload.sol";
 import {IVault} from "@interfaces/IVault.sol";
 
-/// @title XChainStargateHubMockReducer
+/// @title XChainHubMockReducer
 /// @dev test the reducer by overriding calls
 /// @dev we can't use mockCall because of a forge bug.
 ///     https://github.com/foundry-rs/foundry/issues/432
-contract XChainStargateHubMockReducer is XChainStargateHub {
+contract XChainHubMockReducer is XChainHub {
     uint8 public lastCall;
 
     constructor(
         address _stargateEndpoint,
         address _lzEndpoint,
         address _refundRecipient
-    ) XChainStargateHub(_stargateEndpoint, _lzEndpoint, _refundRecipient) {}
+    ) XChainHub(_stargateEndpoint, _lzEndpoint, _refundRecipient) {}
 
     /// @dev default arg
     function makeMessage(uint8 _action)
@@ -36,12 +36,10 @@ contract XChainStargateHubMockReducer is XChainStargateHub {
     }
 
     /// @notice grant access to the internal reducer function
-    function reducer(
-        uint16 _srcChainId,
-        bytes memory _srcAddress,
-        IHubPayload.Message memory message
-    ) external {
-        super._reducer(_srcChainId, _srcAddress, message, 0);
+    function reducer(uint16 _srcChainId, IHubPayload.Message memory message)
+        external
+    {
+        super._reducer(_srcChainId, message, 0);
     }
 
     function _depositAction(
@@ -56,11 +54,15 @@ contract XChainStargateHubMockReducer is XChainStargateHub {
         lastCall = REQUEST_WITHDRAW_ACTION;
     }
 
-    function _finalizeWithdrawAction(uint16, bytes memory) internal override {
+    function _finalizeWithdrawAction(
+        uint16,
+        bytes memory,
+        uint256
+    ) internal override {
         lastCall = FINALIZE_WITHDRAW_ACTION;
     }
 
-    function _reportUnderlyingAction(bytes memory) internal override {
+    function _reportUnderlyingAction(uint16, bytes memory) internal override {
         lastCall = REPORT_UNDERLYING_ACTION;
     }
 
@@ -86,7 +88,7 @@ contract XChainStargateHubMockReducer is XChainStargateHub {
 ///     to a mock Lz endpoint, we just store the calldata in a public array.
 ///     This makes it easy to check that the payload was encoded as expected in unit tests.
 ///     You will want to setup separate tests with LZMocks to test cross chain interop.
-contract XChainStargateHubMockLzSend is XChainStargateHub {
+contract XChainHubMockLzSend is XChainHub {
     bytes[] public payloads;
     address payable[] public refundAddresses;
     address[] public zroPaymentAddresses;
@@ -96,7 +98,7 @@ contract XChainStargateHubMockLzSend is XChainStargateHub {
         address _stargateEndpoint,
         address _lzEndpoint,
         address _refundRecipient
-    ) XChainStargateHub(_stargateEndpoint, _lzEndpoint, _refundRecipient) {}
+    ) XChainHub(_stargateEndpoint, _lzEndpoint, _refundRecipient) {}
 
     /// @notice intercept the layerZero send and log the outgoing request
     function _lzSend(
@@ -140,7 +142,7 @@ contract XChainStargateHubMockLzSend is XChainStargateHub {
 }
 
 /// @dev grant access to internal functions - also overrides layerzero
-contract XChainStargateHubMockActions is XChainStargateHub {
+contract XChainHubMockActions is XChainHub {
     bytes[] public payloads;
     address payable[] public refundAddresses;
     address[] public zroPaymentAddresses;
@@ -150,7 +152,7 @@ contract XChainStargateHubMockActions is XChainStargateHub {
         address _stargateEndpoint,
         address _lzEndpoint,
         address _refundRecipient
-    ) XChainStargateHub(_stargateEndpoint, _lzEndpoint, _refundRecipient) {}
+    ) XChainHub(_stargateEndpoint, _lzEndpoint, _refundRecipient) {}
 
     function depositAction(
         uint16 _srcChainId,
@@ -169,7 +171,7 @@ contract XChainStargateHubMockActions is XChainStargateHub {
     function finalizeWithdrawAction(uint16 _srcChainId, bytes memory _payload)
         external
     {
-        _finalizeWithdrawAction(_srcChainId, _payload);
+        _finalizeWithdrawAction(_srcChainId, _payload, 0);
     }
 
     function setCurrentRoundPerStrategy(
@@ -206,7 +208,7 @@ contract XChainStargateHubMockActions is XChainStargateHub {
     }
 
     function reportUnderlyingAction(bytes memory _payload) external {
-        _reportUnderlyingAction(_payload);
+        _reportUnderlyingAction(1, _payload);
     }
 
     function setLatestReport(
@@ -260,12 +262,12 @@ contract XChainStargateHubMockActions is XChainStargateHub {
 
 /// @dev grant access to internal functions - no lzero
 /// @dev can we use composition here?
-contract XChainStargateHubMockActionsNoLz is XChainStargateHub {
+contract XChainHubMockActionsNoLz is XChainHub {
     constructor(
         address _stargateEndpoint,
         address _lzEndpoint,
         address _refundRecipient
-    ) XChainStargateHub(_stargateEndpoint, _lzEndpoint, _refundRecipient) {}
+    ) XChainHub(_stargateEndpoint, _lzEndpoint, _refundRecipient) {}
 
     function depositAction(
         uint16 _srcChainId,
@@ -284,7 +286,7 @@ contract XChainStargateHubMockActionsNoLz is XChainStargateHub {
     function finalizeWithdrawAction(uint16 _srcChainId, bytes memory _payload)
         external
     {
-        _finalizeWithdrawAction(_srcChainId, _payload);
+        _finalizeWithdrawAction(_srcChainId, _payload, 0);
     }
 
     function setCurrentRoundPerStrategy(
@@ -315,13 +317,13 @@ contract XChainStargateHubMockActionsNoLz is XChainStargateHub {
         IVault _vault,
         uint16 _srcChainId,
         address _strategy
-    ) external returns (uint256) {
+    ) external view returns (uint256) {
         return
             _calculateStrategyAmountForWithdraw(_vault, _srcChainId, _strategy);
     }
 
     function reportUnderlyingAction(bytes memory _payload) external {
-        _reportUnderlyingAction(_payload);
+        _reportUnderlyingAction(1, _payload);
     }
 
     function setLatestReport(

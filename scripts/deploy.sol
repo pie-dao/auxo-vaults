@@ -4,8 +4,8 @@ pragma abicoder v2;
 
 import "@std/Script.sol";
 
-import {XChainStrategyStargate} from "@hub/strategy/XChainStrategyStargate.sol";
-import {XChainStargateHub} from "@hub/XChainStargateHub.sol";
+import {XChainStrategy} from "@hub/strategy/XChainStrategy.sol";
+import {XChainHub} from "@hub/XChainHub.sol";
 import {Vault} from "@vaults/Vault.sol";
 import {VaultFactory} from "@vaults/factory/VaultFactory.sol";
 
@@ -18,11 +18,7 @@ contract MultichainDeploy is Script {
         // testing import path resolution
         VaultFactory factory = new VaultFactory();
         IStargateRouter router = IStargateRouter(address(0x0));
-        XChainStargateHub hub = new XChainStargateHub(
-            address(0x0),
-            address(0x0),
-            address(0x0)
-        );
+        XChainHub hub = new XChainHub(address(0x0), address(0x0), address(0x0));
         console.log("========= Deployed Contracts ============");
         console.log(address(factory));
         console.log(address(router));

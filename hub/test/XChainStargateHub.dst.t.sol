@@ -5,8 +5,8 @@ pragma abicoder v2;
 import {PRBTest} from "@prb/test/PRBTest.sol";
 import "@oz/token/ERC20/ERC20.sol";
 
-import {XChainStargateHub} from "@hub/XChainStargateHub.sol";
-import {XChainStargateHubMockReducer, XChainStargateHubMockLzSend, XChainStargateHubMockActions} from "@hub-test/mocks/MockXChainStargateHub.sol";
+import {XChainHub} from "@hub/XChainHub.sol";
+import {XChainHubMockReducer, XChainHubMockLzSend, XChainHubMockActions} from "@hub-test/mocks/MockXChainHub.sol";
 import {MockRouterPayloadCapture, StargateCallDataParams} from "@hub-test/mocks/MockStargateRouter.sol";
 
 import {AuxoTest, AuxoTestDecimals} from "@hub-test/mocks/MockERC20.sol";
@@ -18,15 +18,15 @@ import {IVault} from "@interfaces/IVault.sol";
 import {IHubPayload} from "@interfaces/IHubPayload.sol";
 
 /// @notice unit tests for functions executed on the destination chain only
-contract TestXChainStargateHubDst is PRBTest {
+contract TestXChainHubDst is PRBTest {
     address public stargate;
     address public lz;
     address public refund;
     address public vaultAddr;
     IVault public vault;
-    XChainStargateHub public hub;
-    XChainStargateHubMockReducer public hubMockReducer;
-    XChainStargateHubMockActions public hubMockActions;
+    XChainHub public hub;
+    XChainHubMockReducer public hubMockReducer;
+    XChainHubMockActions public hubMockActions;
     // random addr
     address private stratAddr = 0x4A1c900Ee1042dC2BA405821F0ea13CfBADCAb7B;
 
@@ -39,9 +39,9 @@ contract TestXChainStargateHubDst is PRBTest {
             0x63BCe354DBA7d6270Cb34dAA46B869892AbB3A79,
             0x675e75A6f90E0610d150f415e4406B4989AaD023
         );
-        hub = new XChainStargateHub(stargate, lz, refund);
-        hubMockReducer = new XChainStargateHubMockReducer(stargate, lz, refund);
-        hubMockActions = new XChainStargateHubMockActions(stargate, lz, refund);
+        hub = new XChainHub(stargate, lz, refund);
+        hubMockReducer = new XChainHubMockReducer(stargate, lz, refund);
+        hubMockActions = new XChainHubMockActions(stargate, lz, refund);
     }
 
     // test initial state of the contract
@@ -52,11 +52,10 @@ contract TestXChainStargateHubDst is PRBTest {
     }
 
     /// @notice helper function to avoid repetition
-    function _checkReducerAction(
-        uint8 _action,
-        XChainStargateHubMockReducer mock
-    ) internal {
-        mock.reducer(1, abi.encodePacked(vaultAddr), mock.makeMessage(_action));
+    function _checkReducerAction(uint8 _action, XChainHubMockReducer mock)
+        internal
+    {
+        mock.reducer(1, mock.makeMessage(_action));
         assertEq(mock.lastCall(), _action);
     }
 
@@ -76,7 +75,7 @@ contract TestXChainStargateHubDst is PRBTest {
         IHubPayload.Message memory message = hubMockReducer.makeMessage(245);
         vm.prank(stargate);
         vm.expectRevert(bytes("XChainHub::_reducer:UNRECOGNISED ACTION"));
-        hubMockReducer.reducer(1, abi.encodePacked(vaultAddr), message);
+        hubMockReducer.reducer(1, message);
     }
 
     function testReducerCanOnlyBeCalledByItself(address _caller) public {
@@ -84,7 +83,7 @@ contract TestXChainStargateHubDst is PRBTest {
         IHubPayload.Message memory message = hubMockReducer.makeMessage(1);
         vm.prank(_caller);
         vm.expectRevert(bytes("XChainHub::_reducer:UNAUTHORIZED"));
-        hubMockReducer.reducer(1, abi.encodePacked(vaultAddr), message);
+        hubMockReducer.reducer(1, message);
     }
 
     /// test entrypoints
@@ -141,7 +140,7 @@ contract TestXChainStargateHubDst is PRBTest {
     }
 
     /// @notice some boilerplate for setting up a hub
-    function _initHubForDeposit(XChainStargateHub hub)
+    function _initHubForDeposit(XChainHub hub)
         internal
         returns (ERC20, MockVault)
     {
@@ -222,7 +221,7 @@ contract TestXChainStargateHubDst is PRBTest {
     }
 
     /// @notice some boilerplate for setting up a hub
-    function _initHubForRequestWithdraw(XChainStargateHub hub)
+    function _initHubForRequestWithdraw(XChainHub hub)
         internal
         returns (ERC20, MockVault)
     {
@@ -236,7 +235,7 @@ contract TestXChainStargateHubDst is PRBTest {
     }
 
     function testRequestWithdrawActionRevertsIfVaultUntrusted() public {
-        hubMockActions = new XChainStargateHubMockActions(stargate, lz, refund);
+        hubMockActions = new XChainHubMockActions(stargate, lz, refund);
         (, MockVault _vault) = _initHubForRequestWithdraw(hubMockActions);
 
         bytes memory payload = abi.encode(
@@ -252,7 +251,7 @@ contract TestXChainStargateHubDst is PRBTest {
     }
 
     function testRequestWithdrawActionRevertsIfVaultNotExiting() public {
-        hubMockActions = new XChainStargateHubMockActions(stargate, lz, refund);
+        hubMockActions = new XChainHubMockActions(stargate, lz, refund);
         (, MockVault _vault) = _initHubForRequestWithdraw(hubMockActions);
         hubMockActions.setTrustedVault(address(_vault), true);
 
@@ -271,7 +270,7 @@ contract TestXChainStargateHubDst is PRBTest {
     function testRequestWithdrawActionRevertsIfBatchBurnRoundsMismatched()
         public
     {
-        hubMockActions = new XChainStargateHubMockActions(stargate, lz, refund);
+        hubMockActions = new XChainHubMockActions(stargate, lz, refund);
         (, MockVault _vault) = _initHubForRequestWithdraw(hubMockActions);
         hubMockActions.setTrustedVault(address(_vault), true);
         hubMockActions.setExiting(address(_vault), true);
@@ -293,7 +292,7 @@ contract TestXChainStargateHubDst is PRBTest {
     /// @dev - this test could do with more edge case testing
     function testRequestWithdrawAction() public {
         uint256 _amount = 1e20;
-        hubMockActions = new XChainStargateHubMockActions(stargate, lz, refund);
+        hubMockActions = new XChainHubMockActions(stargate, lz, refund);
         (, MockVault _vault) = _initHubForRequestWithdraw(hubMockActions);
         hubMockActions.setTrustedVault(address(_vault), true);
         hubMockActions.setExiting(address(_vault), true);
@@ -321,7 +320,7 @@ contract TestXChainStargateHubDst is PRBTest {
     }
 
     /// @notice some boilerplate for setting up a hub
-    function _initHubForFinalizeWithdraw(XChainStargateHub hub)
+    function _initHubForFinalizeWithdraw(XChainHub hub)
         internal
         returns (ERC20, MockVault)
     {
@@ -335,16 +334,13 @@ contract TestXChainStargateHubDst is PRBTest {
     }
 
     function testFinalizeWithdrawActionRevertsIfExiting() public {
-        hubMockActions = new XChainStargateHubMockActions(stargate, lz, refund);
+        hubMockActions = new XChainHubMockActions(stargate, lz, refund);
         (, MockVault _vault) = _initHubForFinalizeWithdraw(hubMockActions);
 
         bytes memory payload = abi.encode(
             IHubPayload.FinalizeWithdrawPayload({
                 vault: address(_vault),
-                strategy: stratAddr,
-                minOutUnderlying: 0,
-                srcPoolId: 1,
-                dstPoolId: 1
+                strategy: stratAddr
             })
         );
 
@@ -355,16 +351,13 @@ contract TestXChainStargateHubDst is PRBTest {
     }
 
     function testFinalizeWithdrawActionRevertsIfUntrusted() public {
-        hubMockActions = new XChainStargateHubMockActions(stargate, lz, refund);
+        hubMockActions = new XChainHubMockActions(stargate, lz, refund);
         (, MockVault _vault) = _initHubForFinalizeWithdraw(hubMockActions);
 
         bytes memory payload = abi.encode(
             IHubPayload.FinalizeWithdrawPayload({
                 vault: address(_vault),
-                strategy: stratAddr,
-                minOutUnderlying: 0,
-                srcPoolId: 1,
-                dstPoolId: 1
+                strategy: stratAddr
             })
         );
 
@@ -373,16 +366,13 @@ contract TestXChainStargateHubDst is PRBTest {
     }
 
     function testFinalizeWithdrawActionRevertsIfNoWithdraws() public {
-        hubMockActions = new XChainStargateHubMockActions(stargate, lz, refund);
+        hubMockActions = new XChainHubMockActions(stargate, lz, refund);
         (, MockVault _vault) = _initHubForFinalizeWithdraw(hubMockActions);
 
         bytes memory payload = abi.encode(
             IHubPayload.FinalizeWithdrawPayload({
                 vault: address(_vault),
-                strategy: stratAddr,
-                minOutUnderlying: 0,
-                srcPoolId: 1,
-                dstPoolId: 1
+                strategy: stratAddr
             })
         );
 
@@ -407,7 +397,7 @@ contract TestXChainStargateHubDst is PRBTest {
             (10**decimals);
 
         // set up
-        hubMockActions = new XChainStargateHubMockActions(stargate, lz, refund);
+        hubMockActions = new XChainHubMockActions(stargate, lz, refund);
 
         // decimals currently does nothing
         ERC20 token = new AuxoTestDecimals(decimals);
@@ -481,7 +471,7 @@ contract TestXChainStargateHubDst is PRBTest {
     function testFinalizeWithdrawAction() public {
         // setup the mocks and initialize
         MockRouterPayloadCapture MockRouterPayloadCapture = new MockRouterPayloadCapture();
-        hubMockActions = new XChainStargateHubMockActions(
+        hubMockActions = new XChainHubMockActions(
             address(MockRouterPayloadCapture),
             lz,
             refund
@@ -514,10 +504,7 @@ contract TestXChainStargateHubDst is PRBTest {
         bytes memory payload = abi.encode(
             IHubPayload.FinalizeWithdrawPayload({
                 vault: address(_vault),
-                strategy: stratAddr,
-                minOutUnderlying: 1 ether,
-                srcPoolId: 1,
-                dstPoolId: 2
+                strategy: stratAddr
             })
         );
         hubMockActions.finalizeWithdrawAction(1, payload);
@@ -541,7 +528,7 @@ contract TestXChainStargateHubDst is PRBTest {
     function testReportUnderlyingAction(uint256 amount) public {
         ERC20 token = new AuxoTest();
         MockStrat strat = new MockStrat(token);
-        hubMockActions = new XChainStargateHubMockActions(stargate, lz, refund);
+        hubMockActions = new XChainHubMockActions(stargate, lz, refund);
 
         IHubPayload.ReportUnderlyingPayload memory payload = IHubPayload
             .ReportUnderlyingPayload({
