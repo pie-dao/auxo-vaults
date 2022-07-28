@@ -4,9 +4,9 @@ pragma solidity 0.8.14;
 
 import {Ownable} from "openzeppelin/access/Ownable.sol";
 
-import {ILayerZeroReceiver} from "./interfaces/ILayerZeroReceiver.sol";
-import {ILayerZeroEndpoint} from "./interfaces/ILayerZeroEndpoint.sol";
-import {ILayerZeroUserApplicationConfig} from "./interfaces/ILayerZeroUserApplicationConfig.sol";
+import {ILayerZeroReceiver} from "@interfaces/ILayerZeroReceiver.sol";
+import {ILayerZeroEndpoint} from "@interfaces/ILayerZeroEndpoint.sol";
+import {ILayerZeroUserApplicationConfig} from "@interfaces/ILayerZeroUserApplicationConfig.sol";
 
 /// @title LayerZeroApp
 /// @notice A generic app template that uses LayerZero.
@@ -70,6 +70,8 @@ abstract contract LayerZeroApp is
         _lzReceive(srcChainId, srcAddress, nonce, payload);
     }
 
+    /// @dev - interesting function here, pass control flow to attacker
+    /// even if the payload is fixed.
     function retryMessage(
         uint16 srcChainId,
         bytes memory srcAddress,
@@ -136,13 +138,12 @@ abstract contract LayerZeroApp is
         bytes memory _payload
     ) internal virtual;
 
-    // @notice send a LayerZero message to the specified address at a LayerZero endpoint.
-    // @param _dstChainId - the destination chain identifier
-    // @param _destination - the address on destination chain (in bytes). address length/format may vary by chains
-    // @param _payload - a custom bytes payload to send to the destination contract
-    // @param _refundAddress - if the source transaction is cheaper than the amount of value passed, refund the additional amount to this address
-    // @param _zroPaymentAddress - the address of the ZRO token holder who would pay for the transaction
-    // @param _adapterParams - parameters for custom functionality. e.g. receive airdropped native gas from the relayer on destination
+    /// @notice send a LayerZero message to the specified address at a LayerZero endpoint.
+    /// @param _dstChainId - the destination chain identifier
+    /// @param _payload - a custom bytes payload to send to the destination contract
+    /// @param _refundAddress - if the source transaction is cheaper than the amount of value passed, refund the additional amount to this address
+    /// @param _zroPaymentAddress - the address of the ZRO token holder who would pay for the transaction
+    /// @param _adapterParams - parameters for custom functionality. e.g. receive airdropped native gas from the relayer on destination
     function _lzSend(
         uint16 _dstChainId,
         bytes memory _payload,

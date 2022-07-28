@@ -16,6 +16,9 @@ pragma solidity 0.8.14;
 import {XChainHub} from "@hub/XChainHub.sol";
 import {IHubPayload} from "@interfaces/IHubPayload.sol";
 
+/// @title XChainHubSingle - a restricted version of the XChainHub
+/// @dev limitations on Stargate prevent us from being able to trust inbound payloads.
+///      This contract extends the XChain hub with additional restrictions
 contract XChainHubSingle is XChainHub {
     event SetStrategyForChain(address strategy, uint16 chain);
 
@@ -28,6 +31,7 @@ contract XChainHubSingle is XChainHub {
     ) XChainHub(_stargateEndpoint, _lzEndpoint, _refundRecipient) {}
 
     /// @notice sets a strategy for a given chain
+    /// @dev this means there can be one and only one strategy for each chain
     function setStrategyForChain(address _strategy, uint16 _chain)
         external
         onlyOwner
@@ -35,6 +39,13 @@ contract XChainHubSingle is XChainHub {
         require(
             trustedStrategy[_strategy],
             "XChainHub::setStrategyForChain:UNTRUSTED"
+        );
+
+        address currentStrategy = strategyForChain[_chain];
+        require(
+            exitingSharesPerStrategy[_chain][currentStrategy] == 0 &&
+                sharesPerStrategy[_chain][currentStrategy] == 0,
+            "XChainHub::setStrategyForChain:NOT EXITED"
         );
         strategyForChain[_chain] = _strategy;
     }

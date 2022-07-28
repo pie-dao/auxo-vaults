@@ -16,97 +16,24 @@ pragma solidity 0.8.14;
 /// @dev delete before production commit!
 import "@std/console.sol";
 
-import {Ownable} from "@oz/access/Ownable.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
-import {Pausable} from "@oz/security/Pausable.sol";
 
 import {IVault} from "@interfaces/IVault.sol";
 import {IHubPayload} from "@interfaces/IHubPayload.sol";
-import {IXChainHub} from "@interfaces/IXChainHub.sol";
 import {IStrategy} from "@interfaces/IStrategy.sol";
 
+import {XChainHubBase} from "@hub/XChainHubBase.sol";
+
 import {LayerZeroApp} from "@hub/LayerZeroApp.sol";
-import {CallFacet} from "@hub/CallFacet.sol";
 import {IStargateReceiver} from "@interfaces/IStargateReceiver.sol";
 import {IStargateRouter} from "@interfaces/IStargateRouter.sol";
 
 /// @title XChainHub
+/// @notice extends the XChainBase with Stargate and LayerZero contracts for src and destination chains
 /// @dev Expect this contract to change in future.
-contract XChainHub is CallFacet, LayerZeroApp, IStargateReceiver, Pausable {
+contract XChainHub is XChainHubBase, LayerZeroApp, IStargateReceiver {
     using SafeERC20 for IERC20;
-
-    // --------------------------
-    // Events
-    // --------------------------
-
-    /// @notice emitted on the source chain when a deposit request is successfully sent
-    event DepositSent(
-        uint16 dstChainId,
-        uint256 amountUnderlying,
-        address dstHub,
-        address vault,
-        address strategy
-    );
-
-    /// @notice emitted on the destination chain from DepositSent when a deposit is made into a vault
-    event DepositReceived(
-        uint16 srcChainId,
-        uint256 amountUnderlyingReceived,
-        uint256 sharesMinted,
-        address vault,
-        address strategy
-    );
-
-    /// @notice emitted on the source chain when a request to enter batch burn is successfully sent
-    event WithdrawRequested(
-        uint16 dstChainId,
-        uint256 shares,
-        address vault,
-        address strategy
-    );
-
-    /// @notice emitted on the destination chain from WithdrawRequested when a request to enter batch burn is accepted
-    event WithdrawRequestReceived(
-        uint16 srcChainId,
-        uint256 shares,
-        address vault,
-        address strategy
-    );
-
-    /// @notice emitted when the hub successfully withdraws underlying after a batch burn
-    event WithdrawExecuted(uint256 shares, uint256 underlying, address vault);
-
-    /// @notice emitted on the source chain when withdrawn tokens have been sent to the destination hub
-    event WithdrawalSent(
-        uint16 dstChainId,
-        uint256 amountUnderlying,
-        address dstHub,
-        address vault,
-        address strategy
-    );
-
-    /// @notice emitted on the destination chain from WithdrawlSent when tokens have been received
-    event WithdrawalReceived(
-        uint16 srcChainId,
-        uint256 amountUnderlying,
-        address vault,
-        address strategy
-    );
-
-    /// @notice emitted on the source chain when a message is sent to update underlying balances for a strategy
-    event UnderlyingReported(
-        uint16 dstChainId,
-        uint256 amount,
-        address strategy
-    );
-
-    /// @notice emitted on the destination chain from UnderlyingReported when
-    event UnderlyingUpdated(
-        uint16 srcChainId,
-        uint256 amount,
-        address strategy
-    );
 
     // --------------------------
     // Actions
@@ -131,112 +58,26 @@ contract XChainHub is CallFacet, LayerZeroApp, IStargateReceiver, Pausable {
     /// STARGATE ACTION::Send funds back to origin chain after a batch burn
     uint8 public constant FINALIZE_WITHDRAW_ACTION = 87;
 
-    // --------------------------
-    // Constants & Immutables
-    // --------------------------
-
-    /// Prevent reporting function called too frequently
-    uint64 internal constant REPORT_DELAY = 6 hours;
-
     /// @notice https://stargateprotocol.gitbook.io/stargate/developers/official-erc20-addresses
     IStargateRouter public immutable stargateRouter;
 
     // --------------------------
-    // Single Chain Mappings
-    // --------------------------
-
-    /// @notice Trusted vaults on current chain.
-    mapping(address => bool) public trustedVault;
-
-    /// @notice Trusted strategies on current chain.
-    mapping(address => bool) public trustedStrategy;
-
-    /// @notice Indicates if the hub is gathering exit requests
-    ///         for a given vault.
-    mapping(address => bool) public exiting;
-
-    /// @notice Indicates withdrawn amount per round for a given vault.
-    /// @dev format vaultAddr => round => withdrawn
-    mapping(address => mapping(uint256 => uint256)) public withdrawnPerRound;
-
-    // --------------------------
-    // Cross Chain Mappings
-    // --------------------------
-
-    /// @notice Shares held on behalf of strategies from other chains, Destination Chain Id => Strategy => Shares
-    /// @dev Each strategy will have one and only one underlying forever.
-    mapping(uint16 => mapping(address => uint256)) public sharesPerStrategy;
-
-    /// @notice Destination Chain ID => Strategy => CurrentRound (Batch Burn)
-    mapping(uint16 => mapping(address => uint256))
-        public currentRoundPerStrategy;
-
-    /// @notice Shares waiting for burn. Destination Chain ID => Strategy => ExitingShares
-    mapping(uint16 => mapping(address => uint256))
-        public exitingSharesPerStrategy;
-
-    /// @notice Latest updates per strategy. Destination Chain ID => Strategy => LatestUpdate
-    mapping(uint16 => mapping(address => uint256)) public latestUpdate;
-
-    /// @notice trusted hubs on each chain, dstchainId => hubAddress
-    /// @dev only hubs can call entrypoint functions
-    mapping(uint16 => address) public trustedHubs;
-
-    // --------------------------
-    //    Variables
-    // --------------------------
-    address public refundRecipient;
-
-    // --------------------------
-    //    Constructor
+    // Constructor
     // --------------------------
 
     /// @param _stargateEndpoint address of the stargate endpoint on the src chain
     /// @param _lzEndpoint address of the layerZero endpoint contract on the src chain
-    /// @param _refundRecipient address on this chain to receive rebates on x-chain txs
     constructor(
         address _stargateEndpoint,
         address _lzEndpoint,
         address _refundRecipient
-    ) LayerZeroApp(_lzEndpoint) {
+    ) XChainHubBase(_refundRecipient) LayerZeroApp(_lzEndpoint) {
         stargateRouter = IStargateRouter(_stargateEndpoint);
-        refundRecipient = _refundRecipient;
     }
 
-    // --------------------------
-    // Single Chain Functions
-    // --------------------------
-
-    /// @notice updates a vault on the current chain to be either trusted or untrusted
-    function setTrustedVault(address vault, bool trusted) external onlyOwner {
-        trustedVault[vault] = trusted;
-    }
-
-    /// @notice updates a strategy on the current chain to be either trusted or untrusted
-    function setTrustedStrategy(address strategy, bool trusted)
-        external
-        onlyOwner
-    {
-        trustedStrategy[strategy] = trusted;
-    }
-
-    /// @notice updates a hub on a remote chain to be either trusted or untrusted
-    /// @dev there can only be one trusted hub on a chain, passing false will just set it to the zero address
-    function setTrustedHub(
-        address _hub,
-        uint16 _remoteChainid,
-        bool _trusted
-    ) external onlyOwner {
-        _trusted
-            ? trustedHubs[_remoteChainid] = _hub
-            : trustedHubs[_remoteChainid] = address(0x0);
-    }
-
-    /// @notice indicates whether the vault is in an `exiting` state
-    /// @dev This is callable only by the owner
-    function setExiting(address vault, bool exit) external onlyOwner {
-        exiting[vault] = exit;
-    }
+    /// ------------------------
+    /// Single Chain Functions
+    /// ------------------------
 
     /// @notice approve a strategy to withdraw tokens from the hub
     /// @dev call before withdrawing from the strategy
@@ -462,6 +303,19 @@ contract XChainHub is CallFacet, LayerZeroApp, IStargateReceiver, Pausable {
         );
     }
 
+    /// @notice calculate how much available to strategy based on existing shares and current batch burn round
+    /// @dev required for stack too deep resolution
+    /// @return the underyling tokens that can be redeemeed
+    function _calculateStrategyAmountForWithdraw(
+        IVault _vault,
+        uint16 _srcChainId,
+        address _strategy
+    ) internal view returns (uint256) {
+        // fetch the relevant round and shares, for the chain and strategy
+        uint256 currentRound = currentRoundPerStrategy[_srcChainId][_strategy];
+        return withdrawnPerRound[address(_vault)][currentRound];
+    }
+
     /// @notice sends tokens withdrawn from local vault to a remote hub
     function finalizeWithdrawFromChain(
         uint16 _dstChainId,
@@ -475,7 +329,7 @@ contract XChainHub is CallFacet, LayerZeroApp, IStargateReceiver, Pausable {
 
         require(
             hub != address(0x0),
-            "XChainHub::finalizeWithdrawFromChain:UNTRUSTED HUB"
+            "XChainHub::finalizeWithdrawFromChain:NO HUB"
         );
 
         IVault vault = IVault(_vault);
@@ -569,6 +423,7 @@ contract XChainHub is CallFacet, LayerZeroApp, IStargateReceiver, Pausable {
         }
     }
 
+    /// @dev untested
     /// @notice allows the owner to call the reducer if needed
     /// @param _srcChainId chainId to simulate from
     /// @param message the payload to send
@@ -692,6 +547,7 @@ contract XChainHub is CallFacet, LayerZeroApp, IStargateReceiver, Pausable {
         );
     }
 
+    /// @dev untested
     /// @param _srcChainId what layerZero chainId was the request initiated from
     /// @param _amountReceived is the amount of underyling from stargate swap after fees
     function _makeDeposit(
@@ -707,6 +563,7 @@ contract XChainHub is CallFacet, LayerZeroApp, IStargateReceiver, Pausable {
             "XChainHub::_depositAction:UNTRUSTED VAULT"
         );
 
+        /// @dev do we need this on both chains
         require(
             trustedStrategy[_strategy],
             "XChainHub::_depositAction:UNTRUSTED STRATEGY"
@@ -791,19 +648,6 @@ contract XChainHub is CallFacet, LayerZeroApp, IStargateReceiver, Pausable {
         );
     }
 
-    /// @notice calculate how much available to strategy based on existing shares and current batch burn round
-    /// @dev required for stack too deep resolution
-    /// @return the underyling tokens that can be redeemeed
-    function _calculateStrategyAmountForWithdraw(
-        IVault _vault,
-        uint16 _srcChainId,
-        address _strategy
-    ) internal view returns (uint256) {
-        // fetch the relevant round and shares, for the chain and strategy
-        uint256 currentRound = currentRoundPerStrategy[_srcChainId][_strategy];
-        return withdrawnPerRound[address(_vault)][currentRound];
-    }
-
     /// @notice executes a withdrawal of underlying tokens from a vault to a strategy on the source chain
     /// @param _srcChainId what layerZero chainId was the request initiated from
     /// @param _payload abi encoded as IHubPayload.FinalizeWithdrawPayload
@@ -843,22 +687,5 @@ contract XChainHub is CallFacet, LayerZeroApp, IStargateReceiver, Pausable {
             payload.amountToReport,
             payload.strategy
         );
-    }
-
-    /// @notice remove funds from the contract in the event that a revert locks them in
-    /// @dev this could happen because of a revert on one of the forwarding functions
-    /// @param _amount the quantity of tokens to remove
-    /// @param _token the address of the token to withdraw
-    function emergencyWithdraw(uint256 _amount, address _token)
-        external
-        onlyOwner
-    {
-        IERC20 underlying = IERC20(_token);
-        underlying.safeTransfer(msg.sender, _amount);
-    }
-
-    /// @notice Triggers the Vault's pause
-    function triggerPause() external onlyOwner {
-        paused() ? _unpause() : _pause();
     }
 }

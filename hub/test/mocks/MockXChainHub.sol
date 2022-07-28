@@ -10,6 +10,7 @@ import {IVault} from "@interfaces/IVault.sol";
 ///     https://github.com/foundry-rs/foundry/issues/432
 contract XChainHubMockReducer is XChainHub {
     uint8 public lastCall;
+    uint256 public amountCalled;
 
     constructor(
         address _stargateEndpoint,
@@ -36,33 +37,39 @@ contract XChainHubMockReducer is XChainHub {
     }
 
     /// @notice grant access to the internal reducer function
-    function reducer(uint16 _srcChainId, IHubPayload.Message memory message)
-        external
-    {
-        super._reducer(_srcChainId, message, 0);
+    function reducer(
+        uint16 _srcChainId,
+        IHubPayload.Message memory _message,
+        uint256 _amount
+    ) external {
+        super._reducer(_srcChainId, _message, _amount);
     }
 
     function _depositAction(
         uint16,
         bytes memory,
-        uint256
+        uint256 _amount
     ) internal override {
+        amountCalled = _amount;
         lastCall = DEPOSIT_ACTION;
     }
 
     function _requestWithdrawAction(uint16, bytes memory) internal override {
+        amountCalled = 0;
         lastCall = REQUEST_WITHDRAW_ACTION;
     }
 
     function _finalizeWithdrawAction(
         uint16,
         bytes memory,
-        uint256
+        uint256 _amount
     ) internal override {
+        amountCalled = _amount;
         lastCall = FINALIZE_WITHDRAW_ACTION;
     }
 
     function _reportUnderlyingAction(uint16, bytes memory) internal override {
+        amountCalled = 0;
         lastCall = REPORT_UNDERLYING_ACTION;
     }
 
@@ -168,10 +175,12 @@ contract XChainHubMockActions is XChainHub {
         _requestWithdrawAction(_srcChainId, _payload);
     }
 
-    function finalizeWithdrawAction(uint16 _srcChainId, bytes memory _payload)
-        external
-    {
-        _finalizeWithdrawAction(_srcChainId, _payload, 0);
+    function finalizeWithdrawAction(
+        uint16 _srcChainId,
+        bytes memory _payload,
+        uint256 _amount
+    ) external {
+        _finalizeWithdrawAction(_srcChainId, _payload, _amount);
     }
 
     function setCurrentRoundPerStrategy(
@@ -196,6 +205,14 @@ contract XChainHubMockActions is XChainHub {
         uint256 _shares
     ) external {
         exitingSharesPerStrategy[_srcChainId][_strategy] = _shares;
+    }
+
+    function setWithdrawnPerRound(
+        address _vault,
+        uint256 currentRound,
+        uint256 _amount
+    ) external {
+        withdrawnPerRound[_vault][currentRound] = _amount;
     }
 
     function calculateStrategyAmountForWithdraw(
@@ -295,6 +312,14 @@ contract XChainHubMockActionsNoLz is XChainHub {
         uint256 _round
     ) external {
         currentRoundPerStrategy[_srcChainId][_strategy] = _round;
+    }
+
+    function setWithdrawnPerRound(
+        address _vault,
+        uint256 currentRound,
+        uint256 _amount
+    ) external {
+        withdrawnPerRound[_vault][currentRound] = _amount;
     }
 
     function setSharesPerStrategy(

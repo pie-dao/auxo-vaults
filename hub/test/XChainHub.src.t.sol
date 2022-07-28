@@ -7,7 +7,7 @@ import "@oz/token/ERC20/ERC20.sol";
 
 import {XChainHubMockActionsNoLz as XChainHub} from "@hub-test/mocks/MockXChainHub.sol";
 import {XChainHubMockReducer, XChainHubMockLzSend, XChainHubMockActions} from "@hub-test/mocks/MockXChainHub.sol";
-import {MockRouterPayloadCapture} from "@hub-test/mocks/MockStargateRouter.sol";
+import {MockRouterPayloadCapture, StargateCallDataParams} from "@hub-test/mocks/MockStargateRouter.sol";
 
 import {AuxoTest} from "@hub-test/mocks/MockERC20.sol";
 import {MockVault} from "@hub-test/mocks/MockVault.sol";
@@ -21,10 +21,17 @@ import {IHubPayload} from "@interfaces/IHubPayload.sol";
 contract TestXChainHubSrc is PRBTest {
     address public stargate;
 
+    XChainHubMockActions hubMockActions;
+    MockRouterPayloadCapture mockRouter;
+
+    ERC20 token;
+    MockVault _vault;
+    IVault vault;
+    address vaultAddr;
+    MockStrat strat;
+
     address public lz;
     address public refund;
-    address public vaultAddr;
-    IVault public vault;
     XChainHub public hub;
     address[] public strategies;
     uint16[] public dstChains;
@@ -32,8 +39,13 @@ contract TestXChainHubSrc is PRBTest {
     address private stratAddr = 0x4A1c900Ee1042dC2BA405821F0ea13CfBADCAb7B;
 
     function setUp() public {
-        vaultAddr = 0x4A1c900Ee1042dC2BA405821F0ea13CfBADCAb7B;
-        vault = IVault(vaultAddr);
+        mockRouter = new MockRouterPayloadCapture();
+        token = new AuxoTest();
+        _vault = new MockVault(token);
+        strat = new MockStrat(token);
+
+        vault = IVault(address(_vault));
+        vaultAddr = address(vault);
 
         (stargate, lz, refund) = (
             0x4A1c900Ee1042dC2BA405821F0ea13CfBADCAb7B,
@@ -41,88 +53,7 @@ contract TestXChainHubSrc is PRBTest {
             0x675e75A6f90E0610d150f415e4406B4989AaD023
         );
         hub = new XChainHub(stargate, lz, refund);
-    }
-
-    // test initial state of the contract
-    function testInitialContractState() public {
-        assertEq(address(hub.stargateRouter()), stargate);
-        assertEq(address(hub.layerZeroEndpoint()), lz);
-        assertEq(address(hub.refundRecipient()), refund);
-    }
-
-    // test we can set/unset a trusted vault
-    function testSetUnsetTrustedVault() public {
-        assertEq(hub.trustedVault(vaultAddr), false);
-        hub.setTrustedVault(vaultAddr, true);
-        assert(hub.trustedVault(vaultAddr));
-        hub.setTrustedVault(vaultAddr, false);
-        assertEq(hub.trustedVault(vaultAddr), false);
-    }
-
-    // test we can set/unset an exiting vault
-    function testSetUnsetExitingVault() public {
-        assertEq(hub.exiting(vaultAddr), false);
-        hub.setExiting(vaultAddr, true);
-        assert(hub.exiting(vaultAddr));
-        hub.setExiting(vaultAddr, false);
-        assertEq(hub.exiting(vaultAddr), false);
-    }
-
-    // test onlyOwner can call certain functions
-    function testOnlyOwner(address _notOwner) public {
-        vm.assume(_notOwner != hub.owner());
-        bytes memory onlyOwnerErr = bytes("Ownable: caller is not the owner");
-        uint16[] memory dstChains = new uint16[](1);
-        address[] memory strats = new address[](1);
-        dstChains[0] = 1;
-        strats[0] = stratAddr;
-
-        vm.startPrank(_notOwner);
-        vm.expectRevert(onlyOwnerErr);
-        hub.reportUnderlying(vault, dstChains, strats, bytes(""));
-
-        vm.expectRevert(onlyOwnerErr);
-        hub.setTrustedVault(vaultAddr, true);
-
-        vm.expectRevert(onlyOwnerErr);
-        hub.setExiting(vaultAddr, true);
-
-        vm.expectRevert(onlyOwnerErr);
-        hub.finalizeWithdrawFromVault(vault);
-    }
-
-    function testFinalizeWithdrawFromVault() public {
-        uint256 _round = 2;
-        // setup the token
-        ERC20 token = new AuxoTest();
-        assertEq(token.balanceOf(address(this)), 1e27);
-
-        // setup the mock vault and wrap it
-        MockVault _vault = new MockVault(token);
-        IVault tVault = IVault(address(_vault));
-        token.transfer(address(_vault), 1e26); // 1/2 balance
-        assertEq(token.balanceOf(address(_vault)), 1e26);
-
-        MockVault.BatchBurn memory batchBurn = MockVault.BatchBurn({
-            totalShares: 100 ether,
-            amountPerShare: 10**18
-        });
-
-        // receipts are saved for previous rounds
-        MockVault.BatchBurnReceipt memory receipt = MockVault.BatchBurnReceipt({
-            round: _round - 1,
-            shares: 1e26
-        });
-
-        _vault.setBatchBurnReceiptsForSender(address(hub), receipt);
-        _vault.setBatchBurnRound(_round);
-        _vault.setBatchBurnForRound(_round, batchBurn);
-
-        // execute the action
-        hub.finalizeWithdrawFromVault(tVault);
-
-        // check the value, corresponds to the mock vault expected outcome
-        assertEq(hub.withdrawnPerRound(address(_vault), 2), 1e26);
+        hubMockActions = new XChainHubMockActions(stargate, lz, refund);
     }
 
     function testRequestWithdrawFromChainFailsWithUntrustedStrategy(
@@ -191,6 +122,79 @@ contract TestXChainHubSrc is PRBTest {
         assertEq(hubSrc.refundAddresses(0), refund);
     }
 
+    function testFinalizeWithdrawFromChainFailsIfNotOwner(address untrusted)
+        public
+    {
+        vm.assume(untrusted != address(this));
+        address trustedStrat = 0x69b8C988b17BD77Bb56BEe902b7aB7E64F262F35;
+        uint16 _mockChainIdDst = 2;
+        address _dstAddress = address(hub);
+        uint16 srcPoolId = 1;
+        uint16 dstPoolId = 2;
+        uint256 minOutUnderlying = 1e21;
+
+        vm.prank(untrusted);
+        vm.expectRevert(bytes("Ownable: caller is not the owner"));
+        hub.finalizeWithdrawFromChain(
+            _mockChainIdDst,
+            _dstAddress,
+            trustedStrat,
+            minOutUnderlying,
+            srcPoolId,
+            dstPoolId
+        );
+    }
+
+    function testFinalizeWithdrawFromChainFailsWithUntrustedHub(
+        address untrusted
+    ) public {
+        address trustedStrat = 0x69b8C988b17BD77Bb56BEe902b7aB7E64F262F35;
+        uint16 _mockChainIdDst = 2;
+        address _dstAddress = address(hub);
+        vm.assume(untrusted != _dstAddress);
+        uint16 srcPoolId = 1;
+        uint16 dstPoolId = 2;
+        uint256 minOutUnderlying = 1e21;
+
+        vm.expectRevert(bytes("XChainHub::finalizeWithdrawFromChain:NO HUB"));
+        hub.finalizeWithdrawFromChain(
+            _mockChainIdDst,
+            untrusted,
+            trustedStrat,
+            minOutUnderlying,
+            srcPoolId,
+            dstPoolId
+        );
+    }
+
+    function testFinalizeWithdrawFromChainFailsWithUntrustedVault(
+        address untrusted
+    ) public {
+        address trustedVault = 0x69b8C988b17BD77Bb56BEe902b7aB7E64F262F35;
+        uint16 _mockChainIdDst = 2;
+        address _dstHub = address(hub);
+        uint16 srcPoolId = 1;
+        uint16 dstPoolId = 2;
+        uint256 minOutUnderlying = 1e21;
+
+        vm.assume(untrusted != trustedVault);
+
+        hub.setTrustedVault(trustedVault, true);
+        hub.setTrustedHub(_dstHub, _mockChainIdDst, true);
+
+        vm.expectRevert(
+            bytes("XChainHub::finalizeWithdrawFromChain:UNTRUSTED VAULT")
+        );
+        hub.finalizeWithdrawFromChain(
+            _mockChainIdDst,
+            untrusted,
+            address(0),
+            minOutUnderlying,
+            srcPoolId,
+            dstPoolId
+        );
+    }
+
     function testFinalizeWithdrawFromChainFailsWithUntrustedStrategy(
         address untrusted
     ) public {
@@ -202,6 +206,8 @@ contract TestXChainHubSrc is PRBTest {
         uint256 minOutUnderlying = 1e21;
 
         vm.assume(untrusted != trustedStrat);
+
+        hub.setTrustedHub(_dstAddress, _mockChainIdDst, true);
 
         vm.prank(untrusted);
         vm.expectRevert(bytes("Ownable: caller is not the owner"));
@@ -220,14 +226,11 @@ contract TestXChainHubSrc is PRBTest {
         uint16 _mockChainIdDst = 2;
         address _dstAddress = address(hub);
         address _trustedStrat = 0x69b8C988b17BD77Bb56BEe902b7aB7E64F262F35;
-        ERC20 token = new AuxoTest();
         MockVault _trustedVault = new MockVault(token);
 
         uint16 srcPoolId = 1;
         uint16 dstPoolId = 2;
         uint256 minOutUnderlying = 0;
-
-        MockRouterPayloadCapture mockRouter = new MockRouterPayloadCapture();
 
         // instantiate the mock
         XChainHubMockActions hubSrc = new XChainHubMockActions(
@@ -264,13 +267,13 @@ contract TestXChainHubSrc is PRBTest {
         assertEq(decoded.strategy, address(_trustedStrat));
     }
 
-    function _decodeDepositCalldata(MockRouterPayloadCapture mockRouter)
+    function _decodeDepositCalldata(MockRouterPayloadCapture _mockRouter)
         internal
         view
         returns (IHubPayload.Message memory, IHubPayload.DepositPayload memory)
     {
         // the mock intercepts and stores payloads that we can inspect
-        bytes memory payload = mockRouter.callparams(0);
+        bytes memory payload = _mockRouter.callparams(0);
 
         // decode the calldata
         (, , , , , , , , bytes memory _payload) = abi.decode(
@@ -304,7 +307,7 @@ contract TestXChainHubSrc is PRBTest {
     }
 
     function _decodeFinalizeWithdrawCallData(
-        MockRouterPayloadCapture mockRouter
+        MockRouterPayloadCapture _mockRouter
     )
         internal
         view
@@ -314,7 +317,7 @@ contract TestXChainHubSrc is PRBTest {
         )
     {
         // the mock intercepts and stores payloads that we can inspect
-        bytes memory payload = mockRouter.callparams(0);
+        bytes memory payload = _mockRouter.callparams(0);
 
         // decode the calldata
         (, , , , , , , , bytes memory _payload) = abi.decode(
@@ -369,8 +372,6 @@ contract TestXChainHubSrc is PRBTest {
 
     function testDeposit() public {
         // minimal dependencies
-        ERC20 token = new AuxoTest();
-        MockStrat strat = new MockStrat(token);
 
         // test params
         address trustedStrat = address(strat);
@@ -383,7 +384,6 @@ contract TestXChainHubSrc is PRBTest {
         uint256 amount = token.balanceOf(address(this));
 
         // instantiate the mock
-        MockRouterPayloadCapture mockRouter = new MockRouterPayloadCapture();
         XChainHub hubMockRouter = new XChainHub(
             address(mockRouter),
             lz,
@@ -459,8 +459,6 @@ contract TestXChainHubSrc is PRBTest {
     }
 
     function testReportUnderlyingRevertsIfFirstStratHasNoDeposits() public {
-        ERC20 token = new AuxoTest();
-        MockVault vault = new MockVault(token);
         XChainHubMockActions _hub = new XChainHubMockActions(
             stargate,
             lz,
@@ -482,8 +480,6 @@ contract TestXChainHubSrc is PRBTest {
     }
 
     function testReportUnderlyingRevertsIfFirstStratIsTooRecent() public {
-        ERC20 token = new AuxoTest();
-        MockVault vault = new MockVault(token);
         XChainHubMockActions _hub = new XChainHubMockActions(
             stargate,
             lz,
@@ -506,8 +502,6 @@ contract TestXChainHubSrc is PRBTest {
     }
 
     function testReportUnderlying1Strat() public {
-        ERC20 token = new AuxoTest();
-        MockVault vault = new MockVault(token);
         XChainHubMockActions _hub = new XChainHubMockActions(
             stargate,
             lz,
@@ -561,6 +555,190 @@ contract TestXChainHubSrc is PRBTest {
         assertEq(_hub.refundAddresses(0), refund);
     }
 
-    // test the mock was called with the correct message
-    // test the latest update was set correctly for each chain
+    function testFinalizeWithdrawActionRevertsIfNoTrustedHub() public {
+        hubMockActions.setExiting(address(vault), true);
+
+        vm.expectRevert("XChainHub::finalizeWithdrawFromChain:NO HUB");
+        hubMockActions.finalizeWithdrawFromChain(
+            1,
+            address(vault),
+            stratAddr,
+            0,
+            1,
+            1
+        );
+    }
+
+    function testFinalizeWithdrawActionRevertsIfExiting() public {
+        hubMockActions.setTrustedHub(address(hubMockActions), 1, true);
+        hubMockActions.setExiting(address(vault), true);
+
+        vm.expectRevert("XChainHub::finalizeWithdrawFromChain:EXITING");
+        hubMockActions.finalizeWithdrawFromChain(
+            1,
+            address(vault),
+            stratAddr,
+            0,
+            1,
+            1
+        );
+    }
+
+    function testFinalizeWithdrawActionRevertsIfUntrustedVault() public {
+        hubMockActions.setTrustedHub(address(hubMockActions), 1, true);
+
+        vm.expectRevert("XChainHub::finalizeWithdrawFromChain:UNTRUSTED VAULT");
+        hubMockActions.finalizeWithdrawFromChain(
+            1,
+            address(vault),
+            stratAddr,
+            0,
+            1,
+            1
+        );
+    }
+
+    function testFinalizeWithdrawActionRevertsIfNoWithdraws() public {
+        hubMockActions.setTrustedHub(address(hubMockActions), 1, true);
+        hubMockActions.setTrustedVault(address(vault), true);
+
+        vm.expectRevert("XChainHub::finalizeWithdrawFromChain:NO WITHDRAWS");
+        hubMockActions.finalizeWithdrawFromChain(
+            1,
+            address(vault),
+            stratAddr,
+            0,
+            1,
+            1
+        );
+    }
+
+    function testFinalizeWithdrawActionRevertsIfMinOutTooHigh(
+        uint256 _min,
+        uint256 _out
+    ) public {
+        vm.assume(_min > _out);
+
+        hubMockActions.setTrustedHub(address(hubMockActions), 1, true);
+        hubMockActions.setTrustedVault(address(vault), true);
+        hubMockActions.setCurrentRoundPerStrategy(1, stratAddr, 1);
+        hubMockActions.setWithdrawnPerRound(address(vault), 1, _out);
+
+        vm.expectRevert(
+            "XChainHub::finalizeWithdrawFromChain:MIN OUT TOO HIGH"
+        );
+        hubMockActions.finalizeWithdrawFromChain(
+            1,
+            address(vault),
+            stratAddr,
+            _min,
+            1,
+            1
+        );
+    }
+
+    function _decodeFinalizeWithdrawCalldata(
+        MockRouterPayloadCapture _mockRouter
+    ) internal view returns (StargateCallDataParams memory) {
+        // the mock intercepts and stores payloads that we can inspect
+        bytes memory payload = _mockRouter.callparams(0);
+
+        // decode the calldata
+        (
+            uint16 _dstChainId,
+            uint256 _srcPoolId,
+            uint256 _dstPoolId,
+            address payable _refundAddress,
+            uint256 _amountLD,
+            uint256 _minAmountLD,
+            IStargateRouter.lzTxObj memory _lzTxParams,
+            bytes memory _to,
+            bytes memory _payload
+        ) = abi.decode(
+                payload,
+                (
+                    uint16,
+                    uint256,
+                    uint256,
+                    address,
+                    uint256,
+                    uint256,
+                    IStargateRouter.lzTxObj,
+                    bytes,
+                    bytes
+                )
+            );
+
+        return
+            StargateCallDataParams({
+                _dstChainId: _dstChainId,
+                _srcPoolId: _srcPoolId,
+                _dstPoolId: _dstPoolId,
+                _refundAddress: _refundAddress,
+                _amountLD: _amountLD,
+                _minAmountLD: _minAmountLD,
+                _lzTxParams: _lzTxParams,
+                _to: _to,
+                _payload: _payload
+            });
+    }
+
+    function testFinalizeWithdrawAction(uint256 _min, uint256 _out) public {
+        vm.assume(_min <= _out);
+        // setup the mocks and initialize
+        hubMockActions = new XChainHubMockActions(
+            address(mockRouter),
+            lz,
+            refund
+        );
+        // deposit requires tokens
+        vm.assume(token.balanceOf(address(this)) >= _out);
+        token.transfer(address(hubMockActions), _out);
+
+        hubMockActions.setTrustedHub(address(hubMockActions), 1, true);
+        hubMockActions.setTrustedVault(address(vault), true);
+        hubMockActions.setCurrentRoundPerStrategy(1, stratAddr, 1);
+        hubMockActions.setWithdrawnPerRound(address(vault), 1, _out);
+
+        hubMockActions.finalizeWithdrawFromChain(
+            1,
+            address(vault),
+            stratAddr,
+            _min,
+            1,
+            2
+        );
+
+        // grab payloads stored against the mock
+        StargateCallDataParams memory params = _decodeFinalizeWithdrawCalldata(
+            mockRouter
+        );
+
+        // run through relevant calldata
+        assertEq(params._dstChainId, 1);
+        assertEq(params._srcPoolId, 1);
+        assertEq(params._dstPoolId, 2);
+        assertEq(params._refundAddress, refund);
+        assertEq(params._amountLD, _out);
+        assertEq(params._minAmountLD, _min);
+        assert(
+            keccak256(params._to) ==
+                keccak256(abi.encodePacked(address(hubMockActions)))
+        );
+
+        // decode the payload
+        IHubPayload.Message memory message = abi.decode(
+            params._payload,
+            (IHubPayload.Message)
+        );
+
+        IHubPayload.FinalizeWithdrawPayload memory payload = abi.decode(
+            message.payload,
+            (IHubPayload.FinalizeWithdrawPayload)
+        );
+
+        assert(message.action == hubMockActions.FINALIZE_WITHDRAW_ACTION());
+        assert(payload.strategy == stratAddr);
+        assert(payload.vault == address(vault));
+    }
 }

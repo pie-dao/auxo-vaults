@@ -18,12 +18,6 @@ import {XChainHubMockActionsNoLz as XChainHub} from "@hub-test/mocks/MockXChainH
 
 /// @notice unit tests for functions executed on the source chain only
 contract TestXChainHubSrcAndDst is PRBTest {
-    event EnterBatchBurn(
-        uint256 indexed round,
-        address indexed account,
-        uint256 amount
-    );
-
     uint16 private constant chainIdSrc = 10001;
     uint16 private constant chainIdDst = 10002;
 
@@ -112,6 +106,7 @@ contract TestXChainHubSrcAndDst is PRBTest {
         address payable refund = payable(address(0x0));
 
         hubSrc.setTrustedStrategy(address(strategy), true);
+        hubDst.setTrustedStrategy(address(strategy), true);
         hubDst.setTrustedVault(address(vault), true);
         routerSrc.setSwapFeePc(_feePc);
 
@@ -150,8 +145,11 @@ contract TestXChainHubSrcAndDst is PRBTest {
         uint256 amount = 1e19;
         uint8 round = 1;
 
+        console.log(address(hubSrc));
+
         hubSrc.setTrustedStrategy(address(strategy), true);
 
+        hubDst.setTrustedHub(address(hubSrc), chainIdSrc, true);
         hubDst.setTrustedVault(address(vault), true);
         hubDst.setExiting(address(vault), true);
 
@@ -164,8 +162,6 @@ contract TestXChainHubSrcAndDst is PRBTest {
 
         vm.prank(address(strategy));
 
-        vm.expectEmit(false, false, false, true);
-        emit EnterBatchBurn(0, address(hubDst), amount);
         hubSrc.requestWithdrawFromChain(
             chainIdDst,
             address(vault),
@@ -188,49 +184,29 @@ contract TestXChainHubSrcAndDst is PRBTest {
         );
     }
 
-    function testFinalizeWithdrawal(uint256 _amount) public {
+    function testFinalizeWithdrawal(uint256 _amount, uint8 _fee) public {
         // we mint 1e27 tokens
         vm.assume(_amount <= 1e27);
+        vm.assume(_fee < 100);
         uint256 _round = 2;
 
-        // setup an initial state of tokens
-        token.transfer(address(vault), _amount);
-        vault.mint(address(vault), _amount);
+        routerSrc.setSwapFeePc(_fee);
 
-        MockVault.BatchBurn memory batchBurn = MockVault.BatchBurn({
-            totalShares: 100 ether,
-            amountPerShare: 10**vault.decimals()
-        });
-
-        // receipts are saved for previous rounds
-        MockVault.BatchBurnReceipt memory receipt = MockVault.BatchBurnReceipt({
-            round: _round - 1,
-            shares: _amount
-        });
-
-        vault.setBatchBurnReceiptsForSender(address(hubDst), receipt);
-        vault.setBatchBurnRound(_round);
-        vault.setBatchBurnForRound(_round, batchBurn);
-
-        hubDst.setCurrentRoundPerStrategy(
-            chainIdSrc,
-            address(strategy),
-            _round
-        );
-        hubDst.setExitingSharesPerStrategy(
-            chainIdSrc,
-            address(strategy),
-            _amount
-        );
+        token.transfer(address(hubSrc), _amount);
 
         // set trusted
         hubSrc.setTrustedStrategy(address(strategy), true);
+        hubSrc.setTrustedVault(address(vault), true);
+        hubSrc.setTrustedHub(address(hubDst), chainIdDst, true);
         hubDst.setTrustedVault(address(vault), true);
 
-        // execute the batch burn process
-        hubDst.finalizeWithdrawFromVault(IVault(address(vault)));
+        hubSrc.setCurrentRoundPerStrategy(
+            chainIdDst,
+            address(strategy),
+            _round
+        );
+        hubSrc.setWithdrawnPerRound(address(vault), _round, _amount);
 
-        vm.prank(address(strategy));
         hubSrc.finalizeWithdrawFromChain(
             chainIdDst,
             address(vault),
@@ -241,14 +217,11 @@ contract TestXChainHubSrcAndDst is PRBTest {
         );
 
         // ensure the destination is cleared out
-        assertEq(token.balanceOf(address(vault)), 0);
-        assertEq(token.balanceOf(address(hubDst)), 0);
-
-        // strategy now has the tokens
-        assertEq(token.balanceOf(address(strategy)), _amount);
-
-        // check tokens not in the hub
         assertEq(token.balanceOf(address(hubSrc)), 0);
+
+        // dst now has the tokens
+        uint256 fees = token.balanceOf(routerSrc.feeCollector());
+        assertEq(token.balanceOf(address(hubDst)), _amount - fees);
     }
 
     function testReportUnderlying() public {
@@ -259,6 +232,7 @@ contract TestXChainHubSrcAndDst is PRBTest {
 
         uint256 shares = 1e21;
 
+        hubDst.setTrustedHub(address(hubSrc), chainIdSrc, true);
         hubSrc.setTrustedVault(address(vault), true);
         hubSrc.setSharesPerStrategy(dstChains[0], strategies[0], shares);
         hubSrc.setLatestReport(dstChains[0], strategies[0], block.timestamp);
