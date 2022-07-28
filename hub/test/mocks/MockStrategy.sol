@@ -4,8 +4,9 @@ pragma abicoder v2;
 
 import "@oz/token/ERC20/ERC20.sol";
 import "@interfaces/IStargateReceiver.sol";
+import "@hub/strategy/XChainStrategy.sol";
 
-contract MockStrat is IStargateReceiver {
+contract MockStrat {
     ERC20 public underlying;
     uint256 public reported;
     address public stargateRouter;
@@ -17,22 +18,39 @@ contract MockStrat is IStargateReceiver {
     function report(uint256 amount) external {
         reported = amount;
     }
+}
 
-    function setStargateRouter(address _router) external {
-        stargateRouter = _router;
+contract MockXChainStrategy is XChainStrategy {
+    constructor(
+        address hub_,
+        IVault vault_,
+        IERC20 underlying_,
+        address manager_,
+        address strategist_,
+        string memory name_
+    ) XChainStrategy(hub_, vault_, underlying_, manager_, strategist_, name_) {}
+
+    function setState(uint8 newState) external {
+        state = newState;
     }
 
-    function sgReceive(
-        uint16 _srcChainId,
-        bytes memory _srcAddress,
-        uint256, // nonce
-        address, // the token contract on the local chain
-        uint256 amountLD, // the qty of local _token contract tokens
-        bytes memory _payload
-    ) external override {
-        require(
-            msg.sender == address(stargateRouter),
-            "XChainHub::sgRecieve:NOT STARGATE ROUTER"
+    function setReportedUnderyling(uint256 reported) external {
+        reportedUnderlying = reported;
+    }
+
+    function withdrawUnderlying(
+        uint256 amountVaultShares,
+        bytes memory adapterParams,
+        address payable refundAddress,
+        uint16 dstChain,
+        address dstVault
+    ) external {
+        _withdrawUnderlying(
+            amountVaultShares,
+            adapterParams,
+            refundAddress,
+            dstChain,
+            dstVault
         );
     }
 }

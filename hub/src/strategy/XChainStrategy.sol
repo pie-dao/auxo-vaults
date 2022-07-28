@@ -13,6 +13,9 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity 0.8.14;
 
+// dev remove before prod deploy
+import "@std/console.sol";
+
 import {XChainHub} from "@hub/XChainHub.sol";
 import {BaseStrategy} from "@hub/strategy/BaseStrategy.sol";
 
@@ -53,41 +56,49 @@ contract XChainStrategy is BaseStrategy {
     /// Structs
     /// ------------------
 
-    /// @notice restricts XChainStrategy actions to certain lifecycle states
-    /// possible states:
-    ///  - not deposited: initial state OR strategy withdrawn
-    ///  - Depositing: strategy is depositing, awaiting
-    ///  - Deposited: strategy has deposited
-    ///  - withdrawing: strategy is withdrawing, awaiting receipt of tokens
-    enum DepositState {
-        NOT_DEPOSITED,
-        DEPOSITING,
-        DEPOSITED,
-        WITHDRAWING
+    /// @dev stack too deep fix
+    struct DepositParams {
+        uint256 amount;
+        uint256 minAmount;
+        uint16 dstChain;
+        uint16 srcPoolId;
+        uint16 dstPoolId;
+        address dstHub;
+        address dstVault;
+        address payable refundAddress;
     }
 
-    /// @notice global deposit data
-    /// @param state see DepositState enum
-    /// @param amountDeposited the current amount deposited cross chain
-    /// @param amountWithdrawn the current amount withdrawn, can be > deposited with positive yield
-    struct Deposit {
-        DepositState state;
-        uint256 amountDeposited;
-        uint256 amountWithdrawn;
-    }
+    /// ------------------
+    /// Lifecycle Constants
+    /// ------------------
+
+    ///  @notice initial state OR strategy withdrawn
+    uint8 public constant NOT_DEPOSITED = 0;
+
+    /// @notice strategy is depositing, awaiting confirmation
+    uint8 public constant DEPOSITING = 1;
+
+    /// @notice strategy has deposited tokens into a destination hub
+    uint8 public constant DEPOSITED = 2;
+
+    /// @notice awaiting receipt of tokens following request to withdraw
+    uint8 public constant WITHDRAWING = 3;
 
     /// ------------------
     /// Variables
     /// ------------------
 
+    /// @notice global deposit data
+    uint8 public state;
+
+    /// @notice the current amount deposited cross chain
+    uint256 public amountDeposited;
+
+    /// @notice the current amount withdrawn, can be > deposited with positive yield
+    uint256 public amountWithdrawn;
+
     /// @notice the XChainHub managing this strategy
-    IXChainHub private hub;
-
-    /// @notice the current enumerated state of the contract
-    DepositState public state;
-
-    /// @notice a globally available struct containing deposit data
-    Deposit public XChainDeposit;
+    IXChainHub public hub;
 
     /// @notice the latest amount of underlying tokens reported as being held in the strategy
     uint256 public reportedUnderlying;
@@ -120,10 +131,7 @@ contract XChainStrategy is BaseStrategy {
 
     /// @notice fetches the estimated qty of underlying tokens in the strategy
     function estimatedUnderlying() external view override returns (uint256) {
-        return
-            XChainDeposit.state == DepositState.NOT_DEPOSITED
-                ? float()
-                : reportedUnderlying + float();
+        return state == NOT_DEPOSITED ? float() : reportedUnderlying + float();
     }
 
     /// ------------------
@@ -151,41 +159,27 @@ contract XChainStrategy is BaseStrategy {
     /// Cross Chain Functions
     /// ------------------
 
-    /// @dev stack too de
-    struct DepositParams {
-        uint256 amount;
-        uint256 minAmount;
-        uint16 dstChain;
-        uint16 srcPoolId;
-        uint16 dstPoolId;
-        address dstHub;
-        address dstVault;
-        address payable refundAddress;
-    }
-
     /// @notice makes a deposit of underlying tokens into a vault on the destination chain
     function depositUnderlying(DepositParams calldata params) external payable {
+        require(
+            msg.sender == manager || msg.sender == strategist,
+            "XChainStrategy::depositUnderlying:UNAUTHORIZED"
+        );
+
         require(
             msg.value > 0,
             "XChainStrategy::depositUnderlying:NO GAS FOR FEES"
         );
 
         require(
-            msg.sender == manager || msg.sender == strategist,
-            "XChainStrategy::depositUnderlying:UNAUTHORIZED"
-        );
-
-        DepositState currentState = XChainDeposit.state;
-
-        require(
-            currentState != DepositState.WITHDRAWING,
+            state != WITHDRAWING,
             "XChainStrategy::depositUnderlying:WRONG STATE"
         );
 
         uint256 amount = params.amount;
 
-        XChainDeposit.state = DepositState.DEPOSITING;
-        XChainDeposit.amountDeposited += amount;
+        state = DEPOSITING;
+        amountDeposited += amount;
 
         underlying.safeApprove(address(hub), amount);
 
@@ -214,18 +208,22 @@ contract XChainStrategy is BaseStrategy {
         );
 
         require(
-            XChainDeposit.state == DepositState.WITHDRAWING,
+            state == WITHDRAWING,
             "XChainStrategy::withdrawFromHub:WRONG STATE"
         );
 
         // we can't subtract deposits because we might erroneously report 0 deposits with leftover yield
-        XChainDeposit.state = DepositState.DEPOSITED;
-        XChainDeposit.amountWithdrawn += _amount;
+        state = DEPOSITED;
+        amountWithdrawn += _amount;
 
         underlying.safeTransferFrom(address(hub), address(this), _amount);
     }
 
     /// @notice makes a request to the remote hub to begin the withdrawal process
+    /// @param amountVaultShares the quantity of vault shares to burn on the destination
+    /// @dev - should this be underlying?
+    /// @param adapterParams anything to send to the layerZero endpoint
+    /// @dev - do we even need this
     function _withdrawUnderlying(
         uint256 amountVaultShares,
         bytes memory adapterParams,
@@ -235,17 +233,15 @@ contract XChainStrategy is BaseStrategy {
     ) internal {
         require(
             msg.sender == manager || msg.sender == strategist,
-            "XChainStrategy::withdrawUnderlying:UNAUTHORIZED"
+            "XChainStrategy::_withdrawUnderlying:UNAUTHORIZED"
         );
-
-        DepositState currentState = XChainDeposit.state;
 
         require(
-            currentState == DepositState.DEPOSITED,
-            "XChainStrategy::withdrawUnderlying:WRONG STATE"
+            state == DEPOSITED,
+            "XChainStrategy::_withdrawUnderlying:WRONG STATE"
         );
 
-        XChainDeposit.state = DepositState.WITHDRAWING;
+        state = WITHDRAWING;
 
         hub.requestWithdrawFromChain(
             dstChain,
@@ -267,24 +263,19 @@ contract XChainStrategy is BaseStrategy {
             "XChainStrategy::report:UNAUTHORIZED"
         );
 
-        DepositState currentState = XChainDeposit.state;
-
-        require(
-            currentState != DepositState.NOT_DEPOSITED,
-            "XChainStrategy:report:WRONG STATE"
-        );
+        require(state != NOT_DEPOSITED, "XChainStrategy:report:WRONG STATE");
 
         // zero value indicates the strategy is closed
-        // @dev add reportedUnderlying
         if (_reportedUnderlying == 0) {
-            XChainDeposit.state = DepositState.NOT_DEPOSITED;
-            emit ReportXChain(XChainDeposit.amountDeposited, 0);
-            XChainDeposit.amountDeposited = 0;
+            state = NOT_DEPOSITED;
+            emit ReportXChain(reportedUnderlying, 0);
+            amountDeposited = 0;
+            reportedUnderlying = 0;
             return;
         }
 
-        if (currentState == DepositState.DEPOSITING) {
-            XChainDeposit.state = DepositState.DEPOSITED;
+        if (state == DEPOSITING) {
+            state = DEPOSITED;
         }
 
         emit ReportXChain(reportedUnderlying, _reportedUnderlying);

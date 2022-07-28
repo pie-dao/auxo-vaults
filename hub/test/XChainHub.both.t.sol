@@ -78,7 +78,6 @@ contract TestXChainHubSrcAndDst is PRBTest {
 
         // for finalize withdraw: allow the strategy to receive tokens
         routerDst.setDestSgEndpoint(address(strategy), address(routerSrc));
-        strategy.setStargateRouter(address(routerSrc));
 
         // trusted remote needs converting address to bytes
         byteAddressHubSrc = abi.encodePacked(address(hubSrc));
