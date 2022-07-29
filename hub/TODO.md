@@ -1,8 +1,9 @@
 TODO
 -----
 
-[ ] Improve tests
+[x] Improve tests
     We need to take in consideration the fact amounts might not be as we expect
+[ ] Test the emergency and locking functions
 [ ] Make script consistend and interactive.
 [ ] Hub / Strategy
     - Pausability things / toggle PAuse --> notPaused modifier

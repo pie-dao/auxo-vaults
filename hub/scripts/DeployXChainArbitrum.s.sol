@@ -22,9 +22,9 @@ contract XChainHubOptimism is Script {
     address constant vaultAddrDst = 0x2E05590c1B24469eAEf2B29c6c7109b507ec2544;
     address constant hubDstAddr = 0x1869691b28756Ad1556de08b82Fd56339248F03b;
 
-    XChainStargateHub public hub;
+    XChainHub public hub;
     IVault public vault;
-    XChainStrategyStargate public strat;
+    XChainStrategy public strat;
     IStargateRouter public router;
 
     // trust the vault from the hub
@@ -85,9 +85,9 @@ contract XChainHubOptimism is Script {
     }
 
     function run() public {
-        hub = XChainStargateHub(hubAddress);
+        hub = XChainHub(hubAddress);
         vault = IVault(vaultAddr);
-        strat = XChainStrategyStargate(stratAddr);
+        strat = XChainStrategy(stratAddr);
         router = IStargateRouter(stargateRouter);
 
         setTrust();
@@ -102,7 +102,7 @@ contract XChainHubOptimism is Script {
         strat.depositUnderlying{value: fees * 10}(
             1e9,
             0,
-            XChainStrategyStargate.DepositParams(
+            XChainStrategy.DepositParams(
                 _dstChainIdArbtrium,
                 1,
                 1,

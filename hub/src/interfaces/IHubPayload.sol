@@ -11,10 +11,10 @@
 // auxo.fi
 
 // SPDX-License-Identifier: AGPL-3.0-only
-pragma solidity >=0.8.0;
+pragma solidity 0.8.14;
 
-import {IVault} from "./IVault.sol";
-import {IStrategy} from "./IStrategy.sol";
+import {IVault} from "@interfaces/IVault.sol";
+import {IStrategy} from "@interfaces/IStrategy.sol";
 
 /// @title The set of interfaces for the various encoded payloads transferred across chains
 /// @dev assistance to the programmer for ensuring consistent serialisation and deserialisation across functions
@@ -40,15 +40,9 @@ interface IHubPayload {
 
     /// @param vault on the dst chain
     /// @param strategy (to withdraw from?)
-    /// @param srcPoolId stargate pool id on the src
-    /// @param dstPoolId stargate pool id on  the dst
-    /// @param minOutUnderlying minimum underlying we will accept from the stargate swap on dst
     struct FinalizeWithdrawPayload {
         address vault;
         address strategy;
-        uint16 srcPoolId;
-        uint16 dstPoolId;
-        uint256 minOutUnderlying;
     }
 
     /// @param vault on the destinationc chain

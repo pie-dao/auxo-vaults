@@ -11,7 +11,7 @@ node_modules/
 lib/
 
 **/lib/**
-
+.scrap/
 cache/
 out/
 node_modules/

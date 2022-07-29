@@ -11,9 +11,9 @@
 // auxo.fi
 
 // SPDX-License-Identifier: AGPL-3.0-only
-pragma solidity >=0.8.0;
+pragma solidity 0.8.14;
 
-import {IVault} from "../interfaces/IVault.sol";
+import {IVault} from "@interfaces/IVault.sol";
 
 import {Address} from "openzeppelin/utils/Address.sol";
 import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";

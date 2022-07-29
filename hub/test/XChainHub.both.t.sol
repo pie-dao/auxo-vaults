@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity >=0.8.0;
+pragma solidity 0.8.14;
 pragma abicoder v2;
 
 import {PRBTest} from "@prb/test/PRBTest.sol";
@@ -9,29 +9,23 @@ import "@oz/token/ERC20/ERC20.sol";
 import {IVault} from "@interfaces/IVault.sol";
 
 import {LZEndpointMock} from "@hub-test/mocks/MockLayerZeroEndpoint.sol";
-import {LZEndpointMock} from "@hub-test/mocks/MockLayerZeroEndpoint.sol";
+import {XChainHubEvents} from "@hub/XChainHubEvents.sol";
 import {MockStrat} from "@hub-test/mocks/MockStrategy.sol";
 import {AuxoTest} from "@hub-test/mocks/MockERC20.sol";
 import {MockVault} from "@hub-test/mocks/MockVault.sol";
 import {StargateRouterMock} from "@hub-test/mocks/MockStargateRouter.sol";
-import {XChainStargateHubMockActionsNoLz as XChainStargateHub} from "@hub-test/mocks/MockXChainStargateHub.sol";
+import {XChainHubMockActionsNoLz as XChainHub} from "@hub-test/mocks/MockXChainHub.sol";
 
 /// @notice unit tests for functions executed on the source chain only
-contract TestXChainStargateHubSrcAndDst is PRBTest {
-    event EnterBatchBurn(
-        uint256 indexed round,
-        address indexed account,
-        uint256 amount
-    );
-
+contract TestXChainHubSrcAndDst is PRBTest, XChainHubEvents {
     uint16 private constant chainIdSrc = 10001;
     uint16 private constant chainIdDst = 10002;
 
     LZEndpointMock public lzSrc;
     LZEndpointMock public lzDst;
 
-    XChainStargateHub public hubSrc;
-    XChainStargateHub public hubDst;
+    XChainHub public hubSrc;
+    XChainHub public hubDst;
 
     StargateRouterMock public routerSrc;
     StargateRouterMock public routerDst;
@@ -62,13 +56,13 @@ contract TestXChainStargateHubSrcAndDst is PRBTest {
         lzDst = new LZEndpointMock(chainIdDst);
 
         // deploy the xchain contracts
-        hubSrc = new XChainStargateHub(
+        hubSrc = new XChainHub(
             address(routerSrc),
             address(lzSrc),
             address(0x0)
         );
 
-        hubDst = new XChainStargateHub(
+        hubDst = new XChainHub(
             address(routerDst),
             address(lzDst),
             address(0x0)
@@ -84,7 +78,6 @@ contract TestXChainStargateHubSrcAndDst is PRBTest {
 
         // for finalize withdraw: allow the strategy to receive tokens
         routerDst.setDestSgEndpoint(address(strategy), address(routerSrc));
-        strategy.setStargateRouter(address(routerSrc));
 
         // trusted remote needs converting address to bytes
         byteAddressHubSrc = abi.encodePacked(address(hubSrc));
@@ -112,11 +105,14 @@ contract TestXChainStargateHubSrcAndDst is PRBTest {
         address payable refund = payable(address(0x0));
 
         hubSrc.setTrustedStrategy(address(strategy), true);
+        hubDst.setTrustedStrategy(address(strategy), true);
         hubDst.setTrustedVault(address(vault), true);
         routerSrc.setSwapFeePc(_feePc);
 
         vm.startPrank(address(strategy));
         token.approve(address(hubSrc), token.balanceOf(address(strategy)));
+
+        vm.expectEmit(false, false, false, true);
         hubSrc.depositToChain(
             chainIdDst,
             srcPoolId,
@@ -150,8 +146,11 @@ contract TestXChainStargateHubSrcAndDst is PRBTest {
         uint256 amount = 1e19;
         uint8 round = 1;
 
+        console.log(address(hubSrc));
+
         hubSrc.setTrustedStrategy(address(strategy), true);
 
+        hubDst.setTrustedHub(address(hubSrc), chainIdSrc, true);
         hubDst.setTrustedVault(address(vault), true);
         hubDst.setExiting(address(vault), true);
 
@@ -164,8 +163,6 @@ contract TestXChainStargateHubSrcAndDst is PRBTest {
 
         vm.prank(address(strategy));
 
-        vm.expectEmit(false, false, false, true);
-        emit EnterBatchBurn(0, address(hubDst), amount);
         hubSrc.requestWithdrawFromChain(
             chainIdDst,
             address(vault),
@@ -188,68 +185,44 @@ contract TestXChainStargateHubSrcAndDst is PRBTest {
         );
     }
 
-    function testFinalizeWithdrawal(uint256 _amount) public {
+    function testFinalizeWithdrawal(uint256 _amount, uint8 _fee) public {
         // we mint 1e27 tokens
         vm.assume(_amount <= 1e27);
+        vm.assume(_fee < 100);
         uint256 _round = 2;
 
-        // setup an initial state of tokens
-        token.transfer(address(vault), _amount);
-        vault.mint(address(vault), _amount);
+        routerSrc.setSwapFeePc(_fee);
 
-        MockVault.BatchBurn memory batchBurn = MockVault.BatchBurn({
-            totalShares: 100 ether,
-            amountPerShare: 10**vault.decimals()
-        });
-
-        // receipts are saved for previous rounds
-        MockVault.BatchBurnReceipt memory receipt = MockVault.BatchBurnReceipt({
-            round: _round - 1,
-            shares: _amount
-        });
-
-        vault.setBatchBurnReceiptsForSender(address(hubDst), receipt);
-        vault.setBatchBurnRound(_round);
-        vault.setBatchBurnForRound(_round, batchBurn);
-
-        hubDst.setCurrentRoundPerStrategy(
-            chainIdSrc,
-            address(strategy),
-            _round
-        );
-        hubDst.setExitingSharesPerStrategy(
-            chainIdSrc,
-            address(strategy),
-            _amount
-        );
+        token.transfer(address(hubSrc), _amount);
 
         // set trusted
         hubSrc.setTrustedStrategy(address(strategy), true);
+        hubSrc.setTrustedVault(address(vault), true);
+        hubSrc.setTrustedHub(address(hubDst), chainIdDst, true);
         hubDst.setTrustedVault(address(vault), true);
 
-        // execute the batch burn process
-        hubDst.finalizeWithdrawFromVault(IVault(address(vault)));
+        hubSrc.setCurrentRoundPerStrategy(
+            chainIdDst,
+            address(strategy),
+            _round
+        );
+        hubSrc.setWithdrawnPerRound(address(vault), _round, _amount);
 
-        vm.prank(address(strategy));
         hubSrc.finalizeWithdrawFromChain(
             chainIdDst,
             address(vault),
-            bytes(""),
-            payable(address(0x0)),
+            address(strategy),
+            0,
             1,
-            1,
-            0
+            1
         );
 
         // ensure the destination is cleared out
-        assertEq(token.balanceOf(address(vault)), 0);
-        assertEq(token.balanceOf(address(hubDst)), 0);
-
-        // strategy now has the tokens
-        assertEq(token.balanceOf(address(strategy)), _amount);
-
-        // check tokens not in the hub
         assertEq(token.balanceOf(address(hubSrc)), 0);
+
+        // dst now has the tokens
+        uint256 fees = token.balanceOf(routerSrc.feeCollector());
+        assertEq(token.balanceOf(address(hubDst)), _amount - fees);
     }
 
     function testReportUnderlying() public {
@@ -260,6 +233,7 @@ contract TestXChainStargateHubSrcAndDst is PRBTest {
 
         uint256 shares = 1e21;
 
+        hubDst.setTrustedHub(address(hubSrc), chainIdSrc, true);
         hubSrc.setTrustedVault(address(vault), true);
         hubSrc.setSharesPerStrategy(dstChains[0], strategies[0], shares);
         hubSrc.setLatestReport(dstChains[0], strategies[0], block.timestamp);

@@ -1,12 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-pragma solidity >=0.8.0;
+pragma solidity 0.8.14;
 
 import "@oz/token/ERC20/ERC20.sol";
 import "@std/console.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 import {Pausable} from "@oz/security/Pausable.sol";
-
-// import {Vault} from "@vaults/Vault.sol";
 
 /// @notice A vault seeking for yield.
 contract MockVault is ERC20, Pausable {
@@ -38,7 +36,7 @@ contract MockVault is ERC20, Pausable {
 
     mapping(uint256 => BatchBurn) public batchBurns;
 
-    mapping(address => BatchBurnReceipt) public userBatchBurnReceipts;
+    mapping(address => BatchBurnReceipt) public userBatchBurnReceipt;
 
     constructor(ERC20 _underyling) ERC20("Auxo Test", "auxoTST") {
         underlying = _underyling;
@@ -55,6 +53,7 @@ contract MockVault is ERC20, Pausable {
             (shares = calculateShares(underlyingAmount)),
             underlyingAmount
         );
+        return 0;
     }
 
     // set batch burn artificially for testing
@@ -69,7 +68,7 @@ contract MockVault is ERC20, Pausable {
         address _sender,
         BatchBurnReceipt memory _receipt
     ) external {
-        userBatchBurnReceipts[_sender] = _receipt;
+        userBatchBurnReceipt[_sender] = _receipt;
     }
 
     // add small diff
@@ -106,15 +105,6 @@ contract MockVault is ERC20, Pausable {
             underlyingAmount;
         uint256 vaultUnderlying = totalUnderlying() + underlyingAmount;
 
-        // require(
-        //     userUnderlying <= userDepositLimit,
-        //     "_deposit::USER_DEPOSIT_LIMITS_REACHED"
-        // );
-        // require(
-        //     vaultUnderlying <= vaultDepositLimit,
-        //     "_deposit::VAULT_DEPOSIT_LIMITS_REACHED"
-        // );
-
         // Determine te equivalent amount of shares and mint them
         _mint(to, shares);
 
@@ -134,7 +124,7 @@ contract MockVault is ERC20, Pausable {
     }
 
     function exitBatchBurn() external {
-        BatchBurnReceipt memory receipt = userBatchBurnReceipts[msg.sender];
+        BatchBurnReceipt memory receipt = userBatchBurnReceipt[msg.sender];
 
         require(receipt.round != 0, "exitBatchBurn::NO_DEPOSITS");
         require(
@@ -142,8 +132,8 @@ contract MockVault is ERC20, Pausable {
             "exitBatchBurn::ROUND_NOT_EXECUTED"
         );
 
-        userBatchBurnReceipts[msg.sender].round = 0;
-        userBatchBurnReceipts[msg.sender].shares = 0;
+        userBatchBurnReceipt[msg.sender].round = 0;
+        userBatchBurnReceipt[msg.sender].shares = 0;
 
         BatchBurn memory batchBurn = batchBurns[batchBurnRound];
 
@@ -156,14 +146,14 @@ contract MockVault is ERC20, Pausable {
 
     function enterBatchBurn(uint256 shares) external {
         uint256 batchBurnRound_ = batchBurnRound;
-        uint256 userRound = userBatchBurnReceipts[msg.sender].round;
+        uint256 userRound = userBatchBurnReceipt[msg.sender].round;
 
         if (userRound == 0) {
             // user is depositing for the first time in this round
             // so we set his round to current round
 
-            userBatchBurnReceipts[msg.sender].round = batchBurnRound_;
-            userBatchBurnReceipts[msg.sender].shares = shares;
+            userBatchBurnReceipt[msg.sender].round = batchBurnRound_;
+            userBatchBurnReceipt[msg.sender].shares = shares;
         } else {
             // user is not depositing for the first time or took part in a previous round:
             //      - first case: we stack the deposits.
@@ -174,7 +164,7 @@ contract MockVault is ERC20, Pausable {
                 userRound == batchBurnRound_,
                 "enterBatchBurn::DIFFERENT_ROUNDS"
             );
-            userBatchBurnReceipts[msg.sender].shares += shares;
+            userBatchBurnReceipt[msg.sender].shares += shares;
         }
 
         batchBurns[batchBurnRound_].totalShares += shares;
