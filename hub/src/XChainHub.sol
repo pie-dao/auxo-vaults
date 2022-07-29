@@ -303,8 +303,10 @@ contract XChainHub is XChainHubBase, LayerZeroApp, IStargateReceiver {
         );
     }
 
-    /// @notice calculate how much available to strategy based on existing shares and current batch burn round
-    /// @dev required for stack too deep resolution
+    /// @notice calculate how much available for strategy to withdraw
+    /// @param _vault the vault on this chain to withdrawfrom
+    /// @param _srcChainId the remote layerZero chainId
+    /// @param _strategy the remote XChainStrategy withdrawing tokens
     /// @return the underyling tokens that can be redeemeed
     function _calculateStrategyAmountForWithdraw(
         IVault _vault,
@@ -317,6 +319,12 @@ contract XChainHub is XChainHubBase, LayerZeroApp, IStargateReceiver {
     }
 
     /// @notice sends tokens withdrawn from local vault to a remote hub
+    /// @param _dstChainId layerZero ChainId to send tokens
+    /// @param _vault the vault on this chain to validate the withdrawal against
+    /// @param _strategy the XChainStrategy that initially deposited the tokens
+    /// @param _minOutUnderlying minimum amount of underlying to receive after cross chain swap
+    /// @param _srcPoolId stargatePoolId this chain
+    /// @param _dstPoolId stargatePoolId target chain
     function finalizeWithdrawFromChain(
         uint16 _dstChainId,
         address _vault,
@@ -460,13 +468,14 @@ contract XChainHub is XChainHubBase, LayerZeroApp, IStargateReceiver {
     /// @notice called by the stargate application on the dstChain
     /// @dev invoked when IStargateRouter.swap is called
     /// @param _srcChainId layerzero chain id on src
+    /// @param amountLD of underlying tokens actually received (after swap fees)
     /// @param _payload encoded payload data as IHubPayload.Message
     function sgReceive(
         uint16 _srcChainId,
-        bytes memory, // address of router on src
+        bytes memory, // address of *router* on src
         uint256, // nonce
-        address, // the token contract on the local chain
-        uint256 amountLD, // the qty of local _token contract tokens
+        address, // the underlying contract on this chain
+        uint256 amountLD,
         bytes memory _payload
     ) external override {
         require(
@@ -528,7 +537,11 @@ contract XChainHub is XChainHubBase, LayerZeroApp, IStargateReceiver {
     // Action Functions
     // --------------------------
 
+    /// @notice called on destination chain to deposit underlying tokens into a vault
+    /// @dev designed to be overridden in the case of an untrusted payload
+    /// @param _srcChainId layerZero chain id from where deposit came
     /// @param _payload abi encoded as IHubPayload.DepositPayload
+    /// @param _amountReceived underlying tokens to be deposited
     function _depositAction(
         uint16 _srcChainId,
         bytes memory _payload,
@@ -547,9 +560,12 @@ contract XChainHub is XChainHubBase, LayerZeroApp, IStargateReceiver {
         );
     }
 
-    /// @dev untested
+    /// @notice actions the deposit
     /// @param _srcChainId what layerZero chainId was the request initiated from
     /// @param _amountReceived is the amount of underyling from stargate swap after fees
+    /// @param _min minimumAmount of minted shares that will be accepted
+    /// @param _strategy source XChainStrategy of the deposit request
+    /// @param _vault in which to make the deposit
     function _makeDeposit(
         uint16 _srcChainId,
         uint256 _amountReceived,
@@ -671,6 +687,7 @@ contract XChainHub is XChainHubBase, LayerZeroApp, IStargateReceiver {
 
     /// @notice underlying holdings are updated on another chain and this function is broadcast
     ///     to all other chains for the strategy.
+    /// @param _srcChainId the layerZero chain id from where the request originates
     /// @param _payload byte encoded data adhering to IHubPayload.ReportUnderlyingPayload
     function _reportUnderlyingAction(uint16 _srcChainId, bytes memory _payload)
         internal

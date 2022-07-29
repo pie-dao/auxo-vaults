@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity 0.8.14;
 import {XChainHub} from "@hub/XChainHub.sol";
+import {XChainHubSingle} from "@hub/XChainHubSingle.sol";
 import {IHubPayload} from "@interfaces/IHubPayload.sol";
 import {IVault} from "@interfaces/IVault.sol";
 
@@ -357,5 +358,57 @@ contract XChainHubMockActionsNoLz is XChainHub {
         uint256 timestamp
     ) external {
         latestUpdate[chainId][strategy] = timestamp;
+    }
+}
+
+contract MockXChainHubSingle is XChainHubSingle {
+    uint16 public srcChainId;
+    uint256 public amountReceived;
+    uint256 public min;
+    address public strategy;
+    address public vault;
+
+    constructor(
+        address _stargateEndpoint,
+        address _lzEndpoint,
+        address _refundRecipient
+    ) XChainHubSingle(_stargateEndpoint, _lzEndpoint, _refundRecipient) {}
+
+    function depositAction(
+        uint16 _srcChainId,
+        bytes memory _payload,
+        uint256 _amount
+    ) external {
+        return _depositAction(_srcChainId, _payload, _amount);
+    }
+
+    function _makeDeposit(
+        uint16 _srcChainId,
+        uint256 _amountReceived,
+        uint256 _min,
+        address _strategy,
+        address _vault
+    ) internal override {
+        srcChainId = _srcChainId;
+        amountReceived = _amountReceived;
+        min = _min;
+        strategy = _strategy;
+        vault = _vault;
+    }
+
+    function setExitingSharesPerStrategy(
+        uint16 _srcChainId,
+        address _strategy,
+        uint256 _shares
+    ) external {
+        exitingSharesPerStrategy[_srcChainId][_strategy] = _shares;
+    }
+
+    function setSharesPerStrategy(
+        uint16 _srcChainId,
+        address _strategy,
+        uint256 _shares
+    ) external {
+        sharesPerStrategy[_srcChainId][_strategy] = _shares;
     }
 }
