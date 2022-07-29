@@ -9,7 +9,7 @@ import "@oz/token/ERC20/ERC20.sol";
 import {IVault} from "@interfaces/IVault.sol";
 
 import {LZEndpointMock} from "@hub-test/mocks/MockLayerZeroEndpoint.sol";
-import {LZEndpointMock} from "@hub-test/mocks/MockLayerZeroEndpoint.sol";
+import {XChainHubEvents} from "@hub/XChainHubEvents.sol";
 import {MockStrat} from "@hub-test/mocks/MockStrategy.sol";
 import {AuxoTest} from "@hub-test/mocks/MockERC20.sol";
 import {MockVault} from "@hub-test/mocks/MockVault.sol";
@@ -17,7 +17,7 @@ import {StargateRouterMock} from "@hub-test/mocks/MockStargateRouter.sol";
 import {XChainHubMockActionsNoLz as XChainHub} from "@hub-test/mocks/MockXChainHub.sol";
 
 /// @notice unit tests for functions executed on the source chain only
-contract TestXChainHubSrcAndDst is PRBTest {
+contract TestXChainHubSrcAndDst is PRBTest, XChainHubEvents {
     uint16 private constant chainIdSrc = 10001;
     uint16 private constant chainIdDst = 10002;
 
@@ -111,6 +111,8 @@ contract TestXChainHubSrcAndDst is PRBTest {
 
         vm.startPrank(address(strategy));
         token.approve(address(hubSrc), token.balanceOf(address(strategy)));
+
+        vm.expectEmit(false, false, false, true);
         hubSrc.depositToChain(
             chainIdDst,
             srcPoolId,

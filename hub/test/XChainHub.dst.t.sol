@@ -4,8 +4,10 @@ pragma abicoder v2;
 
 import {PRBTest} from "@prb/test/PRBTest.sol";
 import "@oz/token/ERC20/ERC20.sol";
+import "@hub-test/utils/reducer.utils.sol";
 
 import {XChainHub} from "@hub/XChainHub.sol";
+import {XChainHubEvents} from "@hub/XChainHubEvents.sol";
 import {XChainHubMockReducer, XChainHubMockLzSend, XChainHubMockActions} from "@hub-test/mocks/MockXChainHub.sol";
 import {MockRouterPayloadCapture, StargateCallDataParams} from "@hub-test/mocks/MockStargateRouter.sol";
 
@@ -18,7 +20,8 @@ import {IVault} from "@interfaces/IVault.sol";
 import {IHubPayload} from "@interfaces/IHubPayload.sol";
 
 /// @notice unit tests for functions executed on the destination chain only
-contract TestXChainHubDst is PRBTest {
+
+contract TestXChainHubDst is PRBTest, XChainHubEvents {
     address public stargate;
     address public lz;
     address public refund;
@@ -27,11 +30,14 @@ contract TestXChainHubDst is PRBTest {
     XChainHub public hub;
     XChainHubMockReducer public hubMockReducer;
     XChainHubMockActions public hubMockActions;
-    // random addr
-    address private stratAddr = 0x4A1c900Ee1042dC2BA405821F0ea13CfBADCAb7B;
+    ERC20 token;
+    MockVault _vault;
+    address constant stratAddr = 0x4A1c900Ee1042dC2BA405821F0ea13CfBADCAb7B;
 
     function setUp() public {
-        vaultAddr = 0x4A1c900Ee1042dC2BA405821F0ea13CfBADCAb7B;
+        token = new AuxoTest();
+        _vault = new MockVault(token);
+        vaultAddr = address(vault);
         vault = IVault(vaultAddr);
 
         (stargate, lz, refund) = (
@@ -40,6 +46,7 @@ contract TestXChainHubDst is PRBTest {
             0x675e75A6f90E0610d150f415e4406B4989AaD023
         );
         hub = new XChainHub(stargate, lz, refund);
+
         hubMockReducer = new XChainHubMockReducer(stargate, lz, refund);
         hubMockActions = new XChainHubMockActions(stargate, lz, refund);
     }
@@ -49,47 +56,6 @@ contract TestXChainHubDst is PRBTest {
         assertEq(address(hub.stargateRouter()), stargate);
         assertEq(address(hub.layerZeroEndpoint()), lz);
         assertEq(address(hub.refundRecipient()), refund);
-    }
-
-    /// @notice helper function to avoid repetition
-    function _checkReducerAction(
-        uint8 _action,
-        XChainHubMockReducer mock,
-        uint256 _amount
-    ) internal {
-        mock.reducer(1, mock.makeMessage(_action), _amount);
-        assertEq(mock.lastCall(), _action);
-        assertEq(mock.amountCalled(), _amount);
-    }
-
-    /// @notice helper function to avoid repetition
-    function _checkReducerAction(uint8 _action, XChainHubMockReducer mock)
-        internal
-    {
-        mock.reducer(1, mock.makeMessage(_action), 0);
-        assertEq(mock.lastCall(), _action);
-        assertEq(mock.amountCalled(), 0);
-    }
-
-    /// @notice helper function to avoid repetition
-    function _checkEmergencyReducerAction(
-        uint8 _action,
-        XChainHubMockReducer mock,
-        uint256 _amount
-    ) internal {
-        mock.emergencyReducer(1, mock.makeMessage(_action), _amount);
-        assertEq(mock.lastCall(), _action);
-        assertEq(mock.amountCalled(), _amount);
-    }
-
-    /// @notice helper function to avoid repetition
-    function _checkEmergencyReducerAction(
-        uint8 _action,
-        XChainHubMockReducer mock
-    ) internal {
-        mock.emergencyReducer(1, mock.makeMessage(_action), 0);
-        assertEq(mock.lastCall(), _action);
-        assertEq(mock.amountCalled(), 0);
     }
 
     // Test reducer
@@ -192,30 +158,12 @@ contract TestXChainHubDst is PRBTest {
         );
     }
 
-    /// @notice some boilerplate for setting up a hub
-    function _initHubForDeposit(XChainHub hub)
-        internal
-        returns (ERC20, MockVault)
-    {
-        // setup the token
-        ERC20 token = new AuxoTest();
-
-        // setup the mock vault
-        MockVault _vault = new MockVault(token);
-
-        // transfer minted tokens
-        token.transfer(address(hubMockActions), token.balanceOf(address(this)));
-
-        // trust the vault
-        hub.setTrustedVault(address(_vault), true);
-
-        return (token, _vault);
-    }
-
     function testDepositActionRevertsWithUntrustedVault(address _untrusted)
         public
     {
-        (, MockVault _vault) = _initHubForDeposit(hubMockActions);
+        token.transfer(address(hubMockActions), token.balanceOf(address(this)));
+        hubMockActions.setTrustedVault(address(_vault), true);
+
         vm.assume(_untrusted != address(_vault));
 
         bytes memory payload = abi.encode(
@@ -232,8 +180,8 @@ contract TestXChainHubDst is PRBTest {
     }
 
     function testDepositActionRevertsWithUntrustedStrategy() public {
-        (ERC20 token, MockVault _vault) = _initHubForDeposit(hubMockActions);
-
+        token.transfer(address(hubMockActions), token.balanceOf(address(this)));
+        hubMockActions.setTrustedVault(address(_vault), true);
         uint256 balance = token.balanceOf(address(this));
 
         bytes memory payload = abi.encode(
@@ -250,7 +198,8 @@ contract TestXChainHubDst is PRBTest {
     }
 
     function testDepositActionRevertsWithInsufficientMint() public {
-        (ERC20 token, MockVault _vault) = _initHubForDeposit(hubMockActions);
+        token.transfer(address(hubMockActions), token.balanceOf(address(this)));
+        hubMockActions.setTrustedVault(address(_vault), true);
 
         uint256 balance = token.balanceOf(address(this));
 
@@ -272,7 +221,8 @@ contract TestXChainHubDst is PRBTest {
     }
 
     function testDepositAction(uint256 amount) public {
-        (ERC20 token, MockVault _vault) = _initHubForDeposit(hubMockActions);
+        token.transfer(address(hubMockActions), token.balanceOf(address(this)));
+        hubMockActions.setTrustedVault(address(_vault), true);
 
         uint256 balance = token.balanceOf(address(this));
         vm.assume(amount <= balance);
@@ -294,24 +244,7 @@ contract TestXChainHubDst is PRBTest {
         assertEq(token.balanceOf(address(_vault)), amount);
     }
 
-    /// @notice some boilerplate for setting up a hub
-    function _initHubForRequestWithdraw(XChainHub hub)
-        internal
-        returns (ERC20, MockVault)
-    {
-        // setup the token
-        ERC20 token = new AuxoTest();
-
-        // setup the mock vault
-        MockVault _vault = new MockVault(token);
-
-        return (token, _vault);
-    }
-
     function testRequestWithdrawActionRevertsIfVaultUntrusted() public {
-        hubMockActions = new XChainHubMockActions(stargate, lz, refund);
-        (, MockVault _vault) = _initHubForRequestWithdraw(hubMockActions);
-
         bytes memory payload = abi.encode(
             IHubPayload.RequestWithdrawPayload({
                 vault: address(_vault),
@@ -325,8 +258,6 @@ contract TestXChainHubDst is PRBTest {
     }
 
     function testRequestWithdrawActionRevertsIfVaultNotExiting() public {
-        hubMockActions = new XChainHubMockActions(stargate, lz, refund);
-        (, MockVault _vault) = _initHubForRequestWithdraw(hubMockActions);
         hubMockActions.setTrustedVault(address(_vault), true);
 
         bytes memory payload = abi.encode(
@@ -344,8 +275,6 @@ contract TestXChainHubDst is PRBTest {
     function testRequestWithdrawActionRevertsIfBatchBurnRoundsMismatched()
         public
     {
-        hubMockActions = new XChainHubMockActions(stargate, lz, refund);
-        (, MockVault _vault) = _initHubForRequestWithdraw(hubMockActions);
         hubMockActions.setTrustedVault(address(_vault), true);
         hubMockActions.setExiting(address(_vault), true);
 
@@ -366,8 +295,6 @@ contract TestXChainHubDst is PRBTest {
     /// @dev - this test could do with more edge case testing
     function testRequestWithdrawAction() public {
         uint256 _amount = 1e20;
-        hubMockActions = new XChainHubMockActions(stargate, lz, refund);
-        (, MockVault _vault) = _initHubForRequestWithdraw(hubMockActions);
         hubMockActions.setTrustedVault(address(_vault), true);
         hubMockActions.setExiting(address(_vault), true);
 
@@ -394,17 +321,14 @@ contract TestXChainHubDst is PRBTest {
     }
 
     function testCalculateStrategyAmountForWithdraw(uint256 _amount) public {
-        hubMockActions = new XChainHubMockActions(stargate, lz, refund);
-
-        address _vault = 0x54389a23331a4168dB50d87aea0c02A4835B1d3c;
         address _strategy = 0x54389a23331A4168DB50d87aEa0C02a4835B1d3d;
         uint256 round = 200;
         hubMockActions.setCurrentRoundPerStrategy(1, _strategy, round);
-        hubMockActions.setWithdrawnPerRound(_vault, round, _amount);
+        hubMockActions.setWithdrawnPerRound(vaultAddr, round, _amount);
 
         assertEq(
             hubMockActions.calculateStrategyAmountForWithdraw(
-                IVault(_vault),
+                IVault(vaultAddr),
                 1,
                 _strategy
             ),
@@ -412,27 +336,18 @@ contract TestXChainHubDst is PRBTest {
         );
     }
 
-    event WithdrawalReceived(
-        uint16 srcChainId,
-        uint256 amountUnderlying,
-        address vault,
-        address strategy
-    );
-
     function testFinalizeWithdrawActionLogsTheCorrectEvent() public {
         uint256 amount = 1e21;
         uint16 srcChainId = 123;
-        address vault = 0x8B5c87C3E4507EEa0155E71d637Bdf317E97f412;
-        address strat = 0x4759fA4D4E7F96F6fDCfeD30613dd0F49A3e145E;
 
         IHubPayload.FinalizeWithdrawPayload memory payload = IHubPayload
-            .FinalizeWithdrawPayload({vault: vault, strategy: strat});
+            .FinalizeWithdrawPayload({vault: vaultAddr, strategy: stratAddr});
 
         // match non indexed payloads only
         hubMockActions = new XChainHubMockActions(stargate, lz, refund);
 
         vm.expectEmit(false, false, false, true);
-        emit WithdrawalReceived(srcChainId, amount, vault, strat);
+        emit WithdrawalReceived(srcChainId, amount, vaultAddr, stratAddr);
         hubMockActions.finalizeWithdrawAction(
             srcChainId,
             abi.encode(payload),
@@ -441,9 +356,7 @@ contract TestXChainHubDst is PRBTest {
     }
 
     function testReportUnderlyingAction(uint256 amount) public {
-        ERC20 token = new AuxoTest();
         MockStrat strat = new MockStrat(token);
-        hubMockActions = new XChainHubMockActions(stargate, lz, refund);
 
         IHubPayload.ReportUnderlyingPayload memory payload = IHubPayload
             .ReportUnderlyingPayload({

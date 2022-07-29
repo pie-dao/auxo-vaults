@@ -26,85 +26,14 @@ import {IHubPayload} from "@interfaces/IHubPayload.sol";
 import {IStrategy} from "@interfaces/IStrategy.sol";
 
 import {CallFacet} from "@hub/CallFacet.sol";
+import {XChainHubEvents} from "@hub/XChainHubEvents.sol";
 
 /// @title XChainHubBase
-/// @notice state variables, functions and events not involving LayerZero technologies
+/// @notice state variables and functions not involving LayerZero technologies
 /// @dev Expect this contract to change in future.
 /// @dev ownable is provided by CallFacet
-abstract contract XChainHubBase is CallFacet, Pausable {
+abstract contract XChainHubBase is CallFacet, Pausable, XChainHubEvents {
     using SafeERC20 for IERC20;
-
-    // --------------------------
-    // Events
-    // --------------------------
-
-    /// @notice emitted on the source chain when a deposit request is successfully sent
-    event DepositSent(
-        uint16 dstChainId,
-        uint256 amountUnderlying,
-        address dstHub,
-        address vault,
-        address strategy
-    );
-
-    /// @notice emitted on the destination chain from DepositSent when a deposit is made into a vault
-    event DepositReceived(
-        uint16 srcChainId,
-        uint256 amountUnderlyingReceived,
-        uint256 sharesMinted,
-        address vault,
-        address strategy
-    );
-
-    /// @notice emitted on the source chain when a request to enter batch burn is successfully sent
-    event WithdrawRequested(
-        uint16 dstChainId,
-        uint256 shares,
-        address vault,
-        address strategy
-    );
-
-    /// @notice emitted on the destination chain from WithdrawRequested when a request to enter batch burn is accepted
-    event WithdrawRequestReceived(
-        uint16 srcChainId,
-        uint256 shares,
-        address vault,
-        address strategy
-    );
-
-    /// @notice emitted when the hub successfully withdraws underlying after a batch burn
-    event WithdrawExecuted(uint256 shares, uint256 underlying, address vault);
-
-    /// @notice emitted on the source chain when withdrawn tokens have been sent to the destination hub
-    event WithdrawalSent(
-        uint16 dstChainId,
-        uint256 amountUnderlying,
-        address dstHub,
-        address vault,
-        address strategy
-    );
-
-    /// @notice emitted on the destination chain from WithdrawlSent when tokens have been received
-    event WithdrawalReceived(
-        uint16 srcChainId,
-        uint256 amountUnderlying,
-        address vault,
-        address strategy
-    );
-
-    /// @notice emitted on the source chain when a message is sent to update underlying balances for a strategy
-    event UnderlyingReported(
-        uint16 dstChainId,
-        uint256 amount,
-        address strategy
-    );
-
-    /// @notice emitted on the destination chain from UnderlyingReported when
-    event UnderlyingUpdated(
-        uint16 srcChainId,
-        uint256 amount,
-        address strategy
-    );
 
     // --------------------------
     // Constants & Immutables

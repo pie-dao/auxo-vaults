@@ -5,23 +5,25 @@
 all: clean install update build
 
 # Install proper solc version.
-solc:; nix-env -f https://github.com/dapphub/dapptools/archive/master.tar.gz -iA solc-static-versions.solc_0_8_13
+solc:; nix-env -f https://github.com/dapphub/dapptools/archive/master.tar.gz -iA solc-static-versions.solc_0_8_14
 
 # Clean the repo
-clean  :; forge clean
+clean :; forge clean
 
 # Install the Modules
 install :; forge install
 
 # Update Dependencies
-update:; forge update
+update :; forge update
 
 # Builds
-build  :; forge build
+build :; forge build
 
 # chmod scripts
 scripts :; chmod +x ./scripts/*
 
+# create a coverage report (requires lcov (linux) / genhtml (Mac))
+coverage :; forge coverage --report lcov && genhtml lcov.info -o report --branch-coverage
 
 # deployment scripts - opt
 run-optimism-test :; forge script --rpc-url https://optimism-kovan.infura.io/v3/${INFURA_KEY} \
