@@ -11,23 +11,55 @@
 // auxo.fi
 
 // SPDX-License-Identifier: AGPL-3.0-only
-pragma solidity 0.8.12;
+pragma solidity 0.8.14;
 
-import {XChainStargateHub} from "../XChainStargateHub.sol";
-import {IVault} from "../interfaces/IVault.sol";
-import {BaseStrategy} from "./BaseStrategy.sol";
+import {XChainStargateHub} from "@hub/XChainStargateHub.sol";
+import {BaseStrategy} from "@hub/strategy/BaseStrategy.sol";
 
-import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
-import {SafeERC20} from "openzeppelin/token/ERC20/utils/SafeERC20.sol";
+import {IVault} from "@interfaces/IVault.sol";
+import {IXChainHub} from "@interfaces/IXChainHub.sol";
+import {IERC20} from "@oz/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 
+/// @title A Cross Chain Strategy enabled to use Stargate Finance
+/// @notice Handles interactions with the Auxo cross chain hub
+/// @dev implements IStargateReceiver in order to receive Stargate Swaps
+/// @dev how to manage the names of this - filename?
 contract XChainStrategyStargate is BaseStrategy {
     using SafeERC20 for IERC20;
 
-    // possible states:
-    //  - not deposited: strategy withdrawn
-    //  - Depositing: strategy is depositing
-    //  - Deposited: strategy has deposited
-    //  - withdrawing: strategy is withdrawing
+    /// ------------------
+    /// Events
+    /// ------------------
+
+    /// @notice emitted when a cross chain deposit request is sent from this strategy
+    event DepositXChain(uint256 deposited, uint16 dstChainId);
+
+    /// @notice emitted when a request to burn vault shares is sent
+    event WithdrawRequestXChain(uint256 vaultShares, uint16 srcChainId);
+
+    /// @notice emitted when tokens underlying have been successfully received after exiting batch burn
+    event ReceiveXChain(uint256 amount, uint16 srcChainId);
+
+    /// @notice emitted when the reported quantity of underlying held in other chains changes
+    event ReportXChain(uint256 oldQty, uint256 newQty);
+
+    /// @notice emitted when the address of the XChainHub is updated
+    event UpdateHub(address indexed newHub);
+
+    /// @notice emitted when the address of the vault is updated
+    event UpdateVault(address indexed newVault);
+
+    /// ------------------
+    /// Structs
+    /// ------------------
+
+    /// @notice restricts XChainStrategy actions to certain lifecycle states
+    /// possible states:
+    ///  - not deposited: initial state OR strategy withdrawn
+    ///  - Depositing: strategy is depositing, awaiting
+    ///  - Deposited: strategy has deposited
+    ///  - withdrawing: strategy is withdrawing, awaiting receipt of tokens
     enum DepositState {
         NOT_DEPOSITED,
         DEPOSITING,
@@ -35,37 +67,42 @@ contract XChainStrategyStargate is BaseStrategy {
         WITHDRAWING
     }
 
-    /// @dev this calls layerZero
-    struct WithdrawParams {
-        uint16 dstChain;
-        address dstVault;
-        bytes adapterParams;
-        address payable refundAddress;
-    }
-
-    /// @dev this call stargate
-    struct DepositParams {
-        uint16 dstChain;
-        uint16 srcPoolId;
-        uint16 dstPoolId;
-        address dstHub;
-        address dstVault;
-        address payable refundAddress;
-    }
-
+    /// @notice global deposit data
+    /// @param state see DepositState enum
+    /// @param amountDeposited the current amount deposited cross chain
     struct Deposit {
-        DepositParams params;
+        DepositState state;
         uint256 amountDeposited;
     }
 
-    XChainStargateHub private hub;
-    DepositState public state;
-    Deposit public xChainDeposit;
+    /// ------------------
+    /// Variables
+    /// ------------------
 
+    /// @notice the XChainHub managing this strategy
+    IXChainHub private hub;
+
+    /// @notice the current enumerated state of the contract
+    DepositState public state;
+
+    /// @notice a globally available struct containing deposit data
+    Deposit public XChainDeposit;
+
+    /// @notice the latest amount of underlying tokens reported as being held in the strategy
     uint256 public reportedUnderlying;
 
+    /// ------------------
+    /// Constructor
+    /// ------------------
+
+    /// @param hub_ the hub on this chain that the strategy will be interacting with
+    /// @param vault_ the vault on this chain that has deposited into this strategy
+    /// @param underlying_ the underlying ERC20 token
+    /// @param manager_ the address of the EOA with manager permissions
+    /// @param strategist_ the address of the EOA with strategist permissions
+    /// @param name_ a human readable identifier for this strategy
     constructor(
-        XChainStargateHub hub_,
+        address hub_,
         IVault vault_,
         IERC20 underlying_,
         address manager_,
@@ -73,102 +110,164 @@ contract XChainStrategyStargate is BaseStrategy {
         string memory name_
     ) {
         __initialize(vault_, underlying_, manager_, strategist_, name_);
-        hub = hub_;
+        hub = IXChainHub(hub_);
     }
 
-    function depositUnderlying(
+    /// ------------------
+    /// View Functions
+    /// ------------------
+
+    /// @notice fetches the estimated qty of underlying tokens in the strategy
+    function estimatedUnderlying() external view override returns (uint256) {
+        return
+            XChainDeposit.state == DepositState.NOT_DEPOSITED
+                ? float()
+                : reportedUnderlying + float();
+    }
+
+    /// ------------------
+    /// Setters
+    /// ------------------
+
+    /// @notice updates the cross chain hub to which this strategy is connected
+    /// @dev make sure to trust this strategy on the new hub
+    /// @param _hub the address of the XChainHub contract on this chain
+    function setHub(address _hub) external {
+        require(msg.sender == manager, "XChainStrategy::setHub:UNAUTHORIZED");
+        hub = IXChainHub(_hub);
+        emit UpdateHub(_hub);
+    }
+
+    /// @notice updates the vault to which this strategy is connected
+    /// @param _vault the address of the vault proxy on this chain
+    function setVault(address _vault) external {
+        require(msg.sender == manager, "XChainStrategy::setVault:UNAUTHORIZED");
+        vault = IVault(_vault);
+        emit UpdateVault(_vault);
+    }
+
+    /// ------------------
+    /// Cross Chain Functions
+    /// ------------------
+
+    /// @notice makes a deposit of underlying tokens into a vault on the destination chain
+    /// could this be virtual
+    /// override?
+    /// internal?
+    function _depositUnderlying(
         uint256 amount,
         uint256 minAmount,
-        DepositParams calldata params
-    ) external payable {
+        uint16 dstChain, // this will be hardcoded or set as state variables
+        uint16 srcPoolId, // this will be hardcoded or set as state variables
+        uint16 dstPoolId, // this will be hardcoded or set as state variables
+        address dstHub, // this will be hardcoded or set as state variables
+        address dstVault, // this will be hardcoded or set as state variables
+        address payable refundAddress
+    ) internal payable {
         require(
-            msg.sender == manager || msg.sender == strategist,
-            "XChainStrategy: caller not authorized"
+            msg.value > 0,
+            "XChainStrategy::depositUnderlying:NO GAS FOR FEES"
         );
 
-        DepositState currentState = state;
+        require(
+            msg.sender == manager || msg.sender == strategist,
+            "XChainStrategy::depositUnderlying:UNAUTHORIZED"
+        );
+
+        DepositState currentState = XChainDeposit.state;
 
         require(
             currentState != DepositState.WITHDRAWING,
-            "XChainStrategy: wrong state"
+            "XChainStrategy::depositUnderlying:WRONG STATE"
         );
 
-        state = DepositState.DEPOSITING;
-        xChainDeposit.params = params;
-        xChainDeposit.amountDeposited += amount;
+        /**
+            depositUnderlying(chainid 1, dstVault: 0xbeef, 50% USDC)
+            depositUnderlying(chainid 1, dstVault: 0xcoffee, 50% USDC)
+         */
+
+        XChainDeposit.state = DepositState.DEPOSITING;
+        XChainDeposit.amountDeposited += amount;
 
         underlying.safeApprove(address(hub), amount);
 
         /// @dev get the fees before sending
         hub.depositToChain{value: msg.value}(
-            params.dstChain,
-            params.srcPoolId,
-            params.dstPoolId,
-            params.dstHub,
-            params.dstVault,
+            dstChain,
+            srcPoolId,
+            dstPoolId,
+            dstHub,
+            dstVault,
             amount,
             minAmount,
-            params.refundAddress
+            refundAddress
         );
+
+        emit DepositXChain(amount, dstChain);
     }
 
-    function withdrawUnderlying(
+    /// @notice makes a request to the remote hub to begin the withdrawal process
+    function _withdrawUnderlying(
         uint256 amountVaultShares,
-        WithdrawParams memory params
-    ) external {
+        bytes memory adapterParams,
+        address payable refundAddress,
+        uint16 dstChain,
+        address dstVault
+    ) internal {
         require(
             msg.sender == manager || msg.sender == strategist,
-            "XChainStrategy: caller not authorized"
+            "XChainStrategy::withdrawUnderlying:UNAUTHORIZED"
         );
 
-        DepositState currentState = state;
+        DepositState currentState = XChainDeposit.state;
 
         require(
             currentState == DepositState.DEPOSITED,
-            "XChainStrategy: wrong state"
+            "XChainStrategy::withdrawUnderlying:WRONG STATE"
         );
+
+        XChainDeposit.state = DepositState.WITHDRAWING;
 
         hub.requestWithdrawFromChain(
-            params.dstChain,
-            params.dstVault,
+            dstChain,
+            dstVault,
             amountVaultShares,
-            params.adapterParams,
-            params.refundAddress
+            adapterParams,
+            refundAddress
         );
+
+        emit WithdrawRequestXChain(amountVaultShares, dstChain);
     }
 
-    /// @dev bug
-    function estimatedUnderlying() external view override returns (uint256) {
-        if (state == DepositState.NOT_DEPOSITED) {
-            return float();
-        }
-
-        return reportedUnderlying;
-    }
-
-    function report(uint256 reportedAmount) external {
+    /// @notice allows the hub to update the qty of tokens held in the account
+    /// @param _reportedUnderlying the new qty of underlying token
+    /// @dev the hubSrc calls this method by broadcasting to all dst hubs
+    function report(uint256 _reportedUnderlying) external {
         require(
             msg.sender == address(hub),
-            "XChainStrategy: caller is not hub"
+            "XChainStrategy::report:UNAUTHORIZED"
         );
 
-        DepositState currentState = state;
+        DepositState currentState = XChainDeposit.state;
 
         require(
             currentState != DepositState.NOT_DEPOSITED,
-            "XChainStrategy: wrong state"
+            "XChainStrategy:report:WRONG STATE"
         );
 
-        if (reportedAmount == 0) {
-            state = DepositState.NOT_DEPOSITED;
-            xChainDeposit.amountDeposited = 0;
+        // zero value indicates the strategy is closed
+        if (_reportedUnderlying == 0) {
+            XChainDeposit.state = DepositState.NOT_DEPOSITED;
+            emit ReportXChain(XChainDeposit.amountDeposited, 0);
+            XChainDeposit.amountDeposited = 0;
             return;
         }
 
         if (currentState == DepositState.DEPOSITING) {
-            state = DepositState.DEPOSITED;
+            XChainDeposit.state = DepositState.DEPOSITED;
         }
 
-        reportedUnderlying = reportedAmount;
+        emit ReportXChain(reportedUnderlying, _reportedUnderlying);
+        reportedUnderlying = _reportedUnderlying;
     }
 }
