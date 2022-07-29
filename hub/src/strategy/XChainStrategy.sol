@@ -18,6 +18,7 @@ import "@std/console.sol";
 
 import {XChainHub} from "@hub/XChainHub.sol";
 import {BaseStrategy} from "@hub/strategy/BaseStrategy.sol";
+import {XChainStrategyEvents} from "@hub/strategy/XChainStrategyEvents.sol";
 
 import {IVault} from "@interfaces/IVault.sol";
 import {IXChainHub} from "@interfaces/IXChainHub.sol";
@@ -27,30 +28,8 @@ import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 /// @title A Cross Chain Strategy enabled to use Stargate Finance
 /// @notice Handles interactions with the Auxo cross chain hub
 /// @dev how to manage the names of this - filename?
-contract XChainStrategy is BaseStrategy {
+contract XChainStrategy is BaseStrategy, XChainStrategyEvents {
     using SafeERC20 for IERC20;
-
-    /// ------------------
-    /// Events
-    /// ------------------
-
-    /// @notice emitted when a cross chain deposit request is sent from this strategy
-    event DepositXChain(uint256 deposited, uint16 dstChainId);
-
-    /// @notice emitted when a request to burn vault shares is sent
-    event WithdrawRequestXChain(uint256 vaultShares, uint16 srcChainId);
-
-    /// @notice emitted when tokens underlying have been successfully received after exiting batch burn
-    event ReceiveXChain(uint256 amount, uint16 srcChainId);
-
-    /// @notice emitted when the reported quantity of underlying held in other chains changes
-    event ReportXChain(uint256 oldQty, uint256 newQty);
-
-    /// @notice emitted when the address of the XChainHub is updated
-    event UpdateHub(address indexed newHub);
-
-    /// @notice emitted when the address of the vault is updated
-    event UpdateVault(address indexed newVault);
 
     /// ------------------
     /// Structs
@@ -160,6 +139,7 @@ contract XChainStrategy is BaseStrategy {
     /// ------------------
 
     /// @notice makes a deposit of underlying tokens into a vault on the destination chain
+    /// @param params encoded call data in the DepositParams struct, mostly passed straight to the hub
     function depositUnderlying(DepositParams calldata params) external payable {
         require(
             msg.sender == manager || msg.sender == strategist,
@@ -195,12 +175,17 @@ contract XChainStrategy is BaseStrategy {
             params.refundAddress
         );
 
-        emit DepositXChain(amount, params.dstChain);
+        emit DepositXChain(
+            params.dstHub,
+            params.dstVault,
+            params.dstChain,
+            amount
+        );
     }
 
     /// @notice when underlying tokens have been sent to the hub on this chain, retrieve them into the strategy
     /// @param _amount the quantity of native tokens to withdraw from the hub
-    /// @dev must approve the strategy for withdrawal before withdrawing
+    /// @dev must approve the strategy for withdrawal on the hub before calling
     function withdrawFromHub(uint256 _amount) external {
         require(
             msg.sender == manager || msg.sender == strategist,
@@ -217,13 +202,13 @@ contract XChainStrategy is BaseStrategy {
         amountWithdrawn += _amount;
 
         underlying.safeTransferFrom(address(hub), address(this), _amount);
+        emit WithdrawFromHub(address(hub), _amount);
     }
 
     /// @notice makes a request to the remote hub to begin the withdrawal process
     /// @param amountVaultShares the quantity of vault shares to burn on the destination
     /// @dev - should this be underlying?
     /// @param adapterParams anything to send to the layerZero endpoint
-    /// @dev - do we even need this
     function _withdrawUnderlying(
         uint256 amountVaultShares,
         bytes memory adapterParams,
@@ -251,7 +236,7 @@ contract XChainStrategy is BaseStrategy {
             refundAddress
         );
 
-        emit WithdrawRequestXChain(amountVaultShares, dstChain);
+        emit WithdrawRequestXChain(dstChain, dstVault, amountVaultShares);
     }
 
     /// @notice allows the hub to update the qty of tokens held in the account
@@ -268,15 +253,10 @@ contract XChainStrategy is BaseStrategy {
         // zero value indicates the strategy is closed
         if (_reportedUnderlying == 0) {
             state = NOT_DEPOSITED;
-            emit ReportXChain(reportedUnderlying, 0);
             amountDeposited = 0;
-            reportedUnderlying = 0;
-            return;
         }
 
-        if (state == DEPOSITING) {
-            state = DEPOSITED;
-        }
+        if (state == DEPOSITING) state = DEPOSITED;
 
         emit ReportXChain(reportedUnderlying, _reportedUnderlying);
         reportedUnderlying = _reportedUnderlying;

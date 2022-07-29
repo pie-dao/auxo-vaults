@@ -34,7 +34,7 @@ contract MockXChainStrategy is XChainStrategy {
         state = newState;
     }
 
-    function setReportedUnderyling(uint256 reported) external {
+    function setReportedUnderlying(uint256 reported) external {
         reportedUnderlying = reported;
     }
 

@@ -9,6 +9,7 @@ import {XChainStrategy as IXChainStrategy} from "@hub/strategy/XChainStrategy.so
 import {MockXChainStrategy as XChainStrategy} from "@hub-test/mocks/MockStrategy.sol";
 
 import {XChainHub} from "@hub/XChainHub.sol";
+import {XChainStrategyEvents} from "@hub/strategy/XChainStrategyEvents.sol";
 
 import {AuxoTest} from "@hub-test/mocks/MockERC20.sol";
 import {MockVault} from "@hub-test/mocks/MockVault.sol";
@@ -49,7 +50,7 @@ contract MockHub {
     ) external payable {}
 }
 
-contract Test is PRBTest {
+contract Test is PRBTest, XChainStrategyEvents {
     MockHub hub;
     XChainStrategy strategy;
     ERC20 token;
@@ -106,7 +107,7 @@ contract Test is PRBTest {
         // removing tokens without changing state
         vm.prank(address(strategy));
         token.transfer(address(this), _send);
-        strategy.setReportedUnderyling(_send);
+        strategy.setReportedUnderlying(_send);
         assertEq(strategy.estimatedUnderlying(), _amount - _send);
 
         // now change the state
@@ -156,12 +157,20 @@ contract Test is PRBTest {
 
     function testSetHub(address _hub) public {
         vm.prank(manager);
+
+        vm.expectEmit(false, false, false, true);
+        emit UpdateHub(_hub);
+
         strategy.setHub(_hub);
         assertEq(address(strategy.hub()), _hub);
     }
 
     function testSetVault(address _vault) public {
         vm.prank(manager);
+
+        vm.expectEmit(false, false, false, true);
+        emit UpdateVault(_vault);
+
         strategy.setVault(_vault);
         assertEq(address(strategy.vault()), _vault);
     }
@@ -180,6 +189,15 @@ contract Test is PRBTest {
         strategy.depositUnderlying{value: 1 ether}(_params);
 
         strategy.setState(strategy.NOT_DEPOSITED());
+
+        vm.expectEmit(true, true, true, true);
+        emit DepositXChain(
+            _params.dstHub,
+            _params.dstVault,
+            _params.dstChain,
+            _params.amount
+        );
+
         strategy.depositUnderlying{value: 1 ether}(_params);
 
         assert(_params.amount == strategy.amountDeposited());
@@ -210,13 +228,15 @@ contract Test is PRBTest {
         hubReal.approveWithdrawalForStrategy(address(strategy), token, _amount);
 
         vm.prank(manager);
+        vm.expectEmit(true, false, false, true);
+        emit WithdrawFromHub(address(hubReal), _amount);
         strategy.withdrawFromHub(_amount);
 
         assert(strategy.state() == strategy.DEPOSITED());
         assert(strategy.amountWithdrawn() == _amount);
     }
 
-    function testWithdrawUnderlying() public {
+    function testWithdrawUnderlying(uint256 _amt) public {
         vm.startPrank(strategist);
         vm.expectRevert("XChainStrategy::_withdrawUnderlying:WRONG STATE");
         strategy.withdrawUnderlying(
@@ -228,8 +248,12 @@ contract Test is PRBTest {
         );
 
         strategy.setState(strategy.DEPOSITED());
+
+        vm.expectEmit(true, true, false, true);
+        emit WithdrawRequestXChain(1, address(vault), _amt);
+
         strategy.withdrawUnderlying(
-            0,
+            _amt,
             bytes(""),
             payable(address(0)),
             1,
@@ -238,7 +262,45 @@ contract Test is PRBTest {
         assert(strategy.state() == strategy.WITHDRAWING());
     }
 
-    function testReport() public {
-        assert(false);
+    function testReport(uint256 _amt, uint256 _amtPrev) public {
+        vm.assume(_amt > 0);
+        vm.startPrank(address(hub));
+        strategy.setReportedUnderlying(_amtPrev);
+
+        vm.expectRevert("XChainStrategy:report:WRONG STATE");
+        strategy.report(_amt);
+
+        vm.expectEmit(false, false, false, true);
+        emit ReportXChain(_amtPrev, _amt);
+
+        strategy.setState(strategy.DEPOSITING());
+        strategy.report(_amt);
+
+        assertEq(strategy.reportedUnderlying(), _amt);
+        assertEq(strategy.state(), strategy.DEPOSITED());
+
+        strategy.setState(strategy.DEPOSITED());
+        strategy.report(_amt);
+        assertEq(strategy.state(), strategy.DEPOSITED());
+
+        strategy.setState(strategy.WITHDRAWING());
+        assertEq(strategy.state(), strategy.WITHDRAWING());
+    }
+
+    function testReportReset() public {
+        vm.startPrank(address(hub));
+
+        strategy.setReportedUnderlying(234e15);
+
+        strategy.setState(strategy.DEPOSITED());
+
+        vm.expectEmit(false, false, false, true);
+        emit ReportXChain(234e15, 0);
+
+        strategy.report(0);
+
+        assertEq(strategy.amountDeposited(), 0);
+        assertEq(strategy.reportedUnderlying(), 0);
+        assertEq(strategy.state(), strategy.NOT_DEPOSITED());
     }
 }
