@@ -29,19 +29,20 @@ import {XChainHubStorage} from "@hub/composed/XChainHubStorage.sol";
 import {XChainHubEvents} from "@hub/composed/XChainHubEvents.sol";
 import {LayerZeroReceiver} from "@hub/composed/LayerZeroReceiver.sol";
 
-import {LayerZeroApp} from "@hub/LayerZeroApp.sol";
+
+import {LayerZeroAdapter} from "@hub/composed/LayerZeroAdapter.sol";
 import {IStargateReceiver} from "@interfaces/IStargateReceiver.sol";
 import {IStargateRouter} from "@interfaces/IStargateRouter.sol";
 
 /// @title XChainHub
 /// @notice extends the XChainBase with Stargate and LayerZero contracts for src and destination chains
 /// @dev Expect this contract to change in future.
-contract XChainHubDest is
-    XChainHubStorage,
-    XChainHubEvents,
+abstract contract XChainHubDest is
     Pausable,
-    LayerZeroApp,
-    IStargateReceiver
+    LayerZeroAdapter,
+    IStargateReceiver,
+    XChainHubStorage,
+    XChainHubEvents
 {
     using SafeERC20 for IERC20;
 
@@ -50,7 +51,7 @@ contract XChainHubDest is
     // --------------------------
 
     /// @param _lzEndpoint address of the layerZero endpoint contract on the src chain
-    constructor(address _lzEndpoint) LayerZeroApp(_lzEndpoint) {}
+    constructor(address _lzEndpoint) LayerZeroAdapter(_lzEndpoint) {}
 
     // --------------------------
     //        Reducer
@@ -189,7 +190,7 @@ contract XChainHubDest is
     /// @param _srcChainId layerZero chain id from where deposit came
     /// @param _payload abi encoded as IHubPayload.DepositPayload
     /// @param _amountReceived underlying tokens to be deposited
-    function _depositAction(
+    function sg_depositAction(
         uint16 _srcChainId,
         bytes memory _payload,
         uint256 _amountReceived
@@ -259,7 +260,7 @@ contract XChainHubDest is
     /// @notice enter the batch burn for a vault on the current chain
     /// @param _srcChainId layerZero chain id where the request originated
     /// @param _payload abi encoded as IHubPayload.RequestWithdrawPayload
-    function _requestWithdrawAction(uint16 _srcChainId, bytes memory _payload)
+    function lz_requestWithdrawAction(uint16 _srcChainId, bytes memory _payload)
         internal
         virtual
     {
@@ -314,7 +315,7 @@ contract XChainHubDest is
     /// @notice executes a withdrawal of underlying tokens from a vault to a strategy on the source chain
     /// @param _srcChainId what layerZero chainId was the request initiated from
     /// @param _payload abi encoded as IHubPayload.FinalizeWithdrawPayload
-    function _finalizeWithdrawAction(
+    function sg_finalizeWithdrawAction(
         uint16 _srcChainId,
         bytes memory _payload,
         uint256 _amountReceived
@@ -330,13 +331,16 @@ contract XChainHubDest is
             payload.vault,
             payload.strategy
         );
+
+        //received money from who bro???
+        // I'll just keep them for myself homie
     }
 
     /// @notice underlying holdings are updated on another chain and this function is broadcast
     ///     to all other chains for the strategy.
     /// @param _srcChainId the layerZero chain id from where the request originates
     /// @param _payload byte encoded data adhering to IHubPayload.ReportUnderlyingPayload
-    function _reportUnderlyingAction(uint16 _srcChainId, bytes memory _payload)
+    function lz_reportUnderlyingAction(uint16 _srcChainId, bytes memory _payload)
         internal
         virtual
     {

@@ -11,3 +11,15 @@
 	path = lib/prb-test
 	url = https://github.com/paulrberg/prb-test
 	branch = 0.1.2
+[submodule "hub/lib/prb-test"]
+	path = hub/lib/prb-test
+	url = https://github.com/paulrberg/prb-test
+[submodule "hub/lib/forge-std"]
+	path = hub/lib/forge-std
+	url = https://github.com/foundry-rs/forge-std
+[submodule "hub/lib/openzeppelin-contracts"]
+	path = hub/lib/openzeppelin-contracts
+	url = https://github.com/OpenZeppelin/openzeppelin-contracts
+[submodule "hub/lib/openzeppelin-contracts-upgradeable"]
+	path = hub/lib/openzeppelin-contracts-upgradeable
+	url = https://github.com/OpenZeppelin/openzeppelin-contracts-upgradeable

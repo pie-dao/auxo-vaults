@@ -32,34 +32,25 @@ import {XChainHubStorage} from "@hub/composed/XChainHubStorage.sol";
 import {XChainHubEvents} from "@hub/composed/XChainHubEvents.sol";
 import {LayerZeroSender} from "@hub/composed/LayerZeroSender.sol";
 
-import {LayerZeroApp} from "@hub/LayerZeroApp.sol";
+import {LayerZeroAdapter} from "@hub/composed/LayerZeroAdapter.sol";
 import {IStargateReceiver} from "@interfaces/IStargateReceiver.sol";
 import {IStargateRouter} from "@interfaces/IStargateRouter.sol";
 
 /// @title XChainHub
 /// @notice extends the XChainBase with Stargate and LayerZero contracts for src and destination chains
 /// @dev Expect this contract to change in future.
-contract XChainHubSrc is
+abstract contract XChainHubSrc is
+    Pausable,
+    LayerZeroAdapter,
     XChainHubStorage,
-    XChainHubEvents,
-    LayerZeroApp,
-    Pausable
+    XChainHubEvents
 {
     using SafeERC20 for IERC20;
 
-    /// @param _lzEndpoint address of the layerZero endpoint contract on the src chain
-    constructor(address _lzEndpoint, address _stargateRouter)
-        LayerZeroApp(_lzEndpoint)
+    constructor(address _stargateRouter)
     {
         stargateRouter = IStargateRouter(_stargateRouter);
     }
-
-    function _nonblockingLzReceive(
-        uint16 _srcChainId,
-        bytes memory _srcAddress,
-        uint64 _nonce,
-        bytes memory _payload
-    ) internal override {}
 
     /// ------------------------
     /// Single Chain Functions
@@ -84,6 +75,7 @@ contract XChainHubSrc is
 
     /// @notice calls the vault on the current chain to exit batch burn
     /// @param vault the vault on the same chain as the hub
+    // @alex withdrawFromBatch    
     function finalizeWithdrawFromVault(IVault vault)
         external
         onlyOwner
@@ -112,7 +104,7 @@ contract XChainHubSrc is
     ///     2. Requires that the setTrustedRemote method be set from lzApp, with the address being the deploy
     ///        address of this contract on the dstChain.
     ///     3. The list of chain ids and strategy addresses must be the same length, and use the same underlying token.
-    function reportUnderlying(
+    function lz_reportUnderlying(
         IVault vault,
         uint16[] memory dstChains,
         address[] memory strats,
@@ -191,7 +183,7 @@ contract XChainHubSrc is
     /// @param _amount is the amount to deposit in underlying tokens
     /// @param _minOut how not to get rekt
     /// @param _refundAddress if extra native is sent, to whom should be refunded
-    function depositToChain(
+    function sg_depositToChain(
         uint16 _dstChainId,
         uint16 _srcPoolId,
         uint16 _dstPoolId,
@@ -247,7 +239,7 @@ contract XChainHubSrc is
     /// @param amountVaultShares the number of auxovault shares to burn for underlying
     /// @param adapterParams additional layerZero config to pass
     /// @param refundAddress addrss on the source chain to send rebates to
-    function requestWithdrawFromChain(
+    function lz_requestWithdrawFromChain(
         uint16 dstChainId,
         address dstVault,
         uint256 amountVaultShares,
@@ -281,27 +273,13 @@ contract XChainHubSrc is
             address(0), // the address of the ZRO token holder who would pay for the transaction
             adapterParams
         );
+        
         emit WithdrawRequested(
             dstChainId,
             amountVaultShares,
             dstVault,
             msg.sender
         );
-    }
-
-    /// @notice calculate how much available for strategy to withdraw
-    /// @param _vault the vault on this chain to withdrawfrom
-    /// @param _srcChainId the remote layerZero chainId
-    /// @param _strategy the remote XChainStrategy withdrawing tokens
-    /// @return the underyling tokens that can be redeemeed
-    function _calculateStrategyAmountForWithdraw(
-        IVault _vault,
-        uint16 _srcChainId,
-        address _strategy
-    ) internal view returns (uint256) {
-        // fetch the relevant round and shares, for the chain and strategy
-        uint256 currentRound = currentRoundPerStrategy[_srcChainId][_strategy];
-        return withdrawnPerRound[address(_vault)][currentRound];
     }
 
     /// @notice sends tokens withdrawn from local vault to a remote hub
@@ -320,13 +298,17 @@ contract XChainHubSrc is
         uint256 _dstPoolId
     ) external payable whenNotPaused onlyOwner {
         address hub = trustedHubs[_dstChainId];
+        uint256 currentRound = currentRoundPerStrategy[_dstChainId][_strategy];
 
+        require(
+            currentRound > 0,
+            "XChainHub::finalizeWithdrawFromChain:NO ACTIVE ROUND"
+        );
+        
         require(
             hub != address(0x0),
             "XChainHub::finalizeWithdrawFromChain:NO HUB"
         );
-
-        IVault vault = IVault(_vault);
 
         require(
             !exiting[_vault],
@@ -337,25 +319,29 @@ contract XChainHubSrc is
             trustedVault[_vault],
             "XChainHub::finalizeWithdrawFromChain:UNTRUSTED VAULT"
         );
+        
 
-        require(
-            currentRoundPerStrategy[_dstChainId][_strategy] > 0,
-            "XChainHub::finalizeWithdrawFromChain:NO WITHDRAWS"
-        );
+        IVault vault = IVault(_vault);
 
-        uint256 strategyAmount = _calculateStrategyAmountForWithdraw(
-            vault,
-            _dstChainId,
-            _strategy
-        );
+        /**
+            exitingSharesPerStrategy this is the man, where do update this?
+            withdrawnPerRound[address(vault)][round] = withdrawn;
+         */
 
+
+         // fetch the relevant round and shares, for the chain and strategy
+        uint246 strategyAmount = withdrawnPerRound[_vault][currentRound];
+
+        // TODO understand can we do this here? should we know the message is going through?? do we need reantraty???
         currentRoundPerStrategy[_dstChainId][_strategy] = 0;
         exitingSharesPerStrategy[_dstChainId][_strategy] = 0;
 
-        require(
-            _minOutUnderlying <= strategyAmount,
-            "XChainHub::finalizeWithdrawFromChain:MIN OUT TOO HIGH"
-        );
+        // BTW MATE whatever came out vault it's what you got
+        // no complain policy
+        // require(
+        //     _minOutUnderlying <= strategyAmount,
+        //     "XChainHub::finalizeWithdrawFromChain:MIN OUT TOO HIGH"
+        // );
 
         IERC20 underlying = vault.underlying();
         underlying.safeApprove(address(stargateRouter), strategyAmount);
@@ -376,7 +362,7 @@ contract XChainHubSrc is
             _dstPoolId,
             payable(refundRecipient),
             strategyAmount,
-            _minOutUnderlying,
+            _minOutUnderlying, //alex please ask to stargate team for confirmation
             IStargateRouter.lzTxObj(200000, 0, "0x"), // default gas, no airdrop
             abi.encodePacked(hub),
             abi.encode(message)

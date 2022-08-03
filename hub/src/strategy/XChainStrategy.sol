@@ -75,6 +75,8 @@ contract XChainStrategy is BaseStrategy, XChainStrategyEvents {
 
     /// @notice the current amount withdrawn, can be > deposited with positive yield
     uint256 public amountWithdrawn;
+    
+    uint256 public requestedAmountWithdraw;
 
     /// @notice the XChainHub managing this strategy
     IXChainHub public hub;
@@ -202,6 +204,12 @@ contract XChainStrategy is BaseStrategy, XChainStrategyEvents {
         amountWithdrawn += _amount;
 
         underlying.safeTransferFrom(address(hub), address(this), _amount);
+        
+        
+        // Here, we manually change the reported amount
+        // because, otherwise the contract will keep a broken accounting until the next automated report
+        // since (float + reportedUnderlying) would double count the _amount that we just withdrawn
+        reportedUnderlying -= _amount;
         emit WithdrawFromHub(address(hub), _amount);
     }
 
@@ -209,13 +217,13 @@ contract XChainStrategy is BaseStrategy, XChainStrategyEvents {
     /// @param amountVaultShares the quantity of vault shares to burn on the destination
     /// @dev - should this be underlying?
     /// @param adapterParams anything to send to the layerZero endpoint
-    function _withdrawUnderlying(
+    function startRequestToWithdrawUnderlying(
         uint256 amountVaultShares,
         bytes memory adapterParams,
         address payable refundAddress,
         uint16 dstChain,
         address dstVault
-    ) internal {
+    ) external {
         require(
             msg.sender == manager || msg.sender == strategist,
             "XChainStrategy::_withdrawUnderlying:UNAUTHORIZED"
@@ -228,7 +236,7 @@ contract XChainStrategy is BaseStrategy, XChainStrategyEvents {
 
         state = WITHDRAWING;
 
-        hub.requestWithdrawFromChain(
+        hub.lz_requestWithdrawFromChain(
             dstChain,
             dstVault,
             amountVaultShares,
