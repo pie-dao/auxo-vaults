@@ -93,6 +93,7 @@ contract XChainHub is XChainHubBase, LayerZeroApp, IStargateReceiver {
             trustedStrategy[_strategy],
             "XChainHub::approveWithdrawalForStrategy:UNTRUSTED"
         );
+        // alex not need safe approve
         underlying.safeApprove(_strategy, _amount);
     }
 
@@ -308,6 +309,7 @@ contract XChainHub is XChainHubBase, LayerZeroApp, IStargateReceiver {
     /// @param _srcChainId the remote layerZero chainId
     /// @param _strategy the remote XChainStrategy withdrawing tokens
     /// @return the underyling tokens that can be redeemeed
+    // @alex why have an external function for something used once?
     function _calculateStrategyAmountForWithdraw(
         IVault _vault,
         uint16 _srcChainId,
@@ -418,6 +420,7 @@ contract XChainHub is XChainHubBase, LayerZeroApp, IStargateReceiver {
         IHubPayload.Message memory message,
         uint256 amount
     ) internal {
+
         if (message.action == DEPOSIT_ACTION) {
             _depositAction(_srcChainId, message.payload, amount);
         } else if (message.action == REQUEST_WITHDRAW_ACTION) {
@@ -677,11 +680,11 @@ contract XChainHub is XChainHubBase, LayerZeroApp, IStargateReceiver {
             (IHubPayload.FinalizeWithdrawPayload)
         );
 
+
+        // wjat tjos os
         emit WithdrawalReceived(
             _srcChainId,
-            _amountReceived,
-            payload.vault,
-            payload.strategy
+            _amountReceiv
         );
     }
 

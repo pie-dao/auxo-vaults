@@ -1,12 +1,3 @@
 {
-    "python.formatting.provider": "black",
-    "editor.formatOnSave": true,
-    "solidity.formatter": "prettier",
-    "solidity.compileUsingRemoteVersion" : "v0.8.14+commit.80d49f37",
-    "[solidity]": {
-        "editor.defaultFormatter": "JuanBlanco.solidity",
-    },
-    "solidity.defaultCompiler": "localFile",
-    "solidity.compileUsingLocalVersion": "/home/jordan/Documents/Dev/crypto/PieDAO/auxo-vaults/soljson-v0.8.14+commit.80d49f37.js",
-    
+   
 }

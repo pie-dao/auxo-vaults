@@ -194,5 +194,18 @@ An attacker could therefore:
 
 
 
+## E2E Withdrawal 
+The manager has the very important job to keep track of total shares and the amount of requested shares to be withdrawn.
+Anyone can check that to be correct by fetching events.
 
+manager::ori::vault::xchainstrat::startRequestToWithdrawUnderlying::orihub::lz_requestWithdrawFromChain()
+dest::hub::_nonblockingLzReceive::reducer::lz_requestWithdrawAction() <---
+(time) --> vault is doing vaulty thing --> 
+owner::dest::hub::finalizeWithdrawFromVault()
+owner::dest::hub::finalizeWithdrawFromChain()
+(time) --> bridge doing bridgy thing -->
+ori::hub::sgReceive(receives FINALIZE_WITHDRAW_ACTION)::reducer::sg_finalizeWithdrawAction() <-- this leave money on the hub and approves hardcoded strategy for the amount
+magager::ori::vault::xchainstrat::withdrawFromHub(AMOUNT_ONLY_MANAGER_KNOW(andGOD))
 
+Here we need an offchain component matching the requested amount with the received one.
+xchain strat, right now doesn't even care about accounting, we basically trust the manager or strategist to do that
