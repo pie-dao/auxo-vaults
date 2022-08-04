@@ -13,8 +13,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity ^0.8.12;
 
-import {IVault} from "./IVault.sol";
-import {IStrategy} from "./IStrategy.sol";
+import {IVault} from "@interfaces/IVault.sol";
+import {IStrategy} from "@interfaces/IStrategy.sol";
 
 /// @title The set of interfaces for the various encoded payloads transferred across chains
 /// @dev assistance to the programmer for ensuring consistent serialisation and deserialisation across functions
