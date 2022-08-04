@@ -46,7 +46,9 @@ contract XChainHubSingle is XChainHub {
         address _lzEndpoint,
         address _refundRecipient
     ) XChainHub(_stargateEndpoint, _lzEndpoint, _refundRecipient) {
-        // setStrategyForChain();
+        /// @dev: we can set these in deploy but not during test
+        // _setStrategyForChain(ADDY_AVAX_STRATEGY, DESTINATION_CHAIN_ID);
+        // _setVaultForChain(ADDY_AVAX_VAULT, DESTINATION_CHAIN_ID);
     }
 
     function getPendingExitingSharesFromDestination()
@@ -58,11 +60,15 @@ contract XChainHubSingle is XChainHub {
             exitingSharesPerStrategy[DESTINATION_CHAIN_ID][ADDY_AVAX_STRATEGY];
     }
 
-    /// @notice sets a strategy for a given chain
     function setStrategyForChain(address _strategy, uint16 _chain)
         external
         onlyOwner
     {
+        _setStrategyForChain(_strategy, _chain);
+    }
+
+    /// @notice sets a strategy for a given chain
+    function _setStrategyForChain(address _strategy, uint16 _chain) internal {
         // require the strategy is fully withdrawn before calling
         address currentStrategy = strategyForChain[_chain];
         require(
@@ -81,12 +87,20 @@ contract XChainHubSingle is XChainHub {
         external
         onlyOwner
     {
-        IVault vault = IVault(_vault);
+        _setVaultForChain(_vault, _chain);
+    }
+
+    /// @notice sets a vault for a given chain
+    function _setVaultForChain(address _vault, uint16 _chain) internal {
         address strategy = strategyForChain[_chain];
-        uint256 pendingShares = vault.userBatchBurnReceipt(strategy).shares;
+
+        IVault vault = IVault(_vault);
+        IVault.BatchBurnReceipt memory receipt = vault.userBatchBurnReceipt(
+            strategy
+        );
 
         require(
-            vault.balanceOf(strategy) == 0 && pendingShares == 0,
+            vault.balanceOf(strategy) == 0 && receipt.shares == 0,
             "XChainHub::setVaultForChain:NOT EMPTY"
         );
 
@@ -130,9 +144,19 @@ contract XChainHubSingle is XChainHub {
             (IHubPayload.FinalizeWithdrawPayload)
         );
 
-        approveWithdrawalForStrategy(
-            ADDY_AVAX_STRATEGY,
-            IERC20(ORIGIN_UNDERLYING_ADDY),
+        /// @dev must not call this fn with untrusted payload data
+        /// @dev: hardcoded
+        // _approveWithdrawalForStrategy(
+        //     ADDY_AVAX_STRATEGY,
+        //     IERC20(ORIGIN_UNDERLYING_ADDY),
+        //     _amountReceived
+        // );
+
+        /// @dev dynamic variant
+        IVault trustedVault = IVault(vaultForChain[_srcChainId]);
+        _approveWithdrawalForStrategy(
+            strategyForChain[_srcChainId],
+            IERC20(trustedVault.underlying()),
             _amountReceived
         );
 

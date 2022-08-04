@@ -55,16 +55,25 @@ abstract contract XChainHubSrc is
     /// Single Chain Functions
     /// ------------------------
 
+    /// @notice restricts external approval calls to the owner
+    function approveWithdrawalForStrategy(
+        address _strategy,
+        IERC20 underlying,
+        uint256 _amount
+    ) external onlyOwner {
+        _approveWithdrawalForStrategy(_strategy, underlying, _amount);
+    }
+
     /// @notice approve a strategy to withdraw tokens from the hub
     /// @dev call before withdrawing from the strategy
     /// @param _strategy the address of the XChainStrategy on this chain
     /// @param underlying the token
     /// @param _amount the quantity to approve
-    function approveWithdrawalForStrategy(
+    function _approveWithdrawalForStrategy(
         address _strategy,
         IERC20 underlying,
         uint256 _amount
-    ) public onlyOwner {
+    ) internal {
         require(
             trustedStrategy[_strategy],
             "XChainHub::approveWithdrawalForStrategy:UNTRUSTED"

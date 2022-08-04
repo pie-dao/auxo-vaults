@@ -76,8 +76,6 @@ contract XChainStrategy is BaseStrategy, XChainStrategyEvents {
     /// @notice the current amount withdrawn, can be > deposited with positive yield
     uint256 public amountWithdrawn;
 
-    uint256 public requestedAmountWithdraw;
-
     /// @notice the XChainHub managing this strategy
     IXChainHub public hub;
 
