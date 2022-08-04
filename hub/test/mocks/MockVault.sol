@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-pragma solidity 0.8.14;
+pragma solidity ^0.8.12;
 
 import "@oz/token/ERC20/ERC20.sol";
 import "@std/console.sol";

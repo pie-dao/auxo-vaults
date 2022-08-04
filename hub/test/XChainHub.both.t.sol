@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.14;
+pragma solidity ^0.8.12;
 pragma abicoder v2;
 
 import {PRBTest} from "@prb/test/PRBTest.sol";
@@ -113,7 +113,7 @@ contract TestXChainHubSrcAndDst is PRBTest, XChainHubEvents {
         token.approve(address(hubSrc), token.balanceOf(address(strategy)));
 
         vm.expectEmit(false, false, false, true);
-        hubSrc.depositToChain(
+        hubSrc.sg_depositToChain(
             chainIdDst,
             srcPoolId,
             dstPoolId,
@@ -163,7 +163,7 @@ contract TestXChainHubSrcAndDst is PRBTest, XChainHubEvents {
 
         vm.prank(address(strategy));
 
-        hubSrc.requestWithdrawFromChain(
+        hubSrc.lz_requestWithdrawFromChain(
             chainIdDst,
             address(vault),
             amount,
@@ -188,6 +188,7 @@ contract TestXChainHubSrcAndDst is PRBTest, XChainHubEvents {
     function testFinalizeWithdrawal(uint256 _amount, uint8 _fee) public {
         // we mint 1e27 tokens
         vm.assume(_amount <= 1e27);
+        vm.assume(_amount > 0);
         vm.assume(_fee < 100);
         uint256 _round = 2;
 
@@ -208,7 +209,7 @@ contract TestXChainHubSrcAndDst is PRBTest, XChainHubEvents {
         );
         hubSrc.setWithdrawnPerRound(address(vault), _round, _amount);
 
-        hubSrc.finalizeWithdrawFromChain(
+        hubSrc.sg_finalizeWithdrawFromChain(
             chainIdDst,
             address(vault),
             address(strategy),
@@ -241,7 +242,7 @@ contract TestXChainHubSrcAndDst is PRBTest, XChainHubEvents {
         // report delay is 6 hours
         vm.warp(block.timestamp + 6 hours);
 
-        hubSrc.reportUnderlying(
+        hubSrc.lz_reportUnderlying(
             IVault(address(vault)),
             dstChains,
             strategies,

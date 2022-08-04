@@ -11,7 +11,7 @@
 // auxo.fi
 
 // SPDX-License-Identifier: AGPL-3.0-only
-pragma solidity 0.8.14;
+pragma solidity ^0.8.12;
 
 /// @notice events that can be shared between XChainHub instances (such as when testing)
 contract XChainHubEvents {

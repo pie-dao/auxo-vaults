@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-only
-pragma solidity 0.8.14;
+pragma solidity ^0.8.12;
 import {XChainHub} from "@hub/XChainHub.sol";
 import {XChainHubSingle} from "@hub/XChainHubSingle.sol";
 import {IHubPayload} from "@interfaces/IHubPayload.sol";
@@ -46,7 +46,7 @@ contract XChainHubMockReducer is XChainHub {
         super._reducer(_srcChainId, _message, _amount);
     }
 
-    function _depositAction(
+    function _sg_depositAction(
         uint16,
         bytes memory,
         uint256 _amount
@@ -55,12 +55,12 @@ contract XChainHubMockReducer is XChainHub {
         lastCall = DEPOSIT_ACTION;
     }
 
-    function _requestWithdrawAction(uint16, bytes memory) internal override {
+    function _lz_requestWithdrawAction(uint16, bytes memory) internal override {
         amountCalled = 0;
         lastCall = REQUEST_WITHDRAW_ACTION;
     }
 
-    function _finalizeWithdrawAction(
+    function _sg_finalizeWithdrawAction(
         uint16,
         bytes memory,
         uint256 _amount
@@ -69,7 +69,10 @@ contract XChainHubMockReducer is XChainHub {
         lastCall = FINALIZE_WITHDRAW_ACTION;
     }
 
-    function _reportUnderlyingAction(uint16, bytes memory) internal override {
+    function _lz_reportUnderlyingAction(uint16, bytes memory)
+        internal
+        override
+    {
         amountCalled = 0;
         lastCall = REPORT_UNDERLYING_ACTION;
     }
@@ -82,7 +85,7 @@ contract XChainHubMockReducer is XChainHub {
         bytes memory adapterParams,
         address payable refundAddress
     ) external {
-        this.requestWithdrawFromChain(
+        this.lz_requestWithdrawFromChain(
             dstChainId,
             dstVault,
             amountVaultShares,
@@ -167,13 +170,13 @@ contract XChainHubMockActions is XChainHub {
         bytes memory _payload,
         uint256 _amount
     ) external {
-        return _depositAction(_srcChainId, _payload, _amount);
+        return _sg_depositAction(_srcChainId, _payload, _amount);
     }
 
     function requestWithdrawAction(uint16 _srcChainId, bytes memory _payload)
         external
     {
-        _requestWithdrawAction(_srcChainId, _payload);
+        _lz_requestWithdrawAction(_srcChainId, _payload);
     }
 
     function finalizeWithdrawAction(
@@ -181,7 +184,7 @@ contract XChainHubMockActions is XChainHub {
         bytes memory _payload,
         uint256 _amount
     ) external {
-        _finalizeWithdrawAction(_srcChainId, _payload, _amount);
+        _sg_finalizeWithdrawAction(_srcChainId, _payload, _amount);
     }
 
     function setCurrentRoundPerStrategy(
@@ -216,17 +219,8 @@ contract XChainHubMockActions is XChainHub {
         withdrawnPerRound[_vault][currentRound] = _amount;
     }
 
-    function calculateStrategyAmountForWithdraw(
-        IVault _vault,
-        uint16 _srcChainId,
-        address _strategy
-    ) external returns (uint256) {
-        return
-            _calculateStrategyAmountForWithdraw(_vault, _srcChainId, _strategy);
-    }
-
     function reportUnderlyingAction(bytes memory _payload) external {
-        _reportUnderlyingAction(1, _payload);
+        _lz_reportUnderlyingAction(1, _payload);
     }
 
     function setLatestReport(
@@ -292,19 +286,19 @@ contract XChainHubMockActionsNoLz is XChainHub {
         bytes memory _payload,
         uint256 _amount
     ) external {
-        return _depositAction(_srcChainId, _payload, _amount);
+        return _sg_depositAction(_srcChainId, _payload, _amount);
     }
 
     function requestWithdrawAction(uint16 _srcChainId, bytes memory _payload)
         external
     {
-        _requestWithdrawAction(_srcChainId, _payload);
+        _lz_requestWithdrawAction(_srcChainId, _payload);
     }
 
     function finalizeWithdrawAction(uint16 _srcChainId, bytes memory _payload)
         external
     {
-        _finalizeWithdrawAction(_srcChainId, _payload, 0);
+        _sg_finalizeWithdrawAction(_srcChainId, _payload, 0);
     }
 
     function setCurrentRoundPerStrategy(
@@ -339,17 +333,8 @@ contract XChainHubMockActionsNoLz is XChainHub {
         exitingSharesPerStrategy[_srcChainId][_strategy] = _shares;
     }
 
-    function calculateStrategyAmountForWithdraw(
-        IVault _vault,
-        uint16 _srcChainId,
-        address _strategy
-    ) external view returns (uint256) {
-        return
-            _calculateStrategyAmountForWithdraw(_vault, _srcChainId, _strategy);
-    }
-
     function reportUnderlyingAction(bytes memory _payload) external {
-        _reportUnderlyingAction(1, _payload);
+        _lz_reportUnderlyingAction(1, _payload);
     }
 
     function setLatestReport(
@@ -379,7 +364,7 @@ contract MockXChainHubSingle is XChainHubSingle {
         bytes memory _payload,
         uint256 _amount
     ) external {
-        return _depositAction(_srcChainId, _payload, _amount);
+        return _sg_depositAction(_srcChainId, _payload, _amount);
     }
 
     function _makeDeposit(

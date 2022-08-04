@@ -28,11 +28,11 @@ import {IVault} from "@interfaces/IVault.sol";
 import {IHubPayload} from "@interfaces/IHubPayload.sol";
 import {IStrategy} from "@interfaces/IStrategy.sol";
 
-import {XChainHubStorage} from "@hub/composed/XChainHubStorage.sol";
-import {XChainHubEvents} from "@hub/composed/XChainHubEvents.sol";
-import {LayerZeroSender} from "@hub/composed/LayerZeroSender.sol";
+import {XChainHubStorage} from "@hub/XChainHubStorage.sol";
+import {XChainHubEvents} from "@hub/XChainHubEvents.sol";
 
-import {LayerZeroAdapter} from "@hub/composed/LayerZeroAdapter.sol";
+import {LayerZeroApp} from "@hub/LayerZeroApp.sol";
+import {LayerZeroAdapter} from "@hub/LayerZeroAdapter.sol";
 import {IStargateReceiver} from "@interfaces/IStargateReceiver.sol";
 import {IStargateRouter} from "@interfaces/IStargateRouter.sol";
 
@@ -47,8 +47,7 @@ abstract contract XChainHubSrc is
 {
     using SafeERC20 for IERC20;
 
-    constructor(address _stargateRouter)
-    {
+    constructor(address _stargateRouter) {
         stargateRouter = IStargateRouter(_stargateRouter);
     }
 
@@ -65,7 +64,7 @@ abstract contract XChainHubSrc is
         address _strategy,
         IERC20 underlying,
         uint256 _amount
-    ) external onlyOwner {
+    ) public onlyOwner {
         require(
             trustedStrategy[_strategy],
             "XChainHub::approveWithdrawalForStrategy:UNTRUSTED"
@@ -75,12 +74,7 @@ abstract contract XChainHubSrc is
 
     /// @notice calls the vault on the current chain to exit batch burn
     /// @param vault the vault on the same chain as the hub
-    // @alex withdrawFromBatch    
-    function finalizeWithdrawFromVault(IVault vault)
-        external
-        onlyOwner
-        whenNotPaused
-    {
+    function withdrawFromVault(IVault vault) external onlyOwner whenNotPaused {
         uint256 round = vault.batchBurnRound();
         IERC20 underlying = vault.underlying();
         uint256 balanceBefore = underlying.balanceOf(address(this));
@@ -198,7 +192,6 @@ abstract contract XChainHubSrc is
             "XChainHub::depositToChain:UNTRUSTED"
         );
 
-        /// @dev remove variables in lexical scope to fix stack too deep err
         _approveRouterTransfer(msg.sender, _amount);
 
         IHubPayload.Message memory message = IHubPayload.Message({
@@ -273,13 +266,19 @@ abstract contract XChainHubSrc is
             address(0), // the address of the ZRO token holder who would pay for the transaction
             adapterParams
         );
-        
+
         emit WithdrawRequested(
             dstChainId,
             amountVaultShares,
             dstVault,
             msg.sender
         );
+    }
+
+    function _approveRouter(address _vault, uint256 _amount) internal {
+        IVault vault = IVault(_vault);
+        IERC20 underlying = vault.underlying();
+        underlying.safeApprove(address(stargateRouter), _amount);
     }
 
     /// @notice sends tokens withdrawn from local vault to a remote hub
@@ -289,7 +288,7 @@ abstract contract XChainHubSrc is
     /// @param _minOutUnderlying minimum amount of underlying to receive after cross chain swap
     /// @param _srcPoolId stargatePoolId this chain
     /// @param _dstPoolId stargatePoolId target chain
-    function finalizeWithdrawFromChain(
+    function sg_finalizeWithdrawFromChain(
         uint16 _dstChainId,
         address _vault,
         address _strategy,
@@ -304,7 +303,7 @@ abstract contract XChainHubSrc is
             currentRound > 0,
             "XChainHub::finalizeWithdrawFromChain:NO ACTIVE ROUND"
         );
-        
+
         require(
             hub != address(0x0),
             "XChainHub::finalizeWithdrawFromChain:NO HUB"
@@ -319,32 +318,13 @@ abstract contract XChainHubSrc is
             trustedVault[_vault],
             "XChainHub::finalizeWithdrawFromChain:UNTRUSTED VAULT"
         );
-        
 
-        IVault vault = IVault(_vault);
-
-        /**
-            exitingSharesPerStrategy this is the man, where do update this?
-            withdrawnPerRound[address(vault)][round] = withdrawn;
-         */
-
-
-         // fetch the relevant round and shares, for the chain and strategy
-        uint246 strategyAmount = withdrawnPerRound[_vault][currentRound];
-
-        // TODO understand can we do this here? should we know the message is going through?? do we need reantraty???
-        currentRoundPerStrategy[_dstChainId][_strategy] = 0;
-        exitingSharesPerStrategy[_dstChainId][_strategy] = 0;
-
-        // BTW MATE whatever came out vault it's what you got
-        // no complain policy
-        // require(
-        //     _minOutUnderlying <= strategyAmount,
-        //     "XChainHub::finalizeWithdrawFromChain:MIN OUT TOO HIGH"
-        // );
-
-        IERC20 underlying = vault.underlying();
-        underlying.safeApprove(address(stargateRouter), strategyAmount);
+        // fetch the relevant round and shares, for the chain and strategy
+        uint256 strategyAmount = withdrawnPerRound[_vault][currentRound];
+        require(
+            strategyAmount > 0,
+            "XChainHub::finalizeWithdrawFromChain:NO WITHDRAWS"
+        );
 
         IHubPayload.Message memory message = IHubPayload.Message({
             action: FINALIZE_WITHDRAW_ACTION,
@@ -356,17 +336,22 @@ abstract contract XChainHubSrc is
             )
         });
 
+        _approveRouter(_vault, strategyAmount);
+
         stargateRouter.swap{value: msg.value}(
             _dstChainId,
             _srcPoolId,
             _dstPoolId,
             payable(refundRecipient),
             strategyAmount,
-            _minOutUnderlying, //alex please ask to stargate team for confirmation
+            _minOutUnderlying, // @alex please ask to stargate team for confirmation
             IStargateRouter.lzTxObj(200000, 0, "0x"), // default gas, no airdrop
             abi.encodePacked(hub),
             abi.encode(message)
         );
+
+        currentRoundPerStrategy[_dstChainId][_strategy] = 0;
+        exitingSharesPerStrategy[_dstChainId][_strategy] = 0;
 
         emit WithdrawalSent(
             _dstChainId,

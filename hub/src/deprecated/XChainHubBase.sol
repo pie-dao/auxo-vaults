@@ -11,7 +11,7 @@
 // auxo.fi
 
 // SPDX-License-Identifier: AGPL-3.0-only
-pragma solidity 0.8.14;
+pragma solidity ^0.8.12;
 
 /// @dev delete before production commit!
 import "@std/console.sol";

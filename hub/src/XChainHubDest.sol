@@ -25,12 +25,11 @@ import {IVault} from "@interfaces/IVault.sol";
 import {IHubPayload} from "@interfaces/IHubPayload.sol";
 import {IStrategy} from "@interfaces/IStrategy.sol";
 
-import {XChainHubStorage} from "@hub/composed/XChainHubStorage.sol";
-import {XChainHubEvents} from "@hub/composed/XChainHubEvents.sol";
-import {LayerZeroReceiver} from "@hub/composed/LayerZeroReceiver.sol";
+import {XChainHubStorage} from "@hub/XChainHubStorage.sol";
+import {XChainHubEvents} from "@hub/XChainHubEvents.sol";
 
-
-import {LayerZeroAdapter} from "@hub/composed/LayerZeroAdapter.sol";
+import {LayerZeroApp} from "@hub/LayerZeroApp.sol";
+import {LayerZeroAdapter} from "@hub/LayerZeroAdapter.sol";
 import {IStargateReceiver} from "@interfaces/IStargateReceiver.sol";
 import {IStargateRouter} from "@interfaces/IStargateRouter.sol";
 
@@ -67,13 +66,13 @@ abstract contract XChainHubDest is
         uint256 amount
     ) internal {
         if (message.action == DEPOSIT_ACTION) {
-            _depositAction(_srcChainId, message.payload, amount);
+            _sg_depositAction(_srcChainId, message.payload, amount);
         } else if (message.action == REQUEST_WITHDRAW_ACTION) {
-            _requestWithdrawAction(_srcChainId, message.payload);
+            _lz_requestWithdrawAction(_srcChainId, message.payload);
         } else if (message.action == FINALIZE_WITHDRAW_ACTION) {
-            _finalizeWithdrawAction(_srcChainId, message.payload, amount);
+            _sg_finalizeWithdrawAction(_srcChainId, message.payload, amount);
         } else if (message.action == REPORT_UNDERLYING_ACTION) {
-            _reportUnderlyingAction(_srcChainId, message.payload);
+            _lz_reportUnderlyingAction(_srcChainId, message.payload);
         } else {
             revert("XChainHub::_reducer:UNRECOGNISED ACTION");
         }
@@ -190,7 +189,7 @@ abstract contract XChainHubDest is
     /// @param _srcChainId layerZero chain id from where deposit came
     /// @param _payload abi encoded as IHubPayload.DepositPayload
     /// @param _amountReceived underlying tokens to be deposited
-    function sg_depositAction(
+    function _sg_depositAction(
         uint16 _srcChainId,
         bytes memory _payload,
         uint256 _amountReceived
@@ -260,10 +259,10 @@ abstract contract XChainHubDest is
     /// @notice enter the batch burn for a vault on the current chain
     /// @param _srcChainId layerZero chain id where the request originated
     /// @param _payload abi encoded as IHubPayload.RequestWithdrawPayload
-    function lz_requestWithdrawAction(uint16 _srcChainId, bytes memory _payload)
-        internal
-        virtual
-    {
+    function _lz_requestWithdrawAction(
+        uint16 _srcChainId,
+        bytes memory _payload
+    ) internal virtual {
         IHubPayload.RequestWithdrawPayload memory decoded = abi.decode(
             _payload,
             (IHubPayload.RequestWithdrawPayload)
@@ -315,7 +314,7 @@ abstract contract XChainHubDest is
     /// @notice executes a withdrawal of underlying tokens from a vault to a strategy on the source chain
     /// @param _srcChainId what layerZero chainId was the request initiated from
     /// @param _payload abi encoded as IHubPayload.FinalizeWithdrawPayload
-    function sg_finalizeWithdrawAction(
+    function _sg_finalizeWithdrawAction(
         uint16 _srcChainId,
         bytes memory _payload,
         uint256 _amountReceived
@@ -339,11 +338,11 @@ abstract contract XChainHubDest is
     /// @notice underlying holdings are updated on another chain and this function is broadcast
     ///     to all other chains for the strategy.
     /// @param _srcChainId the layerZero chain id from where the request originates
-    /// @param _payload byte encoded data adhering to IHubPayload.ReportUnderlyingPayload
-    function lz_reportUnderlyingAction(uint16 _srcChainId, bytes memory _payload)
-        internal
-        virtual
-    {
+    /// @param _payload byte encoded data adhering to IHubPayload.lz_reportUnderlyingPayload
+    function _lz_reportUnderlyingAction(
+        uint16 _srcChainId,
+        bytes memory _payload
+    ) internal virtual {
         IHubPayload.ReportUnderlyingPayload memory payload = abi.decode(
             _payload,
             (IHubPayload.ReportUnderlyingPayload)

@@ -37,20 +37,4 @@ contract MockXChainStrategy is XChainStrategy {
     function setReportedUnderlying(uint256 reported) external {
         reportedUnderlying = reported;
     }
-
-    function withdrawUnderlying(
-        uint256 amountVaultShares,
-        bytes memory adapterParams,
-        address payable refundAddress,
-        uint16 dstChain,
-        address dstVault
-    ) external {
-        _withdrawUnderlying(
-            amountVaultShares,
-            adapterParams,
-            refundAddress,
-            dstChain,
-            dstVault
-        );
-    }
 }

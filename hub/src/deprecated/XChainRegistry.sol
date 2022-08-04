@@ -11,7 +11,7 @@
 // auxo.fi
 
 // SPDX-License-Identifier: AGPL-3.0-only
-pragma solidity 0.8.14;
+pragma solidity ^0.8.12;
 
 /// @notice an onchain registry of key contract addresses for the Auxo XChain Vaults
 contract XChainRegistry {

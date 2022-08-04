@@ -11,7 +11,7 @@
 // auxo.fi
 
 // SPDX-License-Identifier: AGPL-3.0-only
-pragma solidity 0.8.14;
+pragma solidity ^0.8.12;
 
 // dev remove before prod deploy
 import "@std/console.sol";
@@ -75,7 +75,7 @@ contract XChainStrategy is BaseStrategy, XChainStrategyEvents {
 
     /// @notice the current amount withdrawn, can be > deposited with positive yield
     uint256 public amountWithdrawn;
-    
+
     uint256 public requestedAmountWithdraw;
 
     /// @notice the XChainHub managing this strategy
@@ -166,7 +166,7 @@ contract XChainStrategy is BaseStrategy, XChainStrategyEvents {
         underlying.safeApprove(address(hub), amount);
 
         /// @dev get the fees before sending
-        hub.depositToChain{value: msg.value}(
+        hub.sg_depositToChain{value: msg.value}(
             params.dstChain,
             params.srcPoolId,
             params.dstPoolId,
@@ -204,12 +204,15 @@ contract XChainStrategy is BaseStrategy, XChainStrategyEvents {
         amountWithdrawn += _amount;
 
         underlying.safeTransferFrom(address(hub), address(this), _amount);
-        
-        
+
         // Here, we manually change the reported amount
         // because, otherwise the contract will keep a broken accounting until the next automated report
         // since (float + reportedUnderlying) would double count the _amount that we just withdrawn
-        reportedUnderlying -= _amount;
+        if (_amount > reportedUnderlying) {
+            reportedUnderlying = 0;
+        } else {
+            reportedUnderlying -= _amount;
+        }
         emit WithdrawFromHub(address(hub), _amount);
     }
 
@@ -226,12 +229,12 @@ contract XChainStrategy is BaseStrategy, XChainStrategyEvents {
     ) external {
         require(
             msg.sender == manager || msg.sender == strategist,
-            "XChainStrategy::_withdrawUnderlying:UNAUTHORIZED"
+            "XChainStrategy::startRequestToWithdrawUnderlying:UNAUTHORIZED"
         );
 
         require(
             state == DEPOSITED,
-            "XChainStrategy::_withdrawUnderlying:WRONG STATE"
+            "XChainStrategy::startRequestToWithdrawUnderlying:WRONG STATE"
         );
 
         state = WITHDRAWING;

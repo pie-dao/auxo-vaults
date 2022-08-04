@@ -11,9 +11,10 @@
 // auxo.fi
 
 // SPDX-License-Identifier: AGPL-3.0-only
-pragma solidity 0.8.14;
+pragma solidity ^0.8.12;
 
 import {IStargateRouter} from "@interfaces/IStargateRouter.sol";
+import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {IStargateReceiver} from "@interfaces/IStargateReceiver.sol";
 import {Pausable} from "@oz/security/Pausable.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
@@ -34,9 +35,6 @@ interface IXChainHub is IStargateReceiver {
     /// @notice indicates whether the vault is in an `exiting` state
     function setExiting(address vault, bool exit) external;
 
-    /// @notice calls the vault on the current chain to exit batch burn
-    function finalizeWithdrawFromVault(IVault vault) external;
-
     // --------------------------
     // Cross Chain Functions
     // --------------------------
@@ -47,7 +45,7 @@ interface IXChainHub is IStargateReceiver {
     /// @param dstChains is an array of the layerZero chain Ids to check
     /// @param strats array of strategy addresses on the destination chains, index should match the dstChainId
     /// @param adapterParams is additional info to send to the Lz receiver
-    function reportUnderlying(
+    function lz_reportUnderlying(
         IVault vault,
         uint16[] memory dstChains,
         address[] memory strats,
@@ -64,7 +62,7 @@ interface IXChainHub is IStargateReceiver {
     /// @param _amount is the amount to deposit in underlying tokens
     /// @param _minOut how not to get rekt
     /// @param _refundAddress if extra native is sent, to whom should be refunded
-    function depositToChain(
+    function sg_depositToChain(
         uint16 _dstChainId,
         uint16 _srcPoolId,
         uint16 _dstPoolId,
@@ -86,7 +84,7 @@ interface IXChainHub is IStargateReceiver {
     /// @param amountVaultShares the number of auxovault shares to burn for underlying
     /// @param adapterParams additional layerZero config to pass
     /// @param refundAddress addrss on the source chain to send rebates to
-    function requestWithdrawFromChain(
+    function lz_requestWithdrawFromChain(
         uint16 dstChainId,
         address dstVault,
         uint256 amountVaultShares,
@@ -103,7 +101,7 @@ interface IXChainHub is IStargateReceiver {
     /// @param srcPoolId stargate pool id of underlying token on src
     /// @param dstPoolId stargate pool id of underlying token on dst
     /// @param minOutUnderlying minimum amount of underyling accepted
-    function finalizeWithdrawFromChain(
+    function sg_finalizeWithdrawFromChain(
         uint16 dstChainId,
         address dstVault,
         bytes memory adapterParams,
@@ -130,6 +128,21 @@ interface IXChainHub is IStargateReceiver {
         uint256 _amountLD,
         bytes memory _payload
     ) external override;
+
+    /// @notice approve a strategy to withdraw tokens from the hub
+    /// @dev call before withdrawing from the strategy
+    /// @param _strategy the address of the XChainStrategy on this chain
+    /// @param underlying the token
+    /// @param _amount the quantity to approve
+    function approveWithdrawalForStrategy(
+        address _strategy,
+        IERC20 underlying,
+        uint256 _amount
+    ) external;
+
+    /// @notice calls the vault on the current chain to exit batch burn
+    /// @param vault the vault on the same chain as the hub
+    function withdrawFromVault(IVault vault) external;
 
     /// @notice remove funds from the contract in the event that a revert locks them in
     /// @param _amount the quantity of tokens to remove

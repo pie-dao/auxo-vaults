@@ -11,24 +11,29 @@
 // auxo.fi
 
 // SPDX-License-Identifier: AGPL-3.0-only
-pragma solidity 0.8.14;
+pragma solidity ^0.8.12;
 
 import {XChainHub} from "@hub/XChainHub.sol";
 import {IVault} from "@interfaces/IVault.sol";
+import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {IHubPayload} from "@interfaces/IHubPayload.sol";
 
 /// @title XChainHubSingle - a restricted version of the XChainHub
 /// @dev limitations on Stargate prevent us from being able to trust inbound payloads.
 ///      This contract extends the XChain hub with additional restrictions
-contract XChainHubSingleAvaxFTM is XChainHub {
+contract XChainHubSingle is XChainHub {
     event SetStrategyForChain(address strategy, uint16 chain);
 
-    constant ORIGIN_CHAIN_ID
-    constant DESTINATION_CHAIN_ID
-    constant bool IS_ORIGIN = true
-    constant ADDY_AVAX_STRATEGY = 0x;
-    constant ADDY_AVAX_VAULT = 0x;
-    constant ORIGIN_UNDERLYING_ADDY = 0x;
+    /// @dev dont use: these are random addresses
+    address public constant ADDY_AVAX_STRATEGY =
+        0xa23bAFEB30Cc41c4dE68b91aA7Db0eF565276dE3;
+    address public constant ADDY_AVAX_VAULT =
+        0x34B57897b734fD12D8423346942d796E1CCF2E08;
+    uint16 public constant DESTINATION_CHAIN_ID = 0;
+    uint16 public constant ORIGIN_CHAIN_ID = 0;
+    bool public constant IS_ORIGIN = true;
+    address public constant ORIGIN_UNDERLYING_ADDY =
+        0x37883431AF7f8fd4c04dc3573b6914e12F089Dfa;
 
     /// @notice permits one and only one strategy to make deposits on each chain
     mapping(uint16 => address) public strategyForChain;
@@ -41,14 +46,16 @@ contract XChainHubSingleAvaxFTM is XChainHub {
         address _lzEndpoint,
         address _refundRecipient
     ) XChainHub(_stargateEndpoint, _lzEndpoint, _refundRecipient) {
-
-
-        setStrategyForChain();
+        // setStrategyForChain();
     }
 
-
-    function getPendingExitingSharesFromDestination() view {
-        return exitingSharesPerStrategy[DESTINATION_CHAIN_ID][ORIGIN_STRATEGY_ADDRESS]
+    function getPendingExitingSharesFromDestination()
+        external
+        view
+        returns (uint256)
+    {
+        return
+            exitingSharesPerStrategy[DESTINATION_CHAIN_ID][ADDY_AVAX_STRATEGY];
     }
 
     /// @notice sets a strategy for a given chain
@@ -92,7 +99,7 @@ contract XChainHubSingleAvaxFTM is XChainHub {
     /// @param _srcChainId comes from stargate
     /// @param _amountReceived comes from stargate
     /// @param _payload can be manipulated by an attacker
-    function _depositAction(
+    function _sg_depositAction(
         uint16 _srcChainId,
         bytes memory _payload,
         uint256 _amountReceived
@@ -110,11 +117,10 @@ contract XChainHubSingleAvaxFTM is XChainHub {
         );
     }
 
-
     /// @notice This is received money from a previous pending request of withdrawal
     /// @param _srcChainId what layerZero chainId was the request initiated from
     /// @param _payload abi encoded as IHubPayload.FinalizeWithdrawPayload
-    function sg_finalizeWithdrawAction(
+    function _sg_finalizeWithdrawAction(
         uint16 _srcChainId,
         bytes memory _payload,
         uint256 _amountReceived
@@ -124,10 +130,11 @@ contract XChainHubSingleAvaxFTM is XChainHub {
             (IHubPayload.FinalizeWithdrawPayload)
         );
 
-        // received money from who bro??? do ever care??
-        // I'll just keep them for myself homie
-        //
-        approveWithdrawalForStrategy(ADDY_AVAX_STRATEGY, ORIGIN_UNDERLYING_ADDY, _amountReceived);
+        approveWithdrawalForStrategy(
+            ADDY_AVAX_STRATEGY,
+            IERC20(ORIGIN_UNDERLYING_ADDY),
+            _amountReceived
+        );
 
         emit WithdrawalReceived(
             _srcChainId,

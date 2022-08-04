@@ -93,7 +93,7 @@ contract TestXChainHubSrc is PRBTest {
         IVault iVault = IVault(address(vault));
         vm.startPrank(_notOwner);
         vm.expectRevert(onlyOwnerErr);
-        hub.reportUnderlying(iVault, dstChains, strats, bytes(""));
+        hub.lz_reportUnderlying(iVault, dstChains, strats, bytes(""));
 
         vm.expectRevert(onlyOwnerErr);
         hub.setTrustedVault(vaultAddr, true);
@@ -102,7 +102,7 @@ contract TestXChainHubSrc is PRBTest {
         hub.setExiting(vaultAddr, true);
 
         vm.expectRevert(onlyOwnerErr);
-        hub.finalizeWithdrawFromVault(iVault);
+        hub.withdrawFromVault(iVault);
 
         vm.expectRevert(onlyOwnerErr);
         hub.emergencyWithdraw(1, address(token));
@@ -140,7 +140,7 @@ contract TestXChainHubSrc is PRBTest {
         _vault.setBatchBurnForRound(_round, batchBurn);
 
         // execute the action
-        hub.finalizeWithdrawFromVault(vault);
+        hub.withdrawFromVault(vault);
 
         // check the value, corresponds to the mock vault expected outcome
         assertEq(hub.withdrawnPerRound(address(vault), 2), 1e26);

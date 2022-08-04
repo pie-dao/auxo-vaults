@@ -64,7 +64,7 @@ contract TestXChainHubSrc is PRBTest {
 
         vm.prank(untrusted);
         vm.expectRevert(bytes("XChainHub::requestWithdrawFromChain:UNTRUSTED"));
-        hub.requestWithdrawFromChain(
+        hub.lz_requestWithdrawFromChain(
             1,
             vaultAddr,
             1e19,
@@ -91,7 +91,7 @@ contract TestXChainHubSrc is PRBTest {
         hubSrc.setTrustedRemote(_mockChainIdSrc, abi.encodePacked(_dstAddress));
 
         vm.prank(_trustedStrat);
-        hubSrc.requestWithdrawFromChain(
+        hubSrc.lz_requestWithdrawFromChain(
             _mockChainIdSrc,
             _dstAddress,
             1e19,
@@ -135,7 +135,7 @@ contract TestXChainHubSrc is PRBTest {
 
         vm.prank(untrusted);
         vm.expectRevert(bytes("Ownable: caller is not the owner"));
-        hub.finalizeWithdrawFromChain(
+        hub.sg_finalizeWithdrawFromChain(
             _mockChainIdDst,
             _dstAddress,
             trustedStrat,
@@ -145,83 +145,8 @@ contract TestXChainHubSrc is PRBTest {
         );
     }
 
-    function testFinalizeWithdrawFromChainFailsWithUntrustedHub(
-        address untrusted
-    ) public {
-        address trustedStrat = 0x69b8C988b17BD77Bb56BEe902b7aB7E64F262F35;
-        uint16 _mockChainIdDst = 2;
-        address _dstAddress = address(hub);
-        vm.assume(untrusted != _dstAddress);
-        uint16 srcPoolId = 1;
-        uint16 dstPoolId = 2;
-        uint256 minOutUnderlying = 1e21;
-
-        vm.expectRevert(bytes("XChainHub::finalizeWithdrawFromChain:NO HUB"));
-        hub.finalizeWithdrawFromChain(
-            _mockChainIdDst,
-            untrusted,
-            trustedStrat,
-            minOutUnderlying,
-            srcPoolId,
-            dstPoolId
-        );
-    }
-
-    function testFinalizeWithdrawFromChainFailsWithUntrustedVault(
-        address untrusted
-    ) public {
-        address trustedVault = 0x69b8C988b17BD77Bb56BEe902b7aB7E64F262F35;
-        uint16 _mockChainIdDst = 2;
-        address _dstHub = address(hub);
-        uint16 srcPoolId = 1;
-        uint16 dstPoolId = 2;
-        uint256 minOutUnderlying = 1e21;
-
-        vm.assume(untrusted != trustedVault);
-
-        hub.setTrustedVault(trustedVault, true);
-        hub.setTrustedHub(_dstHub, _mockChainIdDst, true);
-
-        vm.expectRevert(
-            bytes("XChainHub::finalizeWithdrawFromChain:UNTRUSTED VAULT")
-        );
-        hub.finalizeWithdrawFromChain(
-            _mockChainIdDst,
-            untrusted,
-            address(0),
-            minOutUnderlying,
-            srcPoolId,
-            dstPoolId
-        );
-    }
-
-    function testFinalizeWithdrawFromChainFailsWithUntrustedStrategy(
-        address untrusted
-    ) public {
-        address trustedStrat = 0x69b8C988b17BD77Bb56BEe902b7aB7E64F262F35;
-        uint16 _mockChainIdDst = 2;
-        address _dstAddress = address(hub);
-        uint16 srcPoolId = 1;
-        uint16 dstPoolId = 2;
-        uint256 minOutUnderlying = 1e21;
-
-        vm.assume(untrusted != trustedStrat);
-
-        hub.setTrustedHub(_dstAddress, _mockChainIdDst, true);
-
-        vm.prank(untrusted);
-        vm.expectRevert(bytes("Ownable: caller is not the owner"));
-        hub.finalizeWithdrawFromChain(
-            _mockChainIdDst,
-            _dstAddress,
-            trustedStrat,
-            minOutUnderlying,
-            srcPoolId,
-            dstPoolId
-        );
-    }
-
-    function testFinalizeWithdrawFromChain() public {
+    function testFinalizeWithdrawFromChain(uint256 _amt) public {
+        vm.assume(_amt > 0);
         // test params
         uint16 _mockChainIdDst = 2;
         address _dstAddress = address(hub);
@@ -245,8 +170,9 @@ contract TestXChainHubSrc is PRBTest {
         hubSrc.setTrustedHub(_dstAddress, _mockChainIdDst, true);
         hubSrc.setTrustedVault(address(_trustedVault), true);
         hubSrc.setCurrentRoundPerStrategy(_mockChainIdDst, _trustedStrat, 1);
+        hubSrc.setWithdrawnPerRound(address(_trustedVault), 1, _amt);
 
-        hubSrc.finalizeWithdrawFromChain(
+        hubSrc.sg_finalizeWithdrawFromChain(
             _mockChainIdDst,
             address(_trustedVault),
             _trustedStrat,
@@ -358,7 +284,7 @@ contract TestXChainHubSrc is PRBTest {
 
         vm.prank(untrusted);
         vm.expectRevert(bytes("XChainHub::depositToChain:UNTRUSTED"));
-        hub.depositToChain(
+        hub.sg_depositToChain(
             1,
             2,
             1,
@@ -402,7 +328,7 @@ contract TestXChainHubSrc is PRBTest {
         token.approve(address(hubMockRouter), type(uint256).max);
 
         vm.prank(trustedStrat);
-        hubMockRouter.depositToChain(
+        hubMockRouter.sg_depositToChain(
             dstChainId,
             srcPoolId,
             dstPoolId,
@@ -437,7 +363,12 @@ contract TestXChainHubSrc is PRBTest {
         hub.setTrustedVault(vaultAddr, true);
 
         vm.expectRevert(bytes("XChainHub::reportUnderlying:UNTRUSTED"));
-        hub.reportUnderlying(IVault(_vault), dstChains, strategies, bytes(""));
+        hub.lz_reportUnderlying(
+            IVault(_vault),
+            dstChains,
+            strategies,
+            bytes("")
+        );
     }
 
     function testReportUnderlyingRevertsIfLengthMismatch(
@@ -450,7 +381,7 @@ contract TestXChainHubSrc is PRBTest {
         hub.setTrustedVault(vaultAddr, true);
 
         vm.expectRevert(bytes("XChainHub::reportUnderlying:LENGTH MISMATCH"));
-        hub.reportUnderlying(
+        hub.lz_reportUnderlying(
             IVault(vaultAddr),
             dstChains,
             strategies,
@@ -471,7 +402,7 @@ contract TestXChainHubSrc is PRBTest {
         _hub.setTrustedVault(address(vault), true);
 
         vm.expectRevert(bytes("XChainHub::reportUnderlying:NO DEPOSITS"));
-        _hub.reportUnderlying(
+        _hub.lz_reportUnderlying(
             IVault(address(vault)),
             dstChains,
             strategies,
@@ -493,7 +424,7 @@ contract TestXChainHubSrc is PRBTest {
         _hub.setSharesPerStrategy(dstChains[0], strategies[0], 1e21);
 
         vm.expectRevert(bytes("XChainHub::reportUnderlying:TOO RECENT"));
-        _hub.reportUnderlying(
+        _hub.lz_reportUnderlying(
             IVault(address(vault)),
             dstChains,
             strategies,
@@ -523,7 +454,7 @@ contract TestXChainHubSrc is PRBTest {
         // set layerzero boilerplate
         _hub.setTrustedRemote(dstChains[0], abi.encodePacked(address(_hub)));
 
-        _hub.reportUnderlying(
+        _hub.lz_reportUnderlying(
             IVault(address(vault)),
             dstChains,
             strategies,
@@ -555,11 +486,9 @@ contract TestXChainHubSrc is PRBTest {
         assertEq(_hub.refundAddresses(0), refund);
     }
 
-    function testFinalizeWithdrawActionRevertsIfNoTrustedHub() public {
-        hubMockActions.setExiting(address(vault), true);
-
-        vm.expectRevert("XChainHub::finalizeWithdrawFromChain:NO HUB");
-        hubMockActions.finalizeWithdrawFromChain(
+    function expectFinalizeToRevertWith(string memory message) internal {
+        vm.expectRevert(bytes(message));
+        hubMockActions.sg_finalizeWithdrawFromChain(
             1,
             address(vault),
             stratAddr,
@@ -569,71 +498,35 @@ contract TestXChainHubSrc is PRBTest {
         );
     }
 
-    function testFinalizeWithdrawActionRevertsIfExiting() public {
-        hubMockActions.setTrustedHub(address(hubMockActions), 1, true);
-        hubMockActions.setExiting(address(vault), true);
+    function testFinalizeWithdrawActionReverts(address _untrusted) public {
+        vm.assume(_untrusted != stratAddr);
+        vm.prank(_untrusted);
+        expectFinalizeToRevertWith("Ownable: caller is not the owner");
 
-        vm.expectRevert("XChainHub::finalizeWithdrawFromChain:EXITING");
-        hubMockActions.finalizeWithdrawFromChain(
-            1,
-            address(vault),
-            stratAddr,
-            0,
-            1,
-            1
+        // base case
+        expectFinalizeToRevertWith(
+            "XChainHub::finalizeWithdrawFromChain:NO ACTIVE ROUND"
         );
-    }
 
-    function testFinalizeWithdrawActionRevertsIfUntrustedVault() public {
-        hubMockActions.setTrustedHub(address(hubMockActions), 1, true);
-
-        vm.expectRevert("XChainHub::finalizeWithdrawFromChain:UNTRUSTED VAULT");
-        hubMockActions.finalizeWithdrawFromChain(
-            1,
-            address(vault),
-            stratAddr,
-            0,
-            1,
-            1
-        );
-    }
-
-    function testFinalizeWithdrawActionRevertsIfNoWithdraws() public {
-        hubMockActions.setTrustedHub(address(hubMockActions), 1, true);
-        hubMockActions.setTrustedVault(address(vault), true);
-
-        vm.expectRevert("XChainHub::finalizeWithdrawFromChain:NO WITHDRAWS");
-        hubMockActions.finalizeWithdrawFromChain(
-            1,
-            address(vault),
-            stratAddr,
-            0,
-            1,
-            1
-        );
-    }
-
-    function testFinalizeWithdrawActionRevertsIfMinOutTooHigh(
-        uint256 _min,
-        uint256 _out
-    ) public {
-        vm.assume(_min > _out);
-
-        hubMockActions.setTrustedHub(address(hubMockActions), 1, true);
-        hubMockActions.setTrustedVault(address(vault), true);
         hubMockActions.setCurrentRoundPerStrategy(1, stratAddr, 1);
-        hubMockActions.setWithdrawnPerRound(address(vault), 1, _out);
-
-        vm.expectRevert(
-            "XChainHub::finalizeWithdrawFromChain:MIN OUT TOO HIGH"
+        expectFinalizeToRevertWith(
+            "XChainHub::finalizeWithdrawFromChain:NO HUB"
         );
-        hubMockActions.finalizeWithdrawFromChain(
-            1,
-            address(vault),
-            stratAddr,
-            _min,
-            1,
-            1
+
+        hubMockActions.setTrustedHub(address(hubMockActions), 1, true);
+        hubMockActions.setExiting(address(vault), true);
+        expectFinalizeToRevertWith(
+            "XChainHub::finalizeWithdrawFromChain:EXITING"
+        );
+
+        hubMockActions.setExiting(address(vault), false);
+        expectFinalizeToRevertWith(
+            "XChainHub::finalizeWithdrawFromChain:UNTRUSTED VAULT"
+        );
+
+        hubMockActions.setTrustedVault(address(vault), true);
+        expectFinalizeToRevertWith(
+            "XChainHub::finalizeWithdrawFromChain:NO WITHDRAWS"
         );
     }
 
@@ -685,6 +578,7 @@ contract TestXChainHubSrc is PRBTest {
 
     function testFinalizeWithdrawAction(uint256 _min, uint256 _out) public {
         vm.assume(_min <= _out);
+        vm.assume(_out > 0);
         // setup the mocks and initialize
         hubMockActions = new XChainHubMockActions(
             address(mockRouter),
@@ -700,7 +594,7 @@ contract TestXChainHubSrc is PRBTest {
         hubMockActions.setCurrentRoundPerStrategy(1, stratAddr, 1);
         hubMockActions.setWithdrawnPerRound(address(vault), 1, _out);
 
-        hubMockActions.finalizeWithdrawFromChain(
+        hubMockActions.sg_finalizeWithdrawFromChain(
             1,
             address(vault),
             stratAddr,

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity 0.8.14;
+pragma solidity ^0.8.12;
 
 import {Ownable} from "openzeppelin/access/Ownable.sol";
 
@@ -10,6 +10,7 @@ import {ILayerZeroUserApplicationConfig} from "@interfaces/ILayerZeroUserApplica
 
 /// @title LayerZeroApp
 /// @notice A generic app template that uses LayerZero.
+/// @dev this contract is in large part provided by the layer zero team
 abstract contract LayerZeroApp is
     Ownable,
     ILayerZeroReceiver,

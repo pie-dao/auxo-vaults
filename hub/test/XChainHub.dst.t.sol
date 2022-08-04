@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.14;
+pragma solidity ^0.8.12;
 pragma abicoder v2;
 
 import {PRBTest} from "@prb/test/PRBTest.sol";
@@ -318,22 +318,6 @@ contract TestXChainHubDst is PRBTest, XChainHubEvents {
             2 * _amount
         );
         assertEq(_vault.balanceOf(address(_vault)), _amount);
-    }
-
-    function testCalculateStrategyAmountForWithdraw(uint256 _amount) public {
-        address _strategy = 0x54389a23331A4168DB50d87aEa0C02a4835B1d3d;
-        uint256 round = 200;
-        hubMockActions.setCurrentRoundPerStrategy(1, _strategy, round);
-        hubMockActions.setWithdrawnPerRound(vaultAddr, round, _amount);
-
-        assertEq(
-            hubMockActions.calculateStrategyAmountForWithdraw(
-                IVault(vaultAddr),
-                1,
-                _strategy
-            ),
-            _amount
-        );
     }
 
     function testFinalizeWithdrawActionLogsTheCorrectEvent() public {
