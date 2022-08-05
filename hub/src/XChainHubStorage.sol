@@ -66,10 +66,6 @@ contract XChainHubStorage {
     /// @notice Latest updates per strategy. Origin Chain ID => Strategy => LatestUpdate
     mapping(uint16 => mapping(address => uint256)) public latestUpdate;
 
-    /// @notice trusted hubs on each chain, dstchainId => hubAddress
-    /// @dev only hubs can call entrypoint functions
-    mapping(uint16 => address) public trustedHubs;
-
     // --------------------------
     // Variables
     // --------------------------

@@ -117,7 +117,6 @@ contract TestXChainHubSrcAndDst is PRBTest, XChainHubEvents {
             chainIdDst,
             srcPoolId,
             dstPoolId,
-            dstHub,
             dstVault,
             amount,
             minOut,
@@ -150,7 +149,6 @@ contract TestXChainHubSrcAndDst is PRBTest, XChainHubEvents {
 
         hubSrc.setTrustedStrategy(address(strategy), true);
 
-        hubDst.setTrustedHub(address(hubSrc), chainIdSrc, true);
         hubDst.setTrustedVault(address(vault), true);
         hubDst.setExiting(address(vault), true);
 
@@ -199,7 +197,6 @@ contract TestXChainHubSrcAndDst is PRBTest, XChainHubEvents {
         // set trusted
         hubSrc.setTrustedStrategy(address(strategy), true);
         hubSrc.setTrustedVault(address(vault), true);
-        hubSrc.setTrustedHub(address(hubDst), chainIdDst, true);
         hubDst.setTrustedVault(address(vault), true);
 
         hubSrc.setCurrentRoundPerStrategy(
@@ -234,7 +231,6 @@ contract TestXChainHubSrcAndDst is PRBTest, XChainHubEvents {
 
         uint256 shares = 1e21;
 
-        hubDst.setTrustedHub(address(hubSrc), chainIdSrc, true);
         hubSrc.setTrustedVault(address(vault), true);
         hubSrc.setSharesPerStrategy(dstChains[0], strategies[0], shares);
         hubSrc.setLatestReport(dstChains[0], strategies[0], block.timestamp);

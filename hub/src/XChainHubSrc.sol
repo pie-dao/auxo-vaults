@@ -180,8 +180,6 @@ abstract contract XChainHubSrc is
     /// @param _dstChainId the layerZero chain id
     /// @param _srcPoolId https://stargateprotocol.gitbook.io/stargate/developers/pool-ids
     /// @param _dstPoolId https://stargateprotocol.gitbook.io/stargate/developers/pool-ids
-    /// @param _dstHub address of the hub on the destination chain
-    /// @dev   _dstHub MUST implement sgReceive from IStargateReceiver
     /// @param _dstVault address of the vault on the destination chain
     /// @param _amount is the amount to deposit in underlying tokens
     /// @param _minOut how not to get rekt
@@ -190,7 +188,6 @@ abstract contract XChainHubSrc is
         uint16 _dstChainId,
         uint16 _srcPoolId,
         uint16 _dstPoolId,
-        address _dstHub,
         address _dstVault,
         uint256 _amount,
         uint256 _minOut,
@@ -199,6 +196,12 @@ abstract contract XChainHubSrc is
         require(
             trustedStrategy[msg.sender],
             "XChainHub::depositToChain:UNTRUSTED"
+        );
+
+        bytes memory dstHub = trustedRemoteLookup[_dstChainId];
+        require(
+            dstHub.length != 0,
+            "XChainHub::finalizeWithdrawFromChain:NO HUB"
         );
 
         _approveRouterTransfer(msg.sender, _amount);
@@ -223,11 +226,11 @@ abstract contract XChainHubSrc is
             _amount,
             _minOut,
             IStargateRouter.lzTxObj(200000, 0, "0x"), /// @dev review this default value
-            abi.encodePacked(_dstHub), // This hub must implement sgReceive
+            dstHub, // This hub must implement sgReceive
             abi.encode(message)
         );
 
-        emit DepositSent(_dstChainId, _amount, _dstHub, _dstVault, msg.sender);
+        emit DepositSent(_dstChainId, _amount, dstHub, _dstVault, msg.sender);
     }
 
     /// @notice Only called by x-chain Strategy
@@ -284,6 +287,19 @@ abstract contract XChainHubSrc is
         );
     }
 
+    function _getTrustedHub(uint16 _srcChainId)
+        internal
+        view
+        returns (address)
+    {
+        address hub;
+        bytes memory _h = trustedRemoteLookup[_srcChainId];
+        assembly {
+            hub := mload(_h)
+        }
+        return hub;
+    }
+
     function _approveRouter(address _vault, uint256 _amount) internal {
         IVault vault = IVault(_vault);
         IERC20 underlying = vault.underlying();
@@ -305,17 +321,16 @@ abstract contract XChainHubSrc is
         uint256 _srcPoolId,
         uint256 _dstPoolId
     ) external payable whenNotPaused onlyOwner {
-        address hub = trustedHubs[_dstChainId];
         uint256 currentRound = currentRoundPerStrategy[_dstChainId][_strategy];
+        bytes memory dstHub = trustedRemoteLookup[_dstChainId];
+        require(
+            dstHub.length != 0,
+            "XChainHub::finalizeWithdrawFromChain:NO HUB"
+        );
 
         require(
             currentRound > 0,
             "XChainHub::finalizeWithdrawFromChain:NO ACTIVE ROUND"
-        );
-
-        require(
-            hub != address(0x0),
-            "XChainHub::finalizeWithdrawFromChain:NO HUB"
         );
 
         require(
@@ -355,7 +370,7 @@ abstract contract XChainHubSrc is
             strategyAmount,
             _minOutUnderlying, // @alex please ask to stargate team for confirmation
             IStargateRouter.lzTxObj(200000, 0, "0x"), // default gas, no airdrop
-            abi.encodePacked(hub),
+            dstHub,
             abi.encode(message)
         );
 
@@ -365,7 +380,7 @@ abstract contract XChainHubSrc is
         emit WithdrawalSent(
             _dstChainId,
             strategyAmount,
-            hub,
+            dstHub,
             _vault,
             _strategy
         );

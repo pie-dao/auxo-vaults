@@ -24,7 +24,7 @@ contract XChainHubEvents {
     event DepositSent(
         uint16 dstChainId,
         uint256 amountUnderlying,
-        address dstHub,
+        bytes dstHub,
         address vault,
         address strategy
     );
@@ -82,7 +82,7 @@ contract XChainHubEvents {
     event WithdrawalSent(
         uint16 dstChainId,
         uint256 amountUnderlying,
-        address dstHub,
+        bytes dstHub,
         address vault,
         address strategy
     );

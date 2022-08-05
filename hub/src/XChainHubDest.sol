@@ -105,11 +105,11 @@ abstract contract XChainHubDest is
         uint16 _srcChainId,
         string memory onRevert
     ) internal view {
-        address srcAddress;
-        assembly {
-            srcAddress := mload(add(_srcAddress, 20))
-        }
-        require(trustedHubs[_srcChainId] != address(0x0), onRevert);
+        require(
+            keccak256(trustedRemoteLookup[_srcChainId]) ==
+                keccak256(_srcAddress),
+            onRevert
+        );
     }
 
     /// @notice called by the stargate application on the dstChain

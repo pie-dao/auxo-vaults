@@ -66,18 +66,6 @@ contract XChainHub is
         trustedStrategy[strategy] = trusted;
     }
 
-    /// @notice updates a hub on a remote chain to be either trusted or untrusted
-    /// @dev there can only be one trusted hub on a chain, passing false will just set it to the zero address
-    function setTrustedHub(
-        address _hub,
-        uint16 _remoteChainid,
-        bool _trusted
-    ) external onlyOwner {
-        _trusted
-            ? trustedHubs[_remoteChainid] = _hub
-            : trustedHubs[_remoteChainid] = address(0x0);
-    }
-
     /// @notice indicates whether the vault is in an `exiting` state
     /// @dev This is callable only by the owner
     function setExiting(address vault, bool exit) external onlyOwner {
