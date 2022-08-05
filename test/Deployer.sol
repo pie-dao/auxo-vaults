@@ -23,23 +23,33 @@ import {IStargateRouter} from "@interfaces/IStargateRouter.sol";
 
 import {IHubPayload} from "@interfaces/IHubPayload.sol";
 
-/// @notice not entirely sure how this works...
-contract BasicAuthority is Authority {
-    function canCall(
-        address,
-        address,
-        bytes4
-    ) external view returns (bool) {
-        return true;
-    }
+/// @notice deploys a copy of the auth contract then gives ownership to the deployer contract
+/// @param _deployer the Deployer instance to attach the auth contract to
+/// @param _governor account that is administering the deployment
+/// @dev msg.sender for .setOwner will be deployer unless called directly by governor
+///      which will cause the deployment to revert
+function deployAuthAsGovAndTransferOwnership(
+    Deployer _deployer,
+    address _governor
+) {
+    require(_deployer.signaturesLoaded(), "signatures not loaded");
+    require(_deployer.governor() == _governor, "Not Gov");
+
+    MultiRolesAuthority auth = new MultiRolesAuthority(
+        _governor,
+        /// @dev this initialization is confusing but required
+        Authority(address(0x0))
+    );
+    _deployer.setMultiRolesAuthority(address(auth));
+    auth.setOwner(address(_deployer));
 }
 
+/// @notice collect the deployment actions and data into a single class
 contract Deployer {
     uint8 public constant GOV_ROLE = 0;
-    string[] GOV_CAPABILITIES;
-    string[] PUBLIC_CAPABILITIES;
+    string[] public GOV_CAPABILITIES;
+    string[] public PUBLIC_CAPABILITIES;
     bool public signaturesLoaded = false;
-    // IStargateRouter router;
 
     address public governor;
     address public strategist;
@@ -54,11 +64,13 @@ contract Deployer {
 
     uint16 public chainId; // layerzero chain id of current chain
     IERC20 public underlying;
+
     XChainStrategy public strategy;
+
     IStargateRouter public router;
     address public lzEndpoint;
+
     MultiRolesAuthority public auth;
-    Authority public baseAuthority;
 
     function loadSignatures() internal {
         require(!signaturesLoaded, "Signatures already loaded");
@@ -67,6 +79,15 @@ contract Deployer {
         signaturesLoaded = true;
     }
 
+    function getGovernorCapabilities() public view returns (string[] memory) {
+        return GOV_CAPABILITIES;
+    }
+
+    function getPublicCapabilities() public view returns (string[] memory) {
+        return PUBLIC_CAPABILITIES;
+    }
+
+    /// @dev loading manually because of solidity array nonsense
     function _loadPublicSignatures() internal {
         PUBLIC_CAPABILITIES.push("deposit(address,uint256)");
         PUBLIC_CAPABILITIES.push("enterBatchBurn(uint256)");
@@ -76,7 +97,7 @@ contract Deployer {
     function _loadGovSignatures() internal {
         GOV_CAPABILITIES.push("triggerPause()");
         GOV_CAPABILITIES.push("setDepositLimits(uint256,uint256)");
-        GOV_CAPABILITIES.push("setAuth(Authority)");
+        GOV_CAPABILITIES.push("setAuth(address)");
         GOV_CAPABILITIES.push("setBlocksPerYear(uint256)");
         GOV_CAPABILITIES.push("setHarvestFeePercent(uint256)");
         GOV_CAPABILITIES.push("setBurningFeePercent(uint256)");
@@ -84,13 +105,13 @@ contract Deployer {
         GOV_CAPABILITIES.push("setBurningFeeReceiver(address)");
         GOV_CAPABILITIES.push("setHarvestWindow(uint128)");
         GOV_CAPABILITIES.push("setHarvestDelay(uint64)");
-        GOV_CAPABILITIES.push("setWithdrawalQueue(IStrategy calldata)");
-        GOV_CAPABILITIES.push("trustStrategy(IStrategy)");
-        GOV_CAPABILITIES.push("distrustStrategy(IStrategy)");
+        GOV_CAPABILITIES.push("setWithdrawalQueue(address)");
+        GOV_CAPABILITIES.push("trustStrategy(address)");
+        GOV_CAPABILITIES.push("distrustStrategy(address)");
         GOV_CAPABILITIES.push("execBatchBurn()");
-        GOV_CAPABILITIES.push("harvest(IStrategy[] calldata)");
-        GOV_CAPABILITIES.push("depositIntoStrategy(IStrategy,uint256)");
-        GOV_CAPABILITIES.push("withdrawFromStrategy(IStrategy,uint256)");
+        GOV_CAPABILITIES.push("harvest(address[])");
+        GOV_CAPABILITIES.push("depositIntoStrategy(address,uint256)");
+        GOV_CAPABILITIES.push("withdrawFromStrategy(address,uint256)");
     }
 
     struct ConstructorInput {
@@ -101,19 +122,18 @@ contract Deployer {
         VaultFactory vaultFactory;
         address governor;
         address strategist;
-        address authority;
-        string strategyName;
+        uint16 chainId;
     }
 
     constructor(ConstructorInput memory _i) {
         setUnderlying(_i.underlying);
+        chainId = _i.chainId;
         router = IStargateRouter(_i.router);
         lzEndpoint = _i.lzEndpoint;
         setRefundAddress(_i.refundAddress);
         setFactory(_i.vaultFactory);
         setGovernor(_i.governor);
         setStrategist(_i.strategist);
-        setAuthority(_i.authority);
         loadSignatures();
     }
 
@@ -154,14 +174,6 @@ contract Deployer {
         refundAddress = _refundAddress;
     }
 
-    /// check this
-    function setAuthority(address _authority)
-        public
-        notZeroAddress(_authority)
-    {
-        baseAuthority = Authority(address(0x0));
-    }
-
     function setMultiRolesAuthority(address _authority)
         public
         notZeroAddress(_authority)
@@ -180,8 +192,8 @@ contract Deployer {
         vaultImpl = Vault(_impl);
     }
 
-    function _getContractSignature(string memory _fn)
-        internal
+    function getContractSignature(string memory _fn)
+        public
         pure
         returns (bytes4 signature)
     {
@@ -190,12 +202,12 @@ contract Deployer {
     }
 
     function _setGovernorCapability(string memory sigString) internal {
-        bytes4 signature = _getContractSignature(sigString);
+        bytes4 signature = getContractSignature(sigString);
         auth.setRoleCapability(GOV_ROLE, signature, true);
     }
 
     function _setPublicCapability(string memory signatureString) internal {
-        bytes4 signature = _getContractSignature(signatureString);
+        bytes4 signature = getContractSignature(signatureString);
         auth.setPublicCapability(signature, true);
     }
 
@@ -273,5 +285,6 @@ contract Deployer {
         require(sender == governor, "Must be the governor");
         vaultFactory.transferOwnership(sender);
         auth.setOwner(sender);
+        hub.transferOwnership(sender);
     }
 }
