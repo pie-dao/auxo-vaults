@@ -13,6 +13,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity ^0.8.12;
 
+import "@std/console.sol";
+
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 
@@ -233,19 +235,16 @@ abstract contract XChainHubDest is
         );
 
         IERC20 underlying = vault.underlying();
-
         uint256 vaultBalance = vault.balanceOf(address(this));
-
         underlying.safeApprove(address(vault), _amountReceived);
-
         vault.deposit(address(this), _amountReceived);
 
         uint256 mintedShares = vault.balanceOf(address(this)) - vaultBalance;
-
         require(
             mintedShares >= _min,
             "XChainHub::_depositAction:INSUFFICIENT MINTED SHARES"
         );
+
         sharesPerStrategy[_srcChainId][_strategy] += mintedShares;
         emit DepositReceived(
             _srcChainId,
@@ -296,7 +295,8 @@ abstract contract XChainHubDest is
             "XChainHub::_requestWithdrawAction:INSUFFICIENT SHARES"
         );
 
-        // update the state before entering the burn
+        // when execBatchBurn is called, the round will increment
+        // @dev how to solve - we could increment it here?
         currentRoundPerStrategy[_srcChainId][strategy] = round;
         sharesPerStrategy[_srcChainId][strategy] -= amountVaultShares;
         exitingSharesPerStrategy[_srcChainId][strategy] += amountVaultShares;

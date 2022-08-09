@@ -66,8 +66,8 @@ contract E2EAuthTest is PRBTest {
         factory.transferOwnership(address(deployer));
         deployAuthAsGovAndTransferOwnership(deployer, governor);
 
-        // resume deployment
-        deployer.setupRoles();
+        // resume deployment - dont transfer ownership
+        deployer.setupRoles(false);
         deployer.deployVault();
         deployer.deployXChainHub();
         deployer.deployXChainStrategy("TEST");
@@ -89,18 +89,25 @@ contract E2EAuthTest is PRBTest {
         assertEq(deployer.strategy().strategist(), strategist);
     }
 
-    /// @dev tests signatures fail correctly
-    function _checkCallFailsAsUnauthorized(bool _success, bytes memory _data)
-        public
+    function _getErrorMessageFromCall(bool _success, bytes memory _data)
+        internal
+        returns (string memory)
     {
         require(!_success, "Call did not fail");
         require(_data.length >= 68, "Call reverted without an error message");
 
+        /// @dev Slice the function signature so we can decode to a string
         assembly {
-            // Slice the sighash.
             _data := add(_data, 0x04)
         }
-        string memory decoded = abi.decode(_data, (string));
+        return abi.decode(_data, (string));
+    }
+
+    /// @dev tests signatures fail correctly
+    function _checkCallFailsAsUnauthorized(bool _success, bytes memory _data)
+        public
+    {
+        string memory decoded = _getErrorMessageFromCall(_success, _data);
         assertEq(decoded, "UNAUTHORIZED");
     }
 
@@ -108,14 +115,7 @@ contract E2EAuthTest is PRBTest {
     function _checkCallFailsDespiteAuthorized(bool _success, bytes memory _data)
         public
     {
-        require(!_success, "Call did not fail");
-        require(_data.length >= 68, "Call reverted without an error message");
-
-        assembly {
-            // Slice the sighash.
-            _data := add(_data, 0x04)
-        }
-        string memory decoded = abi.decode(_data, (string));
+        string memory decoded = _getErrorMessageFromCall(_success, _data);
         assertNotEq(decoded, "UNAUTHORIZED");
     }
 

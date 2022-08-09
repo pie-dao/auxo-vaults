@@ -4,6 +4,7 @@
     "solidity.compileUsingRemoteVersion": "v0.8.14",
     "editor.formatOnSave": true,
     "solidity.formatter": "prettier",
+    "solidity.linter": "solhint",
     "[solidity]": {
       "editor.defaultFormatter": "JuanBlanco.solidity"
     },

@@ -16,8 +16,8 @@ contract StargateRouterMock is IStargateRouter {
     uint16 public immutable chainId;
 
     constructor(uint16 _chainId, address _feeCollector) {
-        feeCollector = _feeCollector;
         chainId = _chainId;
+        feeCollector = _feeCollector;
     }
 
     // encode swap params to avoid stack deep errors
@@ -90,7 +90,8 @@ contract StargateRouterMock is IStargateRouter {
     }
 
     function hasEndpoint(bytes calldata _dst) internal returns (bool) {
-        return sgEndpointLookup[packedBytesToAddr(_dst)] != address(0);
+        address destination = packedBytesToAddr(_dst);
+        return sgEndpointLookup[destination] != address(0);
     }
 
     function saveParams(
@@ -133,13 +134,9 @@ contract StargateRouterMock is IStargateRouter {
 
         require(amountActual >= _minAmountLD, "sgMock::swap:BELOW MIN QTY");
         IERC20 underlying = IERC20(tokenLookup[chainId]);
-
-        console.log("Swap transfer 1", _amountLD);
-
         uint256 balanceSender = underlying.balanceOf(msg.sender);
 
-        console.log("address of sender");
-        console.log(msg.sender);
+        console.log("address of sender", msg.sender);
         console.log("Balance of sender", balanceSender);
         underlying.transferFrom(msg.sender, address(this), _amountLD);
 
@@ -149,11 +146,12 @@ contract StargateRouterMock is IStargateRouter {
 
         console.log("Swap transfer 3 dst", amountActual);
         console.log("Balance of here", underlying.balanceOf(address(this)));
-        console.log("destination");
-        console.log(packedBytesToAddr(_destination));
         underlying.transfer(packedBytesToAddr(_destination), amountActual);
+
         console.log(
-            "Balance of strat after transfer",
+            "Balance of ",
+            packedBytesToAddr(_destination),
+            "after transfer",
             underlying.balanceOf(packedBytesToAddr(_destination))
         );
 

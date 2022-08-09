@@ -2,6 +2,7 @@
 
 pragma solidity ^0.8.12;
 
+import "@std/console.sol";
 import {Ownable} from "openzeppelin/access/Ownable.sol";
 
 import {ILayerZeroReceiver} from "@interfaces/ILayerZeroReceiver.sol";
@@ -50,6 +51,7 @@ abstract contract LayerZeroApp is
     }
 
     function lzReceive(
+        // where do you come from? should be 10002
         uint16 srcChainId,
         bytes memory srcAddress,
         uint64 nonce,
@@ -152,15 +154,19 @@ abstract contract LayerZeroApp is
         address _zroPaymentAddress,
         bytes memory _adapterParams
     ) internal virtual {
+        // dst chain comes from the array
+        // when it arrives
         bytes memory trustedRemote = trustedRemoteLookup[_dstChainId];
 
+        // this is all good
         require(
             trustedRemote.length != 0,
             "LayerZeroApp: destination chain is not a trusted source"
         );
 
         layerZeroEndpoint.send{value: msg.value}(
-            _dstChainId,
+            _dstChainId, // this is okay
+            // this is pulled from the trustedRemoteLookup - if sending from dstHub, we expect it to be srcHub
             trustedRemote,
             _payload,
             _refundAddress,

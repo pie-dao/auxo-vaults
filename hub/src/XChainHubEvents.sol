@@ -68,10 +68,10 @@ contract XChainHubEvents {
     );
 
     /// @notice emitted when the hub successfully withdraws underlying after a batch burn
-    /// @param shares that have been burned
-    /// @param underlying token qty that have been redeemed
+    /// @param withdrawn underlying token qty that have been redeemed
     /// @param vault address of the remote vault
-    event WithdrawExecuted(uint256 shares, uint256 underlying, address vault);
+    /// @param round batch burn execution round
+    event WithdrawExecuted(uint256 withdrawn, address vault, uint256 round);
 
     /// @notice emitted on the source chain when withdrawn tokens have been sent to the destination hub
     /// @param amountUnderlying that were sent back
@@ -79,12 +79,14 @@ contract XChainHubEvents {
     /// @param dstHub address of the remote hub
     /// @param vault from which tokens withdrawn on this chain
     /// @param strategy remote Xchainstrategy address
+    /// @param round the round which was passed
     event WithdrawalSent(
         uint16 dstChainId,
         uint256 amountUnderlying,
         bytes dstHub,
         address vault,
-        address strategy
+        address strategy,
+        uint256 round
     );
 
     /// @notice emitted on the destination chain from WithdrawlSent when tokens have been received

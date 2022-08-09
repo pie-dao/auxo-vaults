@@ -89,7 +89,10 @@ abstract contract XChainHubSrc is
         uint256 balanceBefore = underlying.balanceOf(address(this));
         vault.exitBatchBurn();
         uint256 withdrawn = underlying.balanceOf(address(this)) - balanceBefore;
+
+        /// withdrawn per round keys the vault address and vault round
         withdrawnPerRound[address(vault)][round] = withdrawn;
+        emit WithdrawExecuted(withdrawn, address(vault), round);
     }
 
     // --------------------------
@@ -129,7 +132,9 @@ abstract contract XChainHubSrc is
         for (uint256 i; i < dstChains.length; i++) {
             uint256 shares = sharesPerStrategy[dstChains[i]][strats[i]];
 
-            require(shares > 0, "XChainHub::reportUnderlying:NO DEPOSITS");
+            /// @dev: we explicitly check for zero deposits withdrawing
+            /// TODO check whether we need this, for now it is commented
+            // require(shares > 0, "XChainHub::reportUnderlying:NO DEPOSITS");
 
             require(
                 block.timestamp >=
@@ -152,11 +157,13 @@ abstract contract XChainHubSrc is
                 )
             });
 
-            // _nonblockingLzReceive will be invoked on dst chain
+            /**
+             @dev - is this a bug? 
+            */
             _lzSend(
-                dstChains[i],
+                dstChains[i], // the chain id to send to
                 abi.encode(message),
-                payable(refundRecipient), // refund to sender - do we need a refund address here
+                payable(refundRecipient),
                 address(0), // zro
                 adapterParams
             );
@@ -197,15 +204,12 @@ abstract contract XChainHubSrc is
             trustedStrategy[msg.sender],
             "XChainHub::depositToChain:UNTRUSTED"
         );
-
         bytes memory dstHub = trustedRemoteLookup[_dstChainId];
         require(
             dstHub.length != 0,
             "XChainHub::finalizeWithdrawFromChain:NO HUB"
         );
-
         _approveRouterTransfer(msg.sender, _amount);
-
         IHubPayload.Message memory message = IHubPayload.Message({
             action: DEPOSIT_ACTION,
             payload: abi.encode(
@@ -217,7 +221,6 @@ abstract contract XChainHubSrc is
                 })
             )
         });
-
         stargateRouter.swap{value: msg.value}(
             _dstChainId,
             _srcPoolId,
@@ -229,7 +232,6 @@ abstract contract XChainHubSrc is
             dstHub, // This hub must implement sgReceive
             abi.encode(message)
         );
-
         emit DepositSent(_dstChainId, _amount, dstHub, _dstVault, msg.sender);
     }
 
@@ -319,9 +321,13 @@ abstract contract XChainHubSrc is
         address _strategy,
         uint256 _minOutUnderlying,
         uint256 _srcPoolId,
-        uint256 _dstPoolId
+        uint256 _dstPoolId,
+        uint256 currentRound
     ) external payable whenNotPaused onlyOwner {
-        uint256 currentRound = currentRoundPerStrategy[_dstChainId][_strategy];
+        // uint256 currentRound = currentRoundPerStrategy[_dstChainId][_strategy];
+
+        console.log("current round", currentRound);
+
         bytes memory dstHub = trustedRemoteLookup[_dstChainId];
         require(
             dstHub.length != 0,
@@ -343,7 +349,6 @@ abstract contract XChainHubSrc is
             "XChainHub::finalizeWithdrawFromChain:UNTRUSTED VAULT"
         );
 
-        // fetch the relevant round and shares, for the chain and strategy
         uint256 strategyAmount = withdrawnPerRound[_vault][currentRound];
         require(
             strategyAmount > 0,
@@ -382,7 +387,8 @@ abstract contract XChainHubSrc is
             strategyAmount,
             dstHub,
             _vault,
-            _strategy
+            _strategy,
+            currentRound
         );
     }
 }

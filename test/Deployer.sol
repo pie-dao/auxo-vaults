@@ -19,7 +19,10 @@ import {MultiRolesAuthority} from "@vaults/auth/authorities/MultiRolesAuthority.
 import {Authority} from "@vaults/auth/Auth.sol";
 
 import {IVault} from "@interfaces/IVault.sol";
+/// must be the correct iface
+import {IStrategy} from "@vault-interfaces/IStrategy.sol";
 import {IStargateRouter} from "@interfaces/IStargateRouter.sol";
+import {StargateRouterMock} from "@hub-test/mocks/MockStargateRouter.sol";
 
 import {IHubPayload} from "@interfaces/IHubPayload.sol";
 
@@ -42,6 +45,74 @@ function deployAuthAsGovAndTransferOwnership(
     );
     _deployer.setMultiRolesAuthority(address(auth));
     auth.setOwner(address(_deployer));
+}
+
+function deploy(
+    uint16 _chainId,
+    ERC20 _token,
+    IStargateRouter _router,
+    VaultFactory _factory,
+    address _lzEndpoint,
+    address _governor,
+    address _strategist
+) returns (Deployer) {
+    _factory = new VaultFactory();
+
+    // We deploy these outside the srcDeployer because these components will exist already
+    // initial deploys are set in the constructor
+    Deployer deployer = new Deployer(
+        Deployer.ConstructorInput({
+            underlying: address(_token),
+            router: address(_router),
+            lzEndpoint: _lzEndpoint,
+            governor: _governor,
+            strategist: _strategist,
+            refundAddress: 0xA04dD92149519c91FC5a5bFB50Ac2b16D4766c8A,
+            vaultFactory: _factory,
+            chainId: _chainId
+        })
+    );
+
+    // These actions are taken by the srcGovernor
+    _factory.transferOwnership(address(deployer));
+    deployAuthAsGovAndTransferOwnership(deployer, _governor);
+
+    // resume deployment
+    // pass ownership to srcDeployer
+    deployer.setupRoles(true);
+    deployer.deployVault();
+    deployer.deployXChainHub();
+    deployer.deployXChainStrategy("TEST");
+
+    // hand over ownership of srcFactory and auth back to srcGovernor
+    // srcDeployer.returnOwnership();
+    return deployer;
+}
+
+/// @param _chainId of the chain the router is deployed on (used as srcChainId)
+function deployExternal(
+    uint16 _chainId,
+    address _feeCollector,
+    ERC20 token
+) returns (IStargateRouter, ERC20) {
+    StargateRouterMock mockRouter = new StargateRouterMock(
+        _chainId,
+        _feeCollector
+    );
+    IStargateRouter router = IStargateRouter(address(mockRouter));
+    return (router, token);
+}
+
+function deployExternal(uint16 _chainId, address _feeCollector)
+    returns (IStargateRouter, ERC20)
+{
+    StargateRouterMock mockRouter = new StargateRouterMock(
+        _chainId,
+        _feeCollector
+    );
+    ERC20 token = new AuxoTest();
+    IStargateRouter router = IStargateRouter(address(mockRouter));
+    return (router, token);
 }
 
 /// @notice collect the deployment actions and data into a single class
@@ -221,10 +292,11 @@ contract Deployer {
         }
     }
 
-    function setupRoles() external {
+    function setupRoles(bool _transferOwnership) external {
         require(address(auth) != address(0), "Auth not set");
         require(auth.owner() == address(this), "Transfer ownership");
         auth.setUserRole(governor, GOV_ROLE, true);
+        if (_transferOwnership) auth.setUserRole(address(this), GOV_ROLE, true);
         _setCapabilities();
     }
 
@@ -286,5 +358,76 @@ contract Deployer {
         vaultFactory.transferOwnership(sender);
         auth.setOwner(sender);
         hub.transferOwnership(sender);
+        // auth.setUserRole(address(this), GOV_ROLE, false);
+    }
+
+    function prepareDeposit(
+        uint16 _dstChainId,
+        address _dstHub,
+        address _remoteStrategy
+    ) external {
+        _prepareVault();
+        _prepareHub(_dstChainId, _dstHub, _remoteStrategy);
+    }
+
+    function getUnits() public view returns (uint8, uint256) {
+        uint8 decimals = vaultProxy.underlying().decimals();
+        uint256 baseUnit = 10**decimals;
+        return (decimals, baseUnit);
+    }
+
+    function _prepareVault() internal {
+        // unpause the vault
+        vaultProxy.triggerPause();
+
+        (, uint256 baseUnit) = getUnits();
+        vaultProxy.setDepositLimits(1000 * baseUnit, 2000 * baseUnit);
+
+        vaultProxy.trustStrategy(IStrategy(address(strategy)));
+    }
+
+    function _prepareHub(
+        uint16 _dstChainId,
+        address _dstHub,
+        address _remoteStrategy
+    ) internal {
+        hub.setTrustedRemote(_dstChainId, abi.encodePacked(_dstHub));
+        hub.setTrustedVault(address(vaultProxy), true);
+
+        /// @dev this really highlights a weakness in the vault checks
+        hub.setTrustedStrategy(address(strategy), true);
+        hub.setTrustedStrategy(_remoteStrategy, true);
+    }
+
+    function depositIntoStrategy(uint256 _amt) public {
+        vaultProxy.depositIntoStrategy(IStrategy(address(strategy)), _amt);
+    }
+
+    function getFeesForDeposit(uint16 _dstChainId, address _dstHub)
+        public
+        view
+        returns (uint256)
+    {
+        bytes memory _toAddress = abi.encodePacked(_dstHub);
+
+        // bytes memory payload = abi.encode(
+        //     IHubPayload.Message(
+        //         86, // deposit action,
+        //         abi.encode(IHubPayload.DepositPayload({}))
+        //     )
+        // );
+        IStargateRouter.lzTxObj memory _lzTxParams = IStargateRouter.lzTxObj({
+            dstGasForCall: 200_000,
+            dstNativeAmount: 0,
+            dstNativeAddr: bytes("")
+        });
+        (uint256 fees, ) = router.quoteLayerZeroFee(
+            _dstChainId,
+            1, // swap
+            _toAddress,
+            bytes(""),
+            _lzTxParams
+        );
+        return fees;
     }
 }

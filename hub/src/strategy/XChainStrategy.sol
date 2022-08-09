@@ -77,7 +77,7 @@ contract XChainStrategy is BaseStrategy, XChainStrategyEvents {
     uint256 public amountWithdrawn;
 
     /// @notice the XChainHub managing this strategy
-    IXChainHub public hub;
+    XChainHub public hub;
 
     /// @notice the latest amount of underlying tokens reported as being held in the strategy
     uint256 public reportedUnderlying;
@@ -101,7 +101,7 @@ contract XChainStrategy is BaseStrategy, XChainStrategyEvents {
         string memory name_
     ) {
         __initialize(vault_, underlying_, manager_, strategist_, name_);
-        hub = IXChainHub(hub_);
+        hub = XChainHub(hub_);
     }
 
     /// ------------------
@@ -122,7 +122,7 @@ contract XChainStrategy is BaseStrategy, XChainStrategyEvents {
     /// @param _hub the address of the XChainHub contract on this chain
     function setHub(address _hub) external {
         require(msg.sender == manager, "XChainStrategy::setHub:UNAUTHORIZED");
-        hub = IXChainHub(_hub);
+        hub = XChainHub(_hub);
         emit UpdateHub(_hub);
     }
 
@@ -168,7 +168,6 @@ contract XChainStrategy is BaseStrategy, XChainStrategyEvents {
             params.dstChain,
             params.srcPoolId,
             params.dstPoolId,
-            params.dstHub,
             params.dstVault,
             amount,
             params.minAmount,

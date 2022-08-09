@@ -23,6 +23,7 @@ import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 import {IVault} from "@interfaces/IVault.sol";
 import {IHubPayload} from "@interfaces/IHubPayload.sol";
 import {IStrategy} from "@interfaces/IStrategy.sol";
+import {IXChainHub} from "@interfaces/IXChainHub.sol";
 
 import {XChainHubDest} from "@hub/XChainHubDest.sol";
 import {XChainHubSrc} from "@hub/XChainHubSrc.sol";
