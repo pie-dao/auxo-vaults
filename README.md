@@ -47,11 +47,7 @@ Full details are in the [Hub Repo](./hub/README.md)
 Ensure you have Foundry installed with `foundryup`, then install the required dependencies:
 
 ```sh
-forge install foundry-rs/forge-std
-forge install OpenZeppelin/openzeppelin-contracts
-forge install OpenZeppelin/openzeppelin-contracts-upgradeable
-forge install paulrberg/prb-test@0.1.2
-
+forge build
 
 ```
 # Monorepo Gotchas
