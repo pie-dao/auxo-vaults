@@ -26,6 +26,19 @@ import {StargateRouterMock} from "@hub-test/mocks/MockStargateRouter.sol";
 
 import {IHubPayload} from "@interfaces/IHubPayload.sol";
 
+/// @dev the chain id should be the same chain id as the src router
+function connectRouters(
+    address _srcRouter,
+    address _dstHub,
+    address _dstRouter,
+    uint16 _chainId,
+    address _token
+) {
+    StargateRouterMock mockRouter = StargateRouterMock(_srcRouter);
+    mockRouter.setDestSgEndpoint(_dstHub, _dstRouter);
+    mockRouter.setTokenForChain(_chainId, _token);
+}
+
 /// @notice deploys a copy of the auth contract then gives ownership to the deployer contract
 /// @param _deployer the Deployer instance to attach the auth contract to
 /// @param _governor account that is administering the deployment
@@ -89,6 +102,7 @@ function deploy(
     return deployer;
 }
 
+/// @notice deploys components before
 /// @param _chainId of the chain the router is deployed on (used as srcChainId)
 function deployExternal(
     uint16 _chainId,

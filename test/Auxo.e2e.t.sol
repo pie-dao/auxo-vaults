@@ -26,22 +26,31 @@ import {IHubPayload} from "@interfaces/IHubPayload.sol";
 
 import "./Deployer.sol";
 
-/// @dev the chain id should be the same chain id as the src router
-function connectRouters(
-    address _srcRouter,
-    address _dstHub,
-    address _dstRouter,
-    uint16 _chainId,
-    address _token
+/// @notice when impersonating, ignore components as dummy addresses
+function _initIgnoreAddresses(
+    Deployer _deployer,
+    mapping(address => bool) storage _ignoreAddresses
 ) {
-    StargateRouterMock mockRouter = StargateRouterMock(_srcRouter);
-    mockRouter.setDestSgEndpoint(_dstHub, _dstRouter);
-    mockRouter.setTokenForChain(_chainId, _token);
+    _ignoreAddresses[address(0)] = true;
+    _ignoreAddresses[address(_deployer)] = true;
+    _ignoreAddresses[address(_deployer.underlying())] = true;
+    _ignoreAddresses[address(_deployer.router())] = true;
+    _ignoreAddresses[address(_deployer.governor())] = true;
+    _ignoreAddresses[address(_deployer.strategist())] = true;
+    _ignoreAddresses[address(_deployer.refundAddress())] = true;
+    _ignoreAddresses[address(_deployer.auth())] = true;
+    _ignoreAddresses[address(_deployer.vaultFactory())] = true;
+    _ignoreAddresses[address(_deployer.vaultImpl())] = true;
+    _ignoreAddresses[address(_deployer.vaultProxy())] = true;
+    _ignoreAddresses[address(_deployer.hub())] = true;
+    _ignoreAddresses[address(_deployer.strategy())] = true;
+    _ignoreAddresses[address(_deployer.lzEndpoint())] = true;
 }
 
 contract E2ETest is PRBTest {
     /// keep one token to make testing easier
     ERC20 sharedToken;
+    mapping(address => bool) ignoreAddresses;
 
     Deployer srcDeployer;
     ERC20 srcToken;
@@ -105,6 +114,10 @@ contract E2ETest is PRBTest {
             dstStrategist
         );
         vm.stopPrank();
+
+        // a set of addresses we don't want to impersonate
+        _initIgnoreAddresses(srcDeployer, ignoreAddresses);
+        _initIgnoreAddresses(dstDeployer, ignoreAddresses);
 
         /// @dev using the same token for local testing, these will be different
         ///      when working for real.
@@ -291,10 +304,9 @@ contract E2ETest is PRBTest {
         vm.stopPrank();
     }
 
-    function testDeposit() public {
+    function testDeposit(address _depositor) public {
         // this already reverts erc20
-        // vm.assume(address(0) != _depositor);
-        address _depositor = 0x6EA16D55CED425998B9398e8033F73573d91fF3f;
+        vm.assume(!ignoreAddresses[_depositor]);
 
         uint256 depositAmount = _getAmount();
         deposit(_depositor, depositAmount);
@@ -322,8 +334,8 @@ contract E2ETest is PRBTest {
         /// @TODO: reporting
     }
 
-    function testwaitAndReport() public {
-        address _depositor = 0x6EA16D55CED425998B9398e8033F73573d91fF3f;
+    function testwaitAndReport(address _depositor) public {
+        vm.assume(!ignoreAddresses[_depositor]);
         uint256 depositAmount = _getAmount();
         deposit(_depositor, depositAmount);
         waitAndReport(block.timestamp + 6 hours);
@@ -333,8 +345,8 @@ contract E2ETest is PRBTest {
         assertEq(strategy.reportedUnderlying(), depositAmount);
     }
 
-    function testStartWithdraw() public {
-        address _depositor = 0x6EA16D55CED425998B9398e8033F73573d91fF3f;
+    function testStartWithdraw(address _depositor) public {
+        vm.assume(!ignoreAddresses[_depositor]);
 
         uint256 depositAmount = _getAmount();
         deposit(_depositor, depositAmount);
@@ -384,8 +396,8 @@ contract E2ETest is PRBTest {
         vm.stopPrank();
     }
 
-    function testFinalizeWithdraw() public {
-        address _depositor = 0x6EA16D55CED425998B9398e8033F73573d91fF3f;
+    function testFinalizeWithdraw(address _depositor) public {
+        vm.assume(!ignoreAddresses[_depositor]);
 
         uint256 depositAmount = _getAmount();
         deposit(_depositor, depositAmount);
@@ -427,8 +439,8 @@ contract E2ETest is PRBTest {
         vm.stopPrank();
     }
 
-    function testWithdrawBackToStrategy() public {
-        address _depositor = 0x6EA16D55CED425998B9398e8033F73573d91fF3f;
+    function testWithdrawBackToStrategy(address _depositor) public {
+        vm.assume(!ignoreAddresses[_depositor]);
 
         uint256 depositAmount = _getAmount();
         deposit(_depositor, depositAmount);
@@ -455,8 +467,9 @@ contract E2ETest is PRBTest {
         assertEq(strategy.reportedUnderlying(), 0);
     }
 
-    function withdrawToOGVault() public {
-        address _depositor = 0x6EA16D55CED425998B9398e8033F73573d91fF3f;
+    function testWithdrawToOGVault(address _depositor) public {
+        vm.assume(!ignoreAddresses[_depositor]);
+
         uint256 depositAmount = _getAmount();
 
         deposit(_depositor, depositAmount);

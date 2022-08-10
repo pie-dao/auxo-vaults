@@ -172,26 +172,26 @@ contract E2EAuthTest is PRBTest {
         bool success;
         bytes memory data;
 
-        vm.startPrank(_notGov);
-        (success, data) = address(proxy).call(
-            abi.encodeWithSelector(selectedSigs[3]) // triggerPause()
-        );
-        _checkCallFailsAsUnauthorized(success, data);
+        // vm.startPrank(_notGov);
+        // (success, data) = address(proxy).call(
+        //     abi.encodeWithSelector(selectedSigs[3]) // triggerPause()
+        // );
+        // _checkCallFailsAsUnauthorized(success, data);
 
-        (success, data) = address(proxy).call(
-            abi.encodeWithSelector(selectedSigs[4], 1, 1) // setDepositLimit(1,1)
-        );
-        _checkCallFailsAsUnauthorized(success, data);
+        // (success, data) = address(proxy).call(
+        //     abi.encodeWithSelector(selectedSigs[4], 1, 1) // setDepositLimit(1,1)
+        // );
+        // _checkCallFailsAsUnauthorized(success, data);
 
-        (success, data) = address(proxy).call(
-            abi.encodeWithSelector(selectedSigs[2], address(0x0), 1) // withdrawFromStrategy(address,uint256)
-        );
-        _checkCallFailsAsUnauthorized(success, data);
+        // (success, data) = address(proxy).call(
+        //     abi.encodeWithSelector(selectedSigs[2], address(0x0), 1) // withdrawFromStrategy(address,uint256)
+        // );
+        // _checkCallFailsAsUnauthorized(success, data);
 
-        (success, data) = address(proxy).call(
-            abi.encodeWithSelector(selectedSigs[0], address(0x0)) // setAuthority(0x...)
-        );
-        _checkCallFailsAsUnauthorized(success, data);
+        // (success, data) = address(proxy).call(
+        //     abi.encodeWithSelector(selectedSigs[0], address(0x0)) // setAuthority(0x...)
+        // );
+        // _checkCallFailsAsUnauthorized(success, data);
 
         vm.stopPrank();
     }
