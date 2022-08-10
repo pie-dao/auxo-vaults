@@ -35,9 +35,9 @@ import {LayerZeroAdapter} from "@hub/LayerZeroAdapter.sol";
 import {IStargateReceiver} from "@interfaces/IStargateReceiver.sol";
 import {IStargateRouter} from "@interfaces/IStargateRouter.sol";
 
-/// @title XChainHub
-/// @notice extends the XChainBase with Stargate and LayerZero contracts for src and destination chains
-/// @dev Expect this contract to change in future.
+/// @title XChainHub Destination
+/// @notice Grouping of XChainHub functions on the destination chain
+/// @dev destination refers to the chain in which XChain deposits are initially received
 abstract contract XChainHubDest is
     Pausable,
     LayerZeroAdapter,
@@ -47,16 +47,34 @@ abstract contract XChainHubDest is
 {
     using SafeERC20 for IERC20;
 
-    // --------------------------
-    // Constructor
-    // --------------------------
+    /// --------------------------
+    /// Constructor
+    /// --------------------------
 
     /// @param _lzEndpoint address of the layerZero endpoint contract on the src chain
     constructor(address _lzEndpoint) LayerZeroAdapter(_lzEndpoint) {}
 
-    // --------------------------
-    //        Reducer
-    // --------------------------
+    /// --------------------------
+    /// Single Chain Functions
+    /// --------------------------
+
+    /// @notice calls the vault on the current chain to exit batch burn
+    /// @param vault the vault on this chain that contains deposits
+    function withdrawFromVault(IVault vault) external onlyOwner whenNotPaused {
+        uint256 round = vault.batchBurnRound();
+        IERC20 underlying = vault.underlying();
+        uint256 balanceBefore = underlying.balanceOf(address(this));
+        vault.exitBatchBurn();
+        uint256 withdrawn = underlying.balanceOf(address(this)) - balanceBefore;
+
+        /// withdrawn per round keys the vault address and vault round
+        withdrawnPerRound[address(vault)][round] = withdrawn;
+        emit WithdrawExecuted(withdrawn, address(vault), round);
+    }
+
+    /// --------------------------
+    ///        Reducer
+    /// --------------------------
 
     /// @notice pass actions from other entrypoint functions here
     /// @dev sgReceive and _nonBlockingLzReceive both call this function
@@ -80,7 +98,6 @@ abstract contract XChainHubDest is
         }
     }
 
-    /// @dev untested
     /// @notice allows the owner to call the reducer if needed
     /// @param _srcChainId chainId to simulate from
     /// @param message the payload to send
@@ -93,9 +110,9 @@ abstract contract XChainHubDest is
         _reducer(_srcChainId, message, amount);
     }
 
-    // --------------------------
-    //    Entrypoints
-    // --------------------------
+    /// --------------------------
+    ///    Entrypoints
+    /// --------------------------
 
     /// @notice revert if the caller is not a trusted hub
     /// @dev currently only works with LayerZero Receiving functions
@@ -182,9 +199,9 @@ abstract contract XChainHubDest is
         }
     }
 
-    // --------------------------
-    // Action Functions
-    // --------------------------
+    /// --------------------------
+    /// Action Functions
+    /// --------------------------
 
     /// @notice called on destination chain to deposit underlying tokens into a vault
     /// @dev designed to be overridden in the case of an untrusted payload
@@ -298,6 +315,8 @@ abstract contract XChainHubDest is
         // when execBatchBurn is called, the round will increment
         // @dev how to solve - we could increment it here?
         currentRoundPerStrategy[_srcChainId][strategy] = round;
+
+        // this now prevents reporting because shares will be zero
         sharesPerStrategy[_srcChainId][strategy] -= amountVaultShares;
         exitingSharesPerStrategy[_srcChainId][strategy] += amountVaultShares;
 
@@ -324,15 +343,13 @@ abstract contract XChainHubDest is
             (IHubPayload.FinalizeWithdrawPayload)
         );
 
+        /// @dev TODO: confirm if this provides sufficient accounting for further withdraws
         emit WithdrawalReceived(
             _srcChainId,
             _amountReceived,
             payload.vault,
             payload.strategy
         );
-
-        //received money from who bro???
-        // I'll just keep them for myself homie
     }
 
     /// @notice underlying holdings are updated on another chain and this function is broadcast

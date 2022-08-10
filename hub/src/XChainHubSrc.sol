@@ -36,9 +36,9 @@ import {LayerZeroAdapter} from "@hub/LayerZeroAdapter.sol";
 import {IStargateReceiver} from "@interfaces/IStargateReceiver.sol";
 import {IStargateRouter} from "@interfaces/IStargateRouter.sol";
 
-/// @title XChainHub
-/// @notice extends the XChainBase with Stargate and LayerZero contracts for src and destination chains
-/// @dev Expect this contract to change in future.
+/// @title XChainHub Source
+/// @notice Grouping of XChainHub functions on the source chain
+/// @dev source refers to the chain initially sending XChain deposits
 abstract contract XChainHubSrc is
     Pausable,
     LayerZeroAdapter,
@@ -79,20 +79,6 @@ abstract contract XChainHubSrc is
             "XChainHub::approveWithdrawalForStrategy:UNTRUSTED"
         );
         underlying.safeApprove(_strategy, _amount);
-    }
-
-    /// @notice calls the vault on the current chain to exit batch burn
-    /// @param vault the vault on the same chain as the hub
-    function withdrawFromVault(IVault vault) external onlyOwner whenNotPaused {
-        uint256 round = vault.batchBurnRound();
-        IERC20 underlying = vault.underlying();
-        uint256 balanceBefore = underlying.balanceOf(address(this));
-        vault.exitBatchBurn();
-        uint256 withdrawn = underlying.balanceOf(address(this)) - balanceBefore;
-
-        /// withdrawn per round keys the vault address and vault round
-        withdrawnPerRound[address(vault)][round] = withdrawn;
-        emit WithdrawExecuted(withdrawn, address(vault), round);
     }
 
     // --------------------------
@@ -240,7 +226,7 @@ abstract contract XChainHubSrc is
     ///      any layerZero functions. Call `setTrustedRemote` on this contract as the owner
     ///      with the params (dstChainId - LAYERZERO, dstHub address)
     /// @notice make a request to withdraw tokens from a vault on a specified chain
-    ///     the actual withdrawal takes place once the batch burn process is completed
+    ///         the actual withdrawal takes place once the batch burn process is completed
     /// @param dstChainId the layerZero chain id on destination
     /// @param dstVault address of the vault on destination
     /// @param amountVaultShares the number of auxovault shares to burn for underlying
