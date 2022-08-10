@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity ^0.8.12;
+
 pragma abicoder v2;
 
 import "@std/console.sol";
@@ -7,6 +8,7 @@ import {PRBTest} from "@prb/test/PRBTest.sol";
 
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {ERC20} from "@oz/token/ERC20/ERC20.sol";
+import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 import {AuxoTest} from "@hub-test/mocks/MockERC20.sol";
 
@@ -22,59 +24,58 @@ import {IVault} from "@interfaces/IVault.sol";
 import {IStargateRouter} from "@interfaces/IStargateRouter.sol";
 import {IHubPayload} from "@interfaces/IHubPayload.sol";
 
-import "./Deployer.sol";
+import "../script/Deployer.sol";
 
 /// @notice dedicated tests for auth sigs, a thing you REALLY don't want to get wrong
 contract E2EAuthTest is PRBTest {
+    ERC20 sharedToken;
+
     string[] selectedSigStrings;
     bytes4[] selectedSigs;
-    Deployer deployer;
-    VaultFactory factory;
-    ERC20 token;
-    address governor = 0x3ec2f6f9B88a532a9A1B67Ce40A01DC49C6E0039;
-    address manager = 0x3ec2f6f9B88a532a9A1B67Ce40A01DC49C6E0039;
-    address stargateRouter = 0x7632dC163597fe61cf7dF03c07eA6412C8A64264;
-    address lzEndpoint = 0xf1D8134D7a428FC297fBA5B326727D56651c061E;
-    address refundAddress = governor;
-    address strategist = 0x620C0Aa950bFC6BCDFf8C94a2547Ff8d9BDe325b;
+
+    Deployer private deployer;
+    ERC20 private srcToken;
+    IStargateRouter private srcRouter;
+    address private governor = 0x3ec2f6f9B88a532a9A1B67Ce40A01DC49C6E0039;
+    address private srcRefundAddress =
+        0xC8834c2084F565527D40e7D48415dc10F6f9985F;
+    address private strategist = 0xeB959af810FEC83dE7021A77906ab3d9fDe567B1;
+    address private srcFeeCollector =
+        0xB50c633C6B0541ccCe0De36A57E7b30550CE51Ec;
+
+    uint16 private srcChainId = 10001;
 
     function setUp() public {
-        // load signatures
+        sharedToken = new AuxoTest();
         loadSigs();
 
-        vm.startPrank(governor);
-
-        // We deploy these outside the deployer because these components will exist already
-        factory = new VaultFactory();
-        token = new AuxoTest();
-
-        // initial deploys are set in the constructor
-        deployer = new Deployer(
-            Deployer.ConstructorInput({
-                underlying: address(token),
-                router: stargateRouter,
-                lzEndpoint: lzEndpoint,
-                governor: governor,
-                strategist: strategist,
-                refundAddress: refundAddress,
-                vaultFactory: factory,
-                chainId: 10012
-            })
+        (srcRouter, srcToken) = deployExternal(
+            srcChainId,
+            srcFeeCollector,
+            sharedToken
         );
 
-        // These actions are taken by the governor
-        factory.transferOwnership(address(deployer));
-        deployAuthAsGovAndTransferOwnership(deployer, governor);
+        vm.startPrank(governor);
+        deployer = deployAuthAndDeployer(
+            srcChainId,
+            srcToken,
+            srcRouter,
+            address(0xB50c633C6B0541ccCe0De36A57E7b30550CE51Ec),
+            governor,
+            strategist,
+            srcRefundAddress
+        );
 
-        // resume deployment - dont transfer ownership
-        deployer.setupRoles(false);
-        deployer.deployVault();
-        deployer.deployXChainHub();
-        deployer.deployXChainStrategy("TEST");
+        vm.stopPrank();
 
-        // hand over ownership of factory and auth back to governor
-        deployer.returnOwnership();
+        vm.startPrank(address(deployer));
+        deployVaultHubStrat(deployer);
+        deployer.vaultFactory().transferOwnership(governor);
+        deployer.auth().setOwner(governor);
+        vm.stopPrank();
 
+        vm.startPrank(deployer.hub().owner());
+        deployer.hub().transferOwnership(governor);
         vm.stopPrank();
     }
 
@@ -91,6 +92,7 @@ contract E2EAuthTest is PRBTest {
 
     function _getErrorMessageFromCall(bool _success, bytes memory _data)
         internal
+        pure
         returns (string memory)
     {
         require(!_success, "Call did not fail");
@@ -169,6 +171,7 @@ contract E2EAuthTest is PRBTest {
         vm.assume(_notGov != governor);
         // proxyadmin calls will revert
         vm.assume(_notGov != address(deployer.vaultFactory()));
+        vm.assume(_notGov != address(deployer));
 
         Vault proxy = deployer.vaultProxy();
         bool success;
@@ -208,7 +211,7 @@ contract E2EAuthTest is PRBTest {
         vm.startPrank(governor);
 
         /// @dev the governor is also the owner, so this causes issues calling the proxy
-        factory.renounceOwnership();
+        // deployer.vaultFactory().renounceOwnership();
 
         (success, data) = address(proxy).call(
             abi.encodeWithSignature(selectedSigStrings[3]) // triggerPause()
@@ -250,7 +253,7 @@ contract E2EAuthTest is PRBTest {
         vm.assume(_notGov != governor);
 
         MultiRolesAuthority auth = deployer.auth();
-        string[] memory gov_capabilities = deployer.getGovernorCapabilities();
+        string[17] memory gov_capabilities = GOV_CAPABILITIES();
         address proxy = address(deployer.vaultProxy());
 
         for (uint256 g; g < gov_capabilities.length; g++) {
@@ -264,7 +267,7 @@ contract E2EAuthTest is PRBTest {
         vm.assume(_notGov != governor);
 
         MultiRolesAuthority auth = deployer.auth();
-        string[] memory pub_capabilities = deployer.getPublicCapabilities();
+        string[3] memory pub_capabilities = PUBLIC_CAPABILITIES();
         address proxy = address(deployer.vaultProxy());
 
         for (uint256 p; p < pub_capabilities.length; p++) {

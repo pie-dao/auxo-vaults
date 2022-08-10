@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity ^0.8.12;
+
 pragma abicoder v2;
 
 import "@std/console.sol";
@@ -24,7 +25,7 @@ import {IVault} from "@interfaces/IVault.sol";
 import {IStargateRouter} from "@interfaces/IStargateRouter.sol";
 import {IHubPayload} from "@interfaces/IHubPayload.sol";
 
-import "./Deployer.sol";
+import "../script/Deployer.sol";
 
 /// @notice when impersonating, ignore components as dummy addresses
 function _initIgnoreAddresses(
@@ -32,6 +33,7 @@ function _initIgnoreAddresses(
     mapping(address => bool) storage _ignoreAddresses
 ) {
     _ignoreAddresses[address(0)] = true;
+
     _ignoreAddresses[address(_deployer)] = true;
     _ignoreAddresses[address(_deployer.underlying())] = true;
     _ignoreAddresses[address(_deployer.router())] = true;
@@ -42,6 +44,7 @@ function _initIgnoreAddresses(
     _ignoreAddresses[address(_deployer.vaultFactory())] = true;
     _ignoreAddresses[address(_deployer.vaultImpl())] = true;
     _ignoreAddresses[address(_deployer.vaultProxy())] = true;
+    _ignoreAddresses[address(_deployer.vaultFactory().owner())] = true;
     _ignoreAddresses[address(_deployer.hub())] = true;
     _ignoreAddresses[address(_deployer.strategy())] = true;
     _ignoreAddresses[address(_deployer.lzEndpoint())] = true;
@@ -52,26 +55,30 @@ contract E2ETest is PRBTest {
     ERC20 sharedToken;
     mapping(address => bool) ignoreAddresses;
 
-    Deployer srcDeployer;
-    ERC20 srcToken;
-    IStargateRouter srcRouter;
-    VaultFactory srcFactory;
-    LZEndpointMock srcLzEndpoint;
-    address srcGovernor = 0x3ec2f6f9B88a532a9A1B67Ce40A01DC49C6E0039;
-    address srcStrategist = 0xeB959af810FEC83dE7021A77906ab3d9fDe567B1;
-    address srcFeeCollector = 0xB50c633C6B0541ccCe0De36A57E7b30550CE51Ec;
+    Deployer private srcDeployer;
+    ERC20 private srcToken;
+    IStargateRouter private srcRouter;
+    LZEndpointMock private srcLzEndpoint;
+    address private srcGovernor = 0x3ec2f6f9B88a532a9A1B67Ce40A01DC49C6E0039;
+    address private srcRefundAddress =
+        0xC8834c2084F565527D40e7D48415dc10F6f9985F;
+    address private srcStrategist = 0xeB959af810FEC83dE7021A77906ab3d9fDe567B1;
+    address private srcFeeCollector =
+        0xB50c633C6B0541ccCe0De36A57E7b30550CE51Ec;
 
-    Deployer dstDeployer;
-    ERC20 dstToken;
-    IStargateRouter dstRouter;
-    VaultFactory dstFactory;
-    LZEndpointMock dstLzEndpoint;
-    address dstGovernor = 0x9f69a055FDC6c037153574d3702BE15450FfB5cF;
-    address dstStrategist = 0x28D33c44C63C0EA1cf2F49dBA12e0b6ca12813Fd;
-    address dstFeeCollector = 0x90b12c177e616e2cD7345FB95E06987F4DDeE983;
+    Deployer private dstDeployer;
+    ERC20 private dstToken;
+    IStargateRouter private dstRouter;
+    LZEndpointMock private dstLzEndpoint;
+    address private dstGovernor = 0x9f69a055FDC6c037153574d3702BE15450FfB5cF;
+    address private dstRefundAddress =
+        0xe64253d527b701d0048a9F246d87623eCaa8F6AB;
+    address private dstStrategist = 0x28D33c44C63C0EA1cf2F49dBA12e0b6ca12813Fd;
+    address private dstFeeCollector =
+        0x90b12c177e616e2cD7345FB95E06987F4DDeE983;
 
-    uint16 srcChainId = 10001;
-    uint16 dstChainId = 10002;
+    uint16 private srcChainId = 10001;
+    uint16 private dstChainId = 10002;
 
     function setUp() public {
         sharedToken = new AuxoTest();
@@ -86,15 +93,20 @@ contract E2ETest is PRBTest {
         dstLzEndpoint = new LZEndpointMock(dstChainId);
 
         vm.startPrank(srcGovernor);
-        srcDeployer = deploy(
+        srcDeployer = deployAuthAndDeployer(
             srcChainId,
             srcToken,
             srcRouter,
-            srcFactory,
             address(srcLzEndpoint),
             srcGovernor,
-            srcStrategist
+            srcStrategist,
+            srcRefundAddress
         );
+
+        vm.stopPrank();
+
+        vm.startPrank(address(srcDeployer));
+        deployVaultHubStrat(srcDeployer);
         vm.stopPrank();
 
         (dstRouter, dstToken) = deployExternal(
@@ -104,21 +116,21 @@ contract E2ETest is PRBTest {
         );
 
         vm.startPrank(dstGovernor);
-        dstDeployer = deploy(
+        dstDeployer = deployAuthAndDeployer(
             dstChainId,
             dstToken,
             dstRouter,
-            dstFactory,
             address(dstLzEndpoint),
             dstGovernor,
-            dstStrategist
+            dstStrategist,
+            dstRefundAddress
         );
+
         vm.stopPrank();
 
-        // a set of addresses we don't want to impersonate
-        _initIgnoreAddresses(srcDeployer, ignoreAddresses);
-        _initIgnoreAddresses(dstDeployer, ignoreAddresses);
-
+        vm.startPrank(address(dstDeployer));
+        deployVaultHubStrat(dstDeployer);
+        vm.stopPrank();
         /// @dev using the same token for local testing, these will be different
         ///      when working for real.
         connectRouters(
@@ -144,6 +156,9 @@ contract E2ETest is PRBTest {
             address(srcDeployer.hub()),
             address(srcLzEndpoint)
         );
+        // a set of addresses we don't want to impersonate
+        _initIgnoreAddresses(srcDeployer, ignoreAddresses);
+        _initIgnoreAddresses(dstDeployer, ignoreAddresses);
     }
 
     function testSetupNonZeroAddresses() public {
@@ -336,6 +351,7 @@ contract E2ETest is PRBTest {
 
     function testwaitAndReport(address _depositor) public {
         vm.assume(!ignoreAddresses[_depositor]);
+
         uint256 depositAmount = _getAmount();
         deposit(_depositor, depositAmount);
         waitAndReport(block.timestamp + 6 hours);
