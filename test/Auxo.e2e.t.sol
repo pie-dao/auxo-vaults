@@ -81,16 +81,17 @@ contract E2ETest is PRBTest {
     uint16 private dstChainId = 10002;
 
     function setUp() public {
-        sharedToken = new AuxoTest();
+        /// @dev ----- TEST ONLY -------
 
+        sharedToken = new AuxoTest();
         (srcRouter, srcToken) = deployExternal(
             srcChainId,
             srcFeeCollector,
             sharedToken
         );
-
         srcLzEndpoint = new LZEndpointMock(srcChainId);
         dstLzEndpoint = new LZEndpointMock(dstChainId);
+        /// @dev ----- END -------
 
         vm.startPrank(srcGovernor);
         srcDeployer = deployAuthAndDeployer(
@@ -109,11 +110,13 @@ contract E2ETest is PRBTest {
         deployVaultHubStrat(srcDeployer);
         vm.stopPrank();
 
+        /// @dev ----- TEST ONLY -------
         (dstRouter, dstToken) = deployExternal(
             dstChainId,
             dstFeeCollector,
             sharedToken
         );
+        /// @dev ----- END -------
 
         vm.startPrank(dstGovernor);
         dstDeployer = deployAuthAndDeployer(
@@ -131,8 +134,8 @@ contract E2ETest is PRBTest {
         vm.startPrank(address(dstDeployer));
         deployVaultHubStrat(dstDeployer);
         vm.stopPrank();
-        /// @dev using the same token for local testing, these will be different
-        ///      when working for real.
+
+        /// @dev ----- TEST ONLY -------
         connectRouters(
             address(srcRouter),
             address(dstDeployer.hub()),
@@ -148,6 +151,10 @@ contract E2ETest is PRBTest {
             address(dstToken)
         );
 
+        // a set of addresses we don't want to impersonate
+        _initIgnoreAddresses(srcDeployer, ignoreAddresses);
+        _initIgnoreAddresses(dstDeployer, ignoreAddresses);
+
         srcLzEndpoint.setDestLzEndpoint(
             address(dstDeployer.hub()),
             address(dstLzEndpoint)
@@ -156,9 +163,7 @@ contract E2ETest is PRBTest {
             address(srcDeployer.hub()),
             address(srcLzEndpoint)
         );
-        // a set of addresses we don't want to impersonate
-        _initIgnoreAddresses(srcDeployer, ignoreAddresses);
-        _initIgnoreAddresses(dstDeployer, ignoreAddresses);
+        /// @dev ----- END -------
     }
 
     function testSetupNonZeroAddresses() public {

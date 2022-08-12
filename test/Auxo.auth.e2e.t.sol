@@ -253,7 +253,7 @@ contract E2EAuthTest is PRBTest {
         vm.assume(_notGov != governor);
 
         MultiRolesAuthority auth = deployer.auth();
-        string[17] memory gov_capabilities = GOV_CAPABILITIES();
+        string[] memory gov_capabilities = deployer.gov_capabilities();
         address proxy = address(deployer.vaultProxy());
 
         for (uint256 g; g < gov_capabilities.length; g++) {
@@ -267,7 +267,7 @@ contract E2EAuthTest is PRBTest {
         vm.assume(_notGov != governor);
 
         MultiRolesAuthority auth = deployer.auth();
-        string[3] memory pub_capabilities = PUBLIC_CAPABILITIES();
+        string[] memory pub_capabilities = deployer.pub_capabilities();
         address proxy = address(deployer.vaultProxy());
 
         for (uint256 p; p < pub_capabilities.length; p++) {

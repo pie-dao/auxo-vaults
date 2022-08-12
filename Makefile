@@ -97,5 +97,33 @@ prepare-deposit-avax-arbitrum-test :; forge script script/Deploy.s.sol:DepositPr
 	--broadcast \
 	-vvvv
 
+# deposit into the vault as a user, om the avax fuji network
+deposit-avax-vault-test :; forge script script/Deploy.s.sol:DepositIntoAvaxVault \
+	--private-key ${PRIVATE_KEY_TEST_ACCOUNT} \
+	--rpc-url https://api.avax-test.network/ext/bc/C/rpc \
+	--broadcast \
+	-vvvv
 
+# this will fail on the simulation
+deposit-arbitrum-vault-test :; forge script script/Deploy.s.sol:DepositIntoArbitrumVault \
+	--private-key ${PRIVATE_KEY_TEST_ACCOUNT} \
+	--rpc-url https://arbitrum-rinkeby.infura.io/v3/${INFURA_API_KEY} \
+	--broadcast \
+	--skip-simulation \
+	-vvvv 
+
+# make a XChainDeposit from the strategy to the hub to stargate
+xchain-deposit-avax-arbitrum-test :; forge script script/Deploy.s.sol:XChainDepositAvaxToArbitrum \
+	--private-key ${PRIVATE_KEY_TEST_ACCOUNT} \
+	--rpc-url https://api.avax-test.network/ext/bc/C/rpc \
+	--broadcast \
+	-vvvv 
+
+# make a XChainDeposit from the strategy to the hub to stargate
+xchain-deposit-arbitrum-avax-test :; forge script script/Deploy.s.sol:XChainDepositArbitrumToAvax \
+	--private-key ${PRIVATE_KEY_TEST_ACCOUNT} \
+	--rpc-url https://arbitrum-rinkeby.infura.io/v3/${INFURA_API_KEY} \
+	--broadcast \
+	--skip-simulation \
+	-vvvv 
 
