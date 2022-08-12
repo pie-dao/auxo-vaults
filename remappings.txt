@@ -11,8 +11,8 @@ openzeppelin/=lib/openzeppelin-contracts/contracts/
 @interfaces/=interfaces/
 @mocks/=test/mocks/
 
-@vaults/=vaults/contracts/
-@vault-interfaces/=vaults/interfaces/
+@vaults/=hub/src/vaults/
+@vault-interfaces/=hub/src/vaults/interfaces
 
 @strategies/=strategies/contracts/
 

@@ -23,3 +23,12 @@
 [submodule "hub/lib/openzeppelin-contracts-upgradeable"]
 	path = hub/lib/openzeppelin-contracts-upgradeable
 	url = https://github.com/OpenZeppelin/openzeppelin-contracts-upgradeable
+[submodule "vaults/lib/openzeppelin-contracts-upgradeable"]
+	path = vaults/lib/openzeppelin-contracts-upgradeable
+	url = https://github.com/OpenZeppelin/openzeppelin-contracts-upgradeable
+[submodule "vaults/lib/openzeppelin-contracts"]
+	path = vaults/lib/openzeppelin-contracts
+	url = https://github.com/OpenZeppelin/openzeppelin-contracts
+[submodule "vaults/lib/forge-std"]
+	path = vaults/lib/forge-std
+	url = https://github.com/foundry-rs/forge-std

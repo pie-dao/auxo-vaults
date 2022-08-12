@@ -28,6 +28,7 @@ import {StargateRouterMock} from "@hub-test/mocks/MockStargateRouter.sol";
 import {IHubPayload} from "@interfaces/IHubPayload.sol";
 import "./ChainConfig.sol";
 
+/// @dev TESTING ONLY
 /// @dev the chain id should be the same chain id as the src router
 function connectRouters(
     address _srcRouter,
@@ -58,36 +59,6 @@ function deployAuth(Deployer _deployer, address _governor)
     );
     _deployer.setMultiRolesAuthority(auth);
     return auth;
-}
-
-function GOV_CAPABILITIES() pure returns (string[17] memory) {
-    return [
-        "triggerPause()",
-        "setDepositLimits(uint256,uint256)",
-        "setAuth(address)",
-        "setBlocksPerYear(uint256)",
-        "setHarvestFeePercent(uint256)",
-        "setBurningFeePercent(uint256)",
-        "setHarvestFeeReceiver(address)",
-        "setBurningFeeReceiver(address)",
-        "setHarvestWindow(uint128)",
-        "setHarvestDelay(uint64)",
-        "setWithdrawalQueue(address)",
-        "trustStrategy(address)",
-        "distrustStrategy(address)",
-        "execBatchBurn()",
-        "harvest(address[])",
-        "depositIntoStrategy(address,uint256)",
-        "withdrawFromStrategy(address,uint256)"
-    ];
-}
-
-function PUBLIC_CAPABILITIES() pure returns (string[3] memory) {
-    return [
-        "deposit(address,uint256)",
-        "enterBatchBurn(uint256)",
-        "exitBatchBurn()"
-    ];
 }
 
 function deployAuthAndDeployer(
@@ -121,6 +92,38 @@ function deployAuthAndDeployer(
 
     auth.setOwner(address(deployer));
     deployer.setupRoles(true);
+
+    return deployer;
+}
+
+function deployAuthAndDeployerNoOwnershipTransfer(
+    uint16 _chainId,
+    ERC20 _token,
+    IStargateRouter _router,
+    address _lzEndpoint,
+    address _governor,
+    address _strategist,
+    address _refundAddress
+) returns (Deployer) {
+    VaultFactory factory = new VaultFactory();
+
+    // We deploy these outside the srcDeployer because these components will exist already
+    // initial deploys are set in the constructor
+    Deployer deployer = new Deployer(
+        Deployer.ConstructorInput({
+            underlying: address(_token),
+            router: address(_router),
+            lzEndpoint: address(_lzEndpoint),
+            governor: _governor,
+            strategist: _strategist,
+            refundAddress: _refundAddress,
+            vaultFactory: factory,
+            chainId: _chainId
+        })
+    );
+
+    deployAuth(deployer, _governor);
+    setupRoles(deployer, true);
 
     return deployer;
 }
@@ -268,6 +271,9 @@ contract DeployerState {
     address public lzEndpoint;
 
     MultiRolesAuthority public auth;
+
+    string[] public GOV_CAPABILITIES;
+    string[] public PUBLIC_CAPABILITIES;
 }
 
 /// @notice collect the deployment actions and data into a single class
@@ -283,6 +289,8 @@ contract Deployer is DeployerState {
         uint16 chainId;
     }
 
+    event Deployed(address indexed self);
+
     constructor(ConstructorInput memory _i) {
         setUnderlying(_i.underlying);
         chainId = _i.chainId;
@@ -292,11 +300,48 @@ contract Deployer is DeployerState {
         setFactory(_i.vaultFactory);
         setGovernor(_i.governor);
         setStrategist(_i.strategist);
+        setGovCapabilitiesArray();
+        setPubCapabilitiesArray();
+        emit Deployed(address(this));
     }
 
     modifier notZeroAddress(address _address) {
         require(_address != address(0), "Cannot be zero address");
         _;
+    }
+
+    function gov_capabilities() external view returns (string[] memory) {
+        return GOV_CAPABILITIES;
+    }
+
+    function pub_capabilities() external view returns (string[] memory) {
+        return PUBLIC_CAPABILITIES;
+    }
+
+    function setGovCapabilitiesArray() internal {
+        GOV_CAPABILITIES.push("triggerPause()");
+        GOV_CAPABILITIES.push("setDepositLimits(uint256,uint256)");
+        GOV_CAPABILITIES.push("setAuth(address)");
+        GOV_CAPABILITIES.push("setBlocksPerYear(uint256)");
+        GOV_CAPABILITIES.push("setHarvestFeePercent(uint256)");
+        GOV_CAPABILITIES.push("setBurningFeePercent(uint256)");
+        GOV_CAPABILITIES.push("setHarvestFeeReceiver(address)");
+        GOV_CAPABILITIES.push("setBurningFeeReceiver(address)");
+        GOV_CAPABILITIES.push("setHarvestWindow(uint128)");
+        GOV_CAPABILITIES.push("setHarvestDelay(uint64)");
+        GOV_CAPABILITIES.push("setWithdrawalQueue(address)");
+        GOV_CAPABILITIES.push("trustStrategy(address)");
+        GOV_CAPABILITIES.push("distrustStrategy(address)");
+        GOV_CAPABILITIES.push("execBatchBurn()");
+        GOV_CAPABILITIES.push("harvest(address[])");
+        GOV_CAPABILITIES.push("depositIntoStrategy(address,uint256)");
+        GOV_CAPABILITIES.push("withdrawFromStrategy(address,uint256)");
+    }
+
+    function setPubCapabilitiesArray() internal {
+        PUBLIC_CAPABILITIES.push("deposit(address,uint256)");
+        PUBLIC_CAPABILITIES.push("enterBatchBurn(uint256)");
+        PUBLIC_CAPABILITIES.push("exitBatchBurn()");
     }
 
     function setFactory(VaultFactory _vaultFactory)
@@ -384,13 +429,11 @@ contract Deployer is DeployerState {
 
     function _setCapabilities() internal {
         require(address(auth) != address(0), "set capabilities::Auth not set");
-        string[3] memory publicCapabilities = PUBLIC_CAPABILITIES();
-        string[17] memory govCapabilities = GOV_CAPABILITIES();
-        for (uint256 i = 0; i < 3; i++) {
-            _setPublicCapability(publicCapabilities[i]);
+        for (uint256 i = 0; i < PUBLIC_CAPABILITIES.length; i++) {
+            _setPublicCapability(PUBLIC_CAPABILITIES[i]);
         }
-        for (uint256 i = 0; i < 17; i++) {
-            _setGovernorCapability(govCapabilities[i]);
+        for (uint256 i = 0; i < GOV_CAPABILITIES.length; i++) {
+            _setGovernorCapability(GOV_CAPABILITIES[i]);
         }
     }
 
@@ -443,4 +486,85 @@ contract Deployer is DeployerState {
     function depositIntoStrategy(uint256 _amt) public {
         vaultProxy.depositIntoStrategy(IStrategy(address(strategy)), _amt);
     }
+}
+
+function _setGovernorCapability(Deployer _d, string memory sigString) {
+    bytes4 signature = _d.getContractSignature(sigString);
+    _d.auth().setRoleCapability(_d.GOV_ROLE(), signature, true);
+}
+
+function _setPublicCapability(Deployer _d, string memory signatureString) {
+    bytes4 signature = _d.getContractSignature(signatureString);
+    _d.auth().setPublicCapability(signature, true);
+}
+
+function _setCapabilities(Deployer _d) {
+    require(address(_d.auth()) != address(0), "set capabilities::Auth not set");
+    string[] memory PUBLIC_CAPABILITIES = _d.pub_capabilities();
+    for (uint256 i = 0; i < PUBLIC_CAPABILITIES.length; i++) {
+        _setPublicCapability(_d, PUBLIC_CAPABILITIES[i]);
+    }
+    string[] memory GOV_CAPABILITIES = _d.gov_capabilities();
+    for (uint256 i = 0; i < GOV_CAPABILITIES.length; i++) {
+        _setGovernorCapability(_d, GOV_CAPABILITIES[i]);
+    }
+}
+
+function setupRoles(Deployer _d, bool _transferOwnership) {
+    require(address(_d.auth()) != address(0), "setupRoles::Auth not set");
+    // require(_d.auth().owner() == msg.sender, "Transfer ownership");
+
+    _d.auth().setUserRole(_d.governor(), _d.GOV_ROLE(), true);
+
+    if (_transferOwnership)
+        _d.auth().setUserRole(msg.sender, _d.GOV_ROLE(), true);
+
+    _setCapabilities(_d);
+}
+
+function prepareDeposit(
+    Deployer _srcDeployer,
+    address _dstHub,
+    address _dstStrategy,
+    uint16 _dstChainId
+) {
+    _prepareVault(_srcDeployer);
+    _prepareHub(_srcDeployer, _dstHub, _dstStrategy, _dstChainId);
+}
+
+function getUnits(Deployer _d) view returns (uint8, uint256) {
+    uint8 decimals = _d.vaultProxy().underlying().decimals();
+    uint256 baseUnit = 10**decimals;
+    return (decimals, baseUnit);
+}
+
+/// @dev TODO: increase deposit limits
+function _prepareVault(Deployer _d) {
+    // unpause the vault
+    _d.vaultProxy().triggerPause();
+    (, uint256 baseUnit) = getUnits(_d);
+    _d.vaultProxy().setDepositLimits(1000 * baseUnit, 2000 * baseUnit);
+    _d.vaultProxy().trustStrategy(IStrategy(address(_d.strategy())));
+}
+
+function _prepareHub(
+    Deployer _srcDeployer,
+    address _dstHub,
+    address _dstStrategy,
+    uint16 _dstChainId
+) {
+    XChainHub hub = _srcDeployer.hub();
+    hub.setTrustedRemote(_dstChainId, abi.encodePacked(_dstHub));
+    hub.setTrustedVault(address(_srcDeployer.vaultProxy()), true);
+
+    /// @dev this feels a bit unneccessary
+    hub.setTrustedStrategy(address(_srcDeployer.strategy()), true);
+    hub.setTrustedStrategy(address(_dstStrategy), true);
+}
+
+function depositIntoStrategy(Deployer _d, uint256 _amt) {
+    _d.vaultProxy().depositIntoStrategy(
+        IStrategy(address(_d.strategy())),
+        _amt
+    );
 }

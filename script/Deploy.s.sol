@@ -28,45 +28,44 @@ import {IHubPayload} from "@interfaces/IHubPayload.sol";
 
 import "./Deployer.sol";
 import "./ChainConfig.sol";
+import "./Simple.sol";
 
-contract DeployScript is Script {
-    Chains testnet = getChains_test();
+// Anvil unlocked account
+// address constant srcGovernor = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266;
+
+// my test account
+address constant srcGovernor = 0x63BCe354DBA7d6270Cb34dAA46B869892AbB3A79;
+
+contract Deploy is Script {
+    ChainConfig network;
 
     /// *** SOURCE ***
-
-    uint16 srcChainId = testnet.arbitrum.id;
-
-    ERC20 srcToken = ERC20(testnet.arbitrum.usdc.addr);
-    IStargateRouter srcRouter = IStargateRouter(testnet.arbitrum.sg);
-    ILayerZeroEndpoint srcLzEndpoint = ILayerZeroEndpoint(testnet.arbitrum.lz);
-
-    Deployer srcDeployer;
-    VaultFactory srcFactory;
+    uint16 public srcChainId;
+    ERC20 public srcToken;
+    IStargateRouter public srcRouter;
+    ILayerZeroEndpoint public srcLzEndpoint;
+    Deployer public srcDeployer;
+    VaultFactory public srcFactory;
 
     /// @dev you might need to update these addresses
-    address srcGovernor = 0x3ec2f6f9B88a532a9A1B67Ce40A01DC49C6E0039;
-    address srcStrategist = 0xeB959af810FEC83dE7021A77906ab3d9fDe567B1;
-    address srcFeeCollector = 0xB50c633C6B0541ccCe0De36A57E7b30550CE51Ec;
-    address srcRefundAddress = 0xB50c633C6B0541ccCe0De36A57E7b30550CE51Ec;
-    /// *** DESTINATION ***
+    // Anvil unlocked account
+    // address public srcGovernor = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266;
+    address public srcStrategist = 0xeB959af810FEC83dE7021A77906ab3d9fDe567B1;
+    address public srcFeeCollector = 0xB50c633C6B0541ccCe0De36A57E7b30550CE51Ec;
+    address public srcRefundAddress =
+        0xB50c633C6B0541ccCe0De36A57E7b30550CE51Ec;
 
-    uint16 dstChainId = testnet.optimism.id;
+    constructor(ChainConfig memory _network) {
+        network = _network;
+        srcChainId = network.id;
+        srcToken = ERC20(network.usdc.addr);
+        srcRouter = IStargateRouter(network.sg);
+        srcLzEndpoint = ILayerZeroEndpoint(network.lz);
+    }
 
-    ERC20 dstToken = ERC20(testnet.optimism.usdc.addr);
-    IStargateRouter dstRouter = IStargateRouter(testnet.optimism.sg);
-    ILayerZeroEndpoint dstLzEndpoint = ILayerZeroEndpoint(testnet.optimism.lz);
-
-    Deployer dstDeployer;
-    VaultFactory dstFactory;
-
-    /// @dev you might need to update these addresses
-    address dstGovernor = 0x9f69a055FDC6c037153574d3702BE15450FfB5cF;
-    address dstStrategist = 0x28D33c44C63C0EA1cf2F49dBA12e0b6ca12813Fd;
-    address dstFeeCollector = 0x90b12c177e616e2cD7345FB95E06987F4DDeE983;
-
-    function setUp() public {
+    function _runSetup() internal {
         vm.startBroadcast(srcGovernor);
-        srcDeployer = deployAuthAndDeployer(
+        srcDeployer = deployAuthAndDeployerNoOwnershipTransfer(
             srcChainId,
             srcToken,
             srcRouter,
@@ -75,399 +74,123 @@ contract DeployScript is Script {
             srcStrategist,
             srcRefundAddress
         );
+
+        deployVaultHubStrat(srcDeployer);
         vm.stopBroadcast();
-
-        //     (dstRouter, dstToken) = deployExternal(
-        //         dstChainId,
-        //         dstFeeCollector,
-        //         sharedToken
-        //     );
-
-        //     vm.startPrank(dstGovernor);
-        //     dstDeployer = deploy(
-        //         dstChainId,
-        //         dstToken,
-        //         dstRouter,
-        //         dstFactory,
-        //         address(dstLzEndpoint),
-        //         dstGovernor,
-        //         dstStrategist
-        //     );
-        //     vm.stopPrank();
-
-        //     /// @dev using the same token for local testing, these will be different
-        //     ///      when working for real.
-        //     connectRouters(
-        //         address(srcRouter),
-        //         address(dstDeployer.hub()),
-        //         address(dstDeployer.router()),
-        //         srcChainId,
-        //         address(srcToken)
-        //     );
-        //     connectRouters(
-        //         address(dstRouter),
-        //         address(srcDeployer.hub()),
-        //         address(srcDeployer.router()),
-        //         dstChainId,
-        //         address(dstToken)
-        //     );
-
-        //     srcLzEndpoint.setDestLzEndpoint(
-        //         address(dstDeployer.hub()),
-        //         address(dstLzEndpoint)
-        //     );
-        //     dstLzEndpoint.setDestLzEndpoint(
-        //         address(srcDeployer.hub()),
-        //         address(srcLzEndpoint)
-        //     );
     }
+}
+
+contract DeployArbitrumRinkeby is Script, Deploy {
+    constructor() Deploy(getChains_test().arbitrum) {}
 
     function run() public {
-        setUp();
-        console.log("Script Ran Successfully");
+        _runSetup();
     }
+}
 
-    // function testSetupNonZeroAddresses() public {
-    //     require(srcDeployer.governor() != address(0), "testSetupNonZeroAddresses:null governor");
-    //     require(srcDeployer.strategist() != address(0), "testSetupNonZeroAddresses:null strategist");
-    //     require(srcDeployer.refundAddress() != address(0), "testSetupNonZeroAddresses:null refundAddress");
-    //     require(srcDeployer.chainId() != 0, "testSetupNonZeroAddresses:null chainId");
-    //     require(srcDeployer.lzEndpoint() != address(0), "testSetupNonZeroAddresses:null lzEndpoint");
-    //     require(address(srcDeployer.router()) != address(0), "testSetupNonZeroAddresses:null router");
-    //     require(address(srcDeployer.vaultProxy()) != address(0), "testSetupNonZeroAddresses:null vaultProxy");
-    //     require(address(srcDeployer.vaultFactory()) != address(0), "testSetupNonZeroAddresses:null vaultFactory");
-    //     require(address(srcDeployer.vaultImpl()) != address(0), "testSetupNonZeroAddresses:null vaultImpl");
-    //     require(address(srcDeployer.auth()) != address(0), "testSetupNonZeroAddresses:null auth");
-    //     require(address(srcDeployer.hub()) != address(0), "testSetupNonZeroAddresses:null hub");
-    //     require(address(srcDeployer.strategy()) != address(0), "testSetupNonZeroAddresses:null strategy");
-    //     require(address(srcDeployer.underlying()) != address(0), "testSetupNonZeroAddresses:null underlying");
-    // }
+contract DeployOptimismKovan is Script, Deploy {
+    constructor() Deploy(getChains_test().optimism) {}
 
-    // function testSetupOwnershipSetCorrectly() public {
-    //     assertEq(srcDeployer.vaultFactory().owner(), address(srcDeployer));
-    //     assertEq(srcDeployer.auth().owner(), address(srcDeployer));
-    //     assertEq(srcDeployer.hub().owner(), address(srcDeployer));
-    // }
+    function run() public {
+        _runSetup();
+    }
+}
 
-    // function testAdditionalRolesSetCorrectly() public {
-    //     assertEq(srcDeployer.strategy().manager(), srcGovernor);
-    //     assertEq(srcDeployer.strategy().strategist(), srcStrategist);
-    // }
+contract DeployPolygonMumbai is Script, Deploy {
+    constructor() Deploy(getChains_test().polygon) {}
 
-    // function testVaultInitialisation() public {
-    //     Vault vault = srcDeployer.vaultProxy();
+    function run() public {
+        _runSetup();
+    }
+}
 
-    //     assert(vault.paused());
-    //     assertEq(vault.totalFloat(), 0);
-    //     assertEq(vault.totalUnderlying(), 0);
-    //     assertEq(vault.totalStrategyHoldings(), 0);
-    // }
+contract DeployAvaxFuji is Script, Deploy {
+    constructor() Deploy(getChains_test().avax) {}
 
-    // function _setupDeposit(address _depositor) internal {
-    //     IERC20 token = srcDeployer.underlying();
+    function run() public {
+        _runSetup();
+    }
+}
 
-    //     /// @dev you need to do this on both chains
-    //     srcDeployer.prepareDeposit(
-    //         dstChainId,
-    //         address(dstDeployer.hub()),
-    //         address(dstDeployer.strategy())
-    //     );
-    //     dstDeployer.prepareDeposit(
-    //         srcChainId,
-    //         address(srcDeployer.hub()),
-    //         address(srcDeployer.strategy())
-    //     );
+contract DeployArbitrum is Script, Deploy {
+    constructor() Deploy(getChains().arbitrum) {}
 
-    //     token.transfer(_depositor, token.balanceOf(address(this)));
+    function run() public {
+        _runSetup();
+    }
+}
 
-    //     vm.startPrank(_depositor);
+contract DeployOptimism is Script, Deploy {
+    constructor() Deploy(getChains().optimism) {}
 
-    //     Vault vault = srcDeployer.vaultProxy();
-    //     token.approve(address(vault), type(uint256).max);
-    // }
+    function run() public {
+        _runSetup();
+    }
+}
 
-    // function _getAmount() internal view returns (uint256) {
-    //     (, uint256 baseUnit) = srcDeployer.getUnits();
-    //     return 1e3 * baseUnit;
-    // }
+contract DepositPrepareOptimismToArbitrumTest is Script {
+    address optimismDeployer = 0x545e1D8c0D83a8cc56598c26b8667BFb4804133e;
+    address dstHub = 0x36841622AAe2C00c69E33B0B042f7AcF5369aF4d;
+    address dstStrategy = 0x7396d9A10e9ef8f26eF3AdD2ee3ee1b6F0d357B2;
+    uint16 dstChainId = getChains_test().arbitrum.id;
+    address governor = srcGovernor;
 
-    // function _depositIntoVault(address _depositor, uint256 depositAmount)
-    //     internal
-    // {
-    //     Vault vault = srcDeployer.vaultProxy();
+    function run() public {
+        vm.startBroadcast(governor);
+        Deployer srcDeployer = Deployer(optimismDeployer);
+        prepareDeposit(srcDeployer, dstHub, dstStrategy, dstChainId);
 
-    //     vm.expectRevert("_deposit::USER_DEPOSIT_LIMITS_REACHED");
-    //     vault.deposit(_depositor, depositAmount + 1);
+        vm.stopBroadcast();
+    }
+}
 
-    //     vault.deposit(_depositor, depositAmount);
+contract DepositPrepareArbitrumToOptimismTest is Script {
+    address arbitrumDeployer = getDeployers_test().arbitrum;
+    address dstHub = 0x427C113Bdbb4342B736687af1bc1aaEb6Bd56de9;
+    address dstStrategy = 0xD93F3fE00A07fE031e6C60373fA7d98b2F7a1117;
+    uint16 dstChainId = getChains_test().optimism.id;
+    address governor = srcGovernor;
 
-    //     vm.stopPrank();
+    function run() public {
+        vm.startBroadcast(governor);
 
-    //     assertEq(vault.balanceOf(_depositor), depositAmount);
-    //     assertEq(
-    //         srcDeployer.underlying().balanceOf(address(vault)),
-    //         depositAmount
-    //     );
-    // }
+        Deployer srcDeployer = Deployer(arbitrumDeployer);
+        prepareDeposit(srcDeployer, dstHub, dstStrategy, dstChainId);
 
-    // function _setupStrategy(uint256 _depositAmount) internal {
-    //     vm.prank(address(srcDeployer));
-    //     srcDeployer.depositIntoStrategy(_depositAmount);
-    //     assertEq(
-    //         srcDeployer.underlying().balanceOf(address(srcDeployer.strategy())),
-    //         _depositAmount
-    //     );
+        vm.stopBroadcast();
+    }
+}
 
-    //     vm.deal(srcDeployer.strategist(), 100 ether);
-    // }
+contract DepositPrepareArbitrumToAvaxTest is Script {
+    address arbitrumDeployer = getDeployers_test().arbitrum;
+    address dstHub = 0x6742672cE2cf05d2885202A356d8fb4555077Ec1;
+    address dstStrategy = 0xC9A7508fC7F0d04067dc3fcd813a5f40f1d1C2a7;
+    uint16 dstChainId = getChains_test().avax.id;
+    address governor = srcGovernor;
 
-    // function deposit(address _depositor, uint256 _depositAmount) internal {
-    //     // prepare
-    //     _setupDeposit(_depositor);
-    //     _depositIntoVault(_depositor, _depositAmount);
-    //     _setupStrategy(_depositAmount);
+    function run() public {
+        vm.startBroadcast(governor);
 
-    //     vm.startPrank(srcDeployer.strategist());
-    //     srcDeployer.strategy().depositUnderlying{value: 100 ether}(
-    //         XChainStrategy.DepositParams({
-    //             amount: _depositAmount,
-    //             minAmount: (_depositAmount * 9) / 10,
-    //             dstChain: dstChainId,
-    //             srcPoolId: 1,
-    //             dstPoolId: 1,
-    //             dstHub: address(dstDeployer.hub()),
-    //             dstVault: address(dstDeployer.vaultProxy()),
-    //             refundAddress: payable(dstDeployer.refundAddress())
-    //         })
-    //     );
-    //     vm.stopPrank();
-    // }
+        Deployer srcDeployer = Deployer(arbitrumDeployer);
+        prepareDeposit(srcDeployer, dstHub, dstStrategy, dstChainId);
 
-    // function waitAndReport(uint256 _fastForward) public {
-    //     /// chains to report to
+        vm.stopBroadcast();
+    }
+}
 
-    //     uint16[] memory chainsToReport = new uint16[](1);
-    //     address[] memory strategiesToReport = new address[](1);
+contract DepositPrepareAvaxToArbitrunTest is Script {
+    address avaxDeployer = getDeployers_test().avax;
+    address dstHub = 0xE4F4290eFf20e4d0eef7AB43c3d139d078F6c0f2;
+    address dstStrategy = 0x3F9E72d1d6AfBaCDe6EF942Ee67ce640Fc76735D;
+    uint16 dstChainId = getChains_test().arbitrum.id;
+    address governor = srcGovernor;
 
-    //     chainsToReport[0] = srcChainId;
-    //     strategiesToReport[0] = address(srcDeployer.strategy());
+    function run() public {
+        vm.startBroadcast(governor);
 
-    //     XChainHub dstHub = dstDeployer.hub();
+        Deployer srcDeployer = Deployer(avaxDeployer);
+        prepareDeposit(srcDeployer, dstHub, dstStrategy, dstChainId);
 
-    //     vm.warp(_fastForward);
-
-    //     vm.startPrank(dstHub.owner());
-    //     dstHub.lz_reportUnderlying(
-    //         IVault(address(dstDeployer.vaultProxy())),
-    //         chainsToReport,
-    //         strategiesToReport,
-    //         bytes("")
-    //     );
-    //     vm.stopPrank();
-    // }
-
-    // function startWithdraw(uint256 _amt) internal {
-    //     vm.startPrank(dstDeployer.hub().owner());
-    //     dstDeployer.hub().setExiting(address(dstDeployer.vaultProxy()), true);
-    //     vm.stopPrank();
-
-    //     vm.startPrank(srcStrategist);
-    //     srcDeployer.strategy().startRequestToWithdrawUnderlying(
-    //         _amt,
-    //         bytes(""),
-    //         payable(srcDeployer.refundAddress()),
-    //         dstChainId,
-    //         address(dstDeployer.vaultProxy())
-    //     );
-    //     vm.stopPrank();
-    // }
-
-    // function testDeposit(address _depositor) public {
-    //     // this already reverts erc20
-    //     vm.assume(!ignoreAddresses[_depositor]);
-
-    //     uint256 depositAmount = _getAmount();
-    //     deposit(_depositor, depositAmount);
-
-    //     // asserts
-    //     assertEq(
-    //         dstToken.balanceOf(address(dstDeployer.vaultProxy())),
-    //         depositAmount
-    //     );
-
-    //     assertEq(
-    //         dstDeployer.vaultProxy().balanceOf(address(dstDeployer.hub())),
-    //         depositAmount
-    //     );
-
-    //     assertEq(srcToken.balanceOf(address(srcDeployer.strategy())), 0);
-    //     assertEq(srcToken.balanceOf(address(srcDeployer.hub())), 0);
-    //     assertEq(
-    //         dstDeployer.hub().sharesPerStrategy(
-    //             srcChainId,
-    //             address(srcDeployer.strategy())
-    //         ),
-    //         depositAmount
-    //     );
-    //     /// @TODO: reporting
-    // }
-
-    // function testwaitAndReport(address _depositor) public {
-    //     vm.assume(!ignoreAddresses[_depositor]);
-    //     uint256 depositAmount = _getAmount();
-    //     deposit(_depositor, depositAmount);
-    //     waitAndReport(block.timestamp + 6 hours);
-    //     XChainStrategy strategy = srcDeployer.strategy();
-    //     assertEq(strategy.state(), strategy.DEPOSITED());
-    //     assertEq(strategy.amountDeposited(), depositAmount);
-    //     assertEq(strategy.reportedUnderlying(), depositAmount);
-    // }
-
-    // function testStartWithdraw(address _depositor) public {
-    //     vm.assume(!ignoreAddresses[_depositor]);
-
-    //     uint256 depositAmount = _getAmount();
-    //     deposit(_depositor, depositAmount);
-    //     waitAndReport(block.timestamp + 6 hours);
-
-    //     XChainHub dstHub = dstDeployer.hub();
-    //     Vault dstVault = dstDeployer.vaultProxy();
-    //     startWithdraw(depositAmount);
-
-    //     assertEq(dstVault.balanceOf(address(dstHub)), 0);
-    //     assertEq(dstVault.balanceOf(address(dstVault)), depositAmount);
-    //     assertEq(
-    //         dstHub.exitingSharesPerStrategy(
-    //             srcChainId,
-    //             address(srcDeployer.strategy())
-    //         ),
-    //         depositAmount
-    //     );
-    //     assertEq(
-    //         srcDeployer.strategy().state(),
-    //         srcDeployer.strategy().WITHDRAWING()
-    //     );
-    // }
-
-    // function finalizeWithdraw() internal {
-    //     Vault dstVault = dstDeployer.vaultProxy();
-    //     XChainHub dstHub = dstDeployer.hub();
-
-    //     vm.startPrank(dstDeployer.governor());
-    //     dstVault.execBatchBurn();
-    //     vm.stopPrank();
-
-    //     vm.startPrank(dstHub.owner());
-
-    //     dstHub.withdrawFromVault(IVault(address(dstVault)));
-    //     dstHub.setExiting(address(dstVault), false);
-    //     dstHub.sg_finalizeWithdrawFromChain(
-    //         srcChainId,
-    //         address(dstVault),
-    //         address(srcDeployer.strategy()),
-    //         0,
-    //         1,
-    //         1,
-    //         dstVault.batchBurnRound()
-    //     );
-
-    //     vm.stopPrank();
-    // }
-
-    // function testFinalizeWithdraw(address _depositor) public {
-    //     vm.assume(!ignoreAddresses[_depositor]);
-
-    //     uint256 depositAmount = _getAmount();
-    //     deposit(_depositor, depositAmount);
-    //     waitAndReport(block.timestamp + 6 hours);
-    //     startWithdraw(depositAmount);
-    //     finalizeWithdraw();
-
-    //     assertEq(
-    //         srcDeployer.underlying().balanceOf(address(srcDeployer.hub())),
-    //         depositAmount
-    //     );
-    //     assertEq(
-    //         dstDeployer.underlying().balanceOf(address(dstDeployer.hub())),
-    //         0
-    //     );
-    //     assertEq(
-    //         dstDeployer.underlying().balanceOf(
-    //             address(dstDeployer.vaultProxy())
-    //         ),
-    //         0
-    //     );
-    // }
-
-    // function withdrawToStrategy(uint256 depositAmount) internal {
-    //     XChainHub srcHub = srcDeployer.hub();
-    //     IERC20 token = srcDeployer.underlying();
-    //     XChainStrategy strategy = srcDeployer.strategy();
-
-    //     vm.startPrank(srcHub.owner());
-    //     srcHub.approveWithdrawalForStrategy(
-    //         address(strategy),
-    //         token,
-    //         depositAmount
-    //     );
-    //     vm.stopPrank();
-
-    //     vm.startPrank(srcDeployer.strategist());
-    //     strategy.withdrawFromHub(depositAmount);
-    //     vm.stopPrank();
-    // }
-
-    // function testWithdrawBackToStrategy(address _depositor) public {
-    //     vm.assume(!ignoreAddresses[_depositor]);
-
-    //     uint256 depositAmount = _getAmount();
-    //     deposit(_depositor, depositAmount);
-    //     waitAndReport(block.timestamp + 6 hours);
-    //     startWithdraw(depositAmount);
-    //     finalizeWithdraw();
-
-    //     XChainStrategy strategy = srcDeployer.strategy();
-    //     XChainHub srcHub = srcDeployer.hub();
-    //     IERC20 token = srcDeployer.underlying();
-
-    //     withdrawToStrategy(depositAmount);
-
-    //     assertEq(strategy.state(), strategy.DEPOSITED());
-    //     assertEq(strategy.amountWithdrawn(), depositAmount);
-    //     assertEq(strategy.amountDeposited(), depositAmount);
-    //     assertEq(token.balanceOf(address(strategy)), depositAmount);
-    //     assertEq(token.balanceOf(address(srcHub)), 0);
-
-    //     waitAndReport(block.timestamp + 12 hours);
-
-    //     assertEq(strategy.state(), strategy.NOT_DEPOSITED());
-    //     assertEq(strategy.amountDeposited(), 0);
-    //     assertEq(strategy.reportedUnderlying(), 0);
-    // }
-
-    // function testWithdrawToOGVault(address _depositor) public {
-    //     vm.assume(!ignoreAddresses[_depositor]);
-
-    //     uint256 depositAmount = _getAmount();
-
-    //     deposit(_depositor, depositAmount);
-    //     waitAndReport(block.timestamp + 6 hours);
-    //     startWithdraw(depositAmount);
-    //     finalizeWithdraw();
-    //     withdrawToStrategy(depositAmount);
-    //     waitAndReport(block.timestamp + 12 hours);
-
-    //     Vault vault = srcDeployer.vaultProxy();
-    //     IERC20 token = srcDeployer.underlying();
-
-    //     vm.startPrank(address(srcDeployer));
-    //     vault.withdrawFromStrategy(
-    //         IStrategy(address(srcDeployer.strategy())),
-    //         depositAmount
-    //     );
-    //     vm.stopPrank();
-
-    //     assertEq(token.balanceOf(address(vault)), depositAmount);
-    //     assertEq(token.balanceOf(address(srcDeployer.strategy())), 0);
-    // }
+        vm.stopBroadcast();
+    }
 }

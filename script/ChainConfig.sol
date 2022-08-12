@@ -6,14 +6,26 @@ pragma abicoder v2;
 /**
  * @notice save time by saving layerZero known params
  *
- * Addresses ***
+ * *** Addresses ***
+ * @dev Mainnet Stargate Addresses https://stargateprotocol.gitbook.io/stargate/developers/contract-addresses/mainnet
+ * @dev Mainnet LayerZero Addresses https://layerzero.gitbook.io/docs/technical-reference/mainnet/supported-chain-ids
+ *
  * @dev Testnet Starage Addresses: https://stargateprotocol.gitbook.io/stargate/developers/contract-addresses/testnet
  * @dev Testnet LayerZero Addresses: https://layerzero.gitbook.io/docs/technical-reference/testnet/testnet-addresses
  */
 
+struct Deployers {
+    address arbitrum;
+    address optimism;
+    address polygon;
+    address avax;
+}
+
 struct Chains {
     ChainConfig arbitrum;
     ChainConfig optimism;
+    ChainConfig polygon;
+    ChainConfig avax;
 }
 
 struct ChainConfig {
@@ -26,6 +38,76 @@ struct ChainConfig {
 struct StargateToken {
     address addr;
     uint16 poolId;
+}
+
+function getDeployers() pure returns (Deployers memory) {
+    return
+        Deployers({
+            avax: address(0),
+            polygon: address(0),
+            optimism: address(0),
+            arbitrum: address(0)
+        });
+}
+
+function getDeployers_test() pure returns (Deployers memory) {
+    return
+        Deployers({
+            avax: 0xB14F1b2ddb80eb8CF57dD77EFE48e493088232F8,
+            polygon: address(0),
+            optimism: address(0),
+            arbitrum: 0x35dcF6852D6e5E387d90Db3B2c6a14fb24429ac7
+        });
+}
+
+function getChains() pure returns (Chains memory) {
+    ChainConfig memory optimism = ChainConfig({
+        id: 11,
+        lz: 0x3c2269811836af69497E5F486A85D7316753cf62,
+        sg: 0xB0D502E938ed5f4df2E681fE6E419ff29631d62b,
+        usdc: StargateToken({
+            addr: 0x7F5c764cBc14f9669B88837ca1490cCa17c31607,
+            poolId: 1
+        })
+    });
+
+    ChainConfig memory arbitrum = ChainConfig({
+        id: 10,
+        lz: 0x3c2269811836af69497E5F486A85D7316753cf62,
+        sg: 0x53Bf833A5d6c4ddA888F69c22C88C9f356a41614,
+        usdc: StargateToken({
+            addr: 0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8,
+            poolId: 1
+        })
+    });
+
+    ChainConfig memory polygon = ChainConfig({
+        id: 9,
+        lz: 0x3c2269811836af69497E5F486A85D7316753cf62,
+        sg: 0x45A01E4e04F14f7A4a6702c74187c5F6222033cd,
+        usdc: StargateToken({
+            addr: 0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174,
+            poolId: 1
+        })
+    });
+
+    ChainConfig memory avax = ChainConfig({
+        id: 6,
+        lz: 0x3c2269811836af69497E5F486A85D7316753cf62,
+        sg: 0x45A01E4e04F14f7A4a6702c74187c5F6222033cd,
+        usdc: StargateToken({
+            addr: 0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E,
+            poolId: 1
+        })
+    });
+
+    return
+        Chains({
+            optimism: optimism,
+            arbitrum: arbitrum,
+            polygon: polygon,
+            avax: avax
+        });
 }
 
 function getChains_test() pure returns (Chains memory) {
@@ -49,5 +131,31 @@ function getChains_test() pure returns (Chains memory) {
         })
     });
 
-    return Chains({optimism: optimismKovan, arbitrum: arbitrumRinkeby});
+    ChainConfig memory polygonMumbai = ChainConfig({
+        id: 10009,
+        lz: 0xf69186dfBa60DdB133E91E9A4B5673624293d8F8,
+        sg: 0x817436a076060D158204d955E5403b6Ed0A5fac0,
+        usdc: StargateToken({
+            addr: 0x742DfA5Aa70a8212857966D491D67B09Ce7D6ec7,
+            poolId: 1
+        })
+    });
+
+    ChainConfig memory avaxFuji = ChainConfig({
+        id: 10006,
+        lz: 0x93f54D755A063cE7bB9e6Ac47Eccc8e33411d706,
+        sg: 0x13093E05Eb890dfA6DacecBdE51d24DabAb2Faa1,
+        usdc: StargateToken({
+            addr: 0x4A0D1092E9df255cf95D72834Ea9255132782318,
+            poolId: 1
+        })
+    });
+
+    return
+        Chains({
+            optimism: optimismKovan,
+            arbitrum: arbitrumRinkeby,
+            polygon: polygonMumbai,
+            avax: avaxFuji
+        });
 }
