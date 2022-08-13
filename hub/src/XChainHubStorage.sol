@@ -27,7 +27,8 @@ contract XChainHubStorage {
     // --------------------------
 
     /// Prevent reporting function called too frequently
-    uint64 internal constant REPORT_DELAY = 6 hours;
+    /// @dev TODO this needs reviewing and updating
+    uint64 internal constant REPORT_DELAY = 1 minutes;
 
     // --------------------------
     // Single Chain Mappings

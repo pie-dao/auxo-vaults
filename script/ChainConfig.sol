@@ -19,6 +19,7 @@ struct Deployers {
     address optimism;
     address polygon;
     address avax;
+    address fantom;
 }
 
 struct Chains {
@@ -26,6 +27,7 @@ struct Chains {
     ChainConfig optimism;
     ChainConfig polygon;
     ChainConfig avax;
+    ChainConfig fantom;
 }
 
 struct ChainConfig {
@@ -46,7 +48,8 @@ function getDeployers() pure returns (Deployers memory) {
             avax: address(0),
             polygon: address(0),
             optimism: address(0),
-            arbitrum: address(0)
+            arbitrum: address(0),
+            fantom: address(0)
         });
 }
 
@@ -56,7 +59,8 @@ function getDeployers_test() pure returns (Deployers memory) {
             avax: 0xB14F1b2ddb80eb8CF57dD77EFE48e493088232F8,
             polygon: address(0),
             optimism: address(0),
-            arbitrum: 0x35dcF6852D6e5E387d90Db3B2c6a14fb24429ac7
+            arbitrum: 0xB0509dcf35D1683e398BB42069Dc19aC472747ea,
+            fantom: 0xB5EB2afe697e4CaDbEfa385104b52234ad871266
         });
 }
 
@@ -101,12 +105,23 @@ function getChains() pure returns (Chains memory) {
         })
     });
 
+    ChainConfig memory fantom = ChainConfig({
+        id: 12,
+        lz: 0xb6319cC6c8c27A8F5dAF0dD3DF91EA35C4720dd7,
+        sg: 0xAf5191B0De278C7286d6C7CC6ab6BB8A73bA2Cd6,
+        usdc: StargateToken({
+            addr: 0x04068DA6C83AFCFA0e13ba15A6696662335D5B75,
+            poolId: 1
+        })
+    });
+
     return
         Chains({
             optimism: optimism,
             arbitrum: arbitrum,
             polygon: polygon,
-            avax: avax
+            avax: avax,
+            fantom: fantom
         });
 }
 
@@ -151,11 +166,22 @@ function getChains_test() pure returns (Chains memory) {
         })
     });
 
+    ChainConfig memory ftmTest = ChainConfig({
+        id: 10012,
+        lz: 0x7dcAD72640F835B0FA36EFD3D6d3ec902C7E5acf,
+        sg: 0xa73b0a56B29aD790595763e71505FCa2c1abb77f,
+        usdc: StargateToken({
+            addr: 0x076488D244A73DA4Fa843f5A8Cd91F655CA81a1e,
+            poolId: 1
+        })
+    });
+
     return
         Chains({
             optimism: optimismKovan,
             arbitrum: arbitrumRinkeby,
             polygon: polygonMumbai,
-            avax: avaxFuji
+            avax: avaxFuji,
+            fantom: ftmTest
         });
 }
