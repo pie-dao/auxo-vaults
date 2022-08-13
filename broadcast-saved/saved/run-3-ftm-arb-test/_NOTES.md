@@ -11,10 +11,30 @@ Testnet TX between FTM Test <-> Arbitrum Rinkeby
 
 # Checklist
 
+## Fantom
 [x] Deploy/Setup Components
 [x] Deposit into Vault
 [x] Initiate XChainDeposit
-[] Receive XChainDeposit
+[x] Receive XChainDeposit
+[] Report underlying send
+[] Report underlying receive
+[] Initiate withdraw request
+[] Receive withdraw request
+[] Execute batch burn
+[] Exit batch burn
+[] Return tokens
+[] Receive tokens
+[] Withdraw to strategy
+[] Withdraw to Vault
+[] Withdraw to user
+
+## Arbitrum
+[x] Deploy/Setup Components
+[x] Deposit into Vault
+[x] Initiate XChainDeposit
+[x] Receive XChainDeposit
+[] Report underlying send
+[] Report underlying receive
 [] Initiate withdraw request
 [] Receive withdraw request
 [] Execute batch burn

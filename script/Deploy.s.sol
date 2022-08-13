@@ -28,55 +28,9 @@ import {IHubPayload} from "@interfaces/IHubPayload.sol";
 
 import "./Deployer.sol";
 import "./ChainConfig.sol";
+import "./DeployTemplates.sol";
 
-// Anvil unlocked account
-// address constant srcGovernor = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266;
-
-// my test account
-address constant srcGovernor = 0x63BCe354DBA7d6270Cb34dAA46B869892AbB3A79;
-
-contract Deploy is Script {
-    ChainConfig network;
-
-    /// *** SOURCE ***
-    uint16 public srcChainId;
-    ERC20 public srcToken;
-    IStargateRouter public srcRouter;
-    ILayerZeroEndpoint public srcLzEndpoint;
-    Deployer public srcDeployer;
-    VaultFactory public srcFactory;
-
-    /// @dev you might need to update these addresses
-    // Anvil unlocked account
-    address public srcStrategist = 0xeB959af810FEC83dE7021A77906ab3d9fDe567B1;
-    address public srcFeeCollector = 0xB50c633C6B0541ccCe0De36A57E7b30550CE51Ec;
-    address public srcRefundAddress =
-        0xB50c633C6B0541ccCe0De36A57E7b30550CE51Ec;
-
-    constructor(ChainConfig memory _network) {
-        network = _network;
-        srcChainId = network.id;
-        srcToken = ERC20(network.usdc.addr);
-        srcRouter = IStargateRouter(network.sg);
-        srcLzEndpoint = ILayerZeroEndpoint(network.lz);
-    }
-
-    function _runSetup() internal {
-        vm.startBroadcast(srcGovernor);
-        srcDeployer = deployAuthAndDeployerNoOwnershipTransfer(
-            srcChainId,
-            srcToken,
-            srcRouter,
-            network.lz,
-            srcGovernor,
-            srcStrategist,
-            srcRefundAddress
-        );
-
-        deployVaultHubStrat(srcDeployer);
-        vm.stopBroadcast();
-    }
-}
+/// @dev Configure here deploy scripts for specific networks
 
 contract DeployArbitrumRinkeby is Script, Deploy {
     constructor() Deploy(getChains_test().arbitrum) {}
@@ -219,24 +173,6 @@ contract DepositPrepareArbitrumToFTMTest is Script {
     }
 }
 
-interface IMintable is IERC20 {
-    function mint(address _to, uint256 _amount) external;
-}
-
-abstract contract Deposit is Script, Deploy {
-    function depositToVault() public {
-        uint256 balance = srcToken.balanceOf(msg.sender);
-        uint256 baseUnit = 10**srcToken.decimals();
-        Vault vault = srcDeployer.vaultProxy();
-        if (balance < baseUnit * 1000) {
-            // if no tokens, send a milly
-            IMintable(address(srcToken)).mint(msg.sender, baseUnit * 1e6);
-        }
-        srcToken.approve(address(vault), type(uint256).max);
-        vault.deposit(srcGovernor, 1e3 * baseUnit);
-    }
-}
-
 contract DepositIntoAvaxVaultTest is Script, Deploy, Deposit {
     constructor() Deploy(getChains_test().avax) {
         srcDeployer = Deployer(getDeployers_test().avax);
@@ -272,63 +208,6 @@ contract DepositIntoFTMVaultTest is Script, Deploy, Deposit {
         vm.startBroadcast(srcGovernor);
         depositToVault();
         vm.stopBroadcast();
-    }
-}
-
-abstract contract XChainDeposit is Script, Deploy {
-    address public dstVault;
-    address public dstHub;
-    ChainConfig public dst;
-
-    function deposit() public {
-        require(dstVault != address(0), "INIT VAULT");
-        require(dstHub != address(0), "INIT HUB");
-
-        uint256 baseUnit = 10**srcToken.decimals();
-        uint256 amt = 1000 * baseUnit;
-        uint256 min = (amt * 995) / 1000;
-
-        depositIntoStrategy(srcDeployer, amt);
-
-        XChainStrategy strategy = srcDeployer.strategy();
-
-        IHubPayload.Message memory message = IHubPayload.Message({
-            action: srcDeployer.hub().DEPOSIT_ACTION(),
-            payload: abi.encode(
-                IHubPayload.DepositPayload({
-                    vault: dstVault,
-                    strategy: address(strategy),
-                    amountUnderyling: amt,
-                    min: min
-                })
-            )
-        });
-
-        (uint256 feeEstimate, ) = srcRouter.quoteLayerZeroFee(
-            dst.id,
-            1, // function type
-            abi.encodePacked(dstHub), // where to go
-            abi.encode(message), // payload
-            IStargateRouter.lzTxObj({
-                dstGasForCall: 200_000,
-                dstNativeAmount: 0,
-                dstNativeAddr: abi.encodePacked(address(0x0))
-            })
-        );
-        console.log("Fee Estimate", feeEstimate);
-
-        strategy.depositUnderlying{value: feeEstimate}(
-            XChainStrategy.DepositParams({
-                amount: amt,
-                minAmount: min,
-                dstChain: dst.id,
-                srcPoolId: network.usdc.poolId,
-                dstPoolId: dst.usdc.poolId,
-                dstHub: dstHub,
-                dstVault: dstVault,
-                refundAddress: payable(srcGovernor)
-            })
-        );
     }
 }
 
@@ -388,6 +267,69 @@ contract XChainDepositFTMToArbitrumTest is Script, Deploy, XChainDeposit {
     function run() public {
         vm.startBroadcast(srcGovernor);
         deposit();
+        vm.stopBroadcast();
+    }
+}
+
+contract XChainReportFTMToArbitrumTest is Script, Deploy {
+    uint16[] chainsToReport;
+    address[] strategiesToReport;
+
+    constructor() Deploy(getChains_test().fantom) {
+        srcDeployer = Deployer(getDeployers_test().fantom);
+        chainsToReport.push(getChains_test().arbitrum.id);
+        strategiesToReport.push(0x22b0f6CAfE4b6E0ef2807a28DF50AdeeF30b890a);
+    }
+
+    function run() public {
+        vm.startBroadcast(srcGovernor);
+
+        srcDeployer.hub().lz_reportUnderlying(
+            IVault(address(srcDeployer.vaultProxy())),
+            chainsToReport,
+            strategiesToReport,
+            bytes("")
+        );
+
+        vm.stopBroadcast();
+    }
+}
+
+contract XChainReportArbitrumToFTMTest is Script, Deploy {
+    uint16[] chainsToReport;
+    address[] strategiesToReport;
+
+    constructor() Deploy(getChains_test().arbitrum) {
+        srcDeployer = Deployer(getDeployers_test().arbitrum);
+        chainsToReport.push(getChains_test().fantom.id);
+        strategiesToReport.push(0xcb57577a43A38A59C90dB5C8E1924aE78F84f03F);
+    }
+
+    function run() public {
+        vm.startBroadcast(srcGovernor);
+
+        // address _userApplication = address(lz);
+        // bytes memory _payload = abi.encodePacked(uint256(100));
+        // bool _payInZRO = false;
+        // bytes memory _adapterParam = bytes("");
+
+        // (uint256 nativeFee, ) = srcDeployer.lzEndpoint().estimateFees(
+        //     _dstChainId,
+        //     _userApplication,
+        //     _payload,
+        //     false, // pay in zro
+        //     _adapterParam
+        // );
+
+        console.log("XChainReport::LayerZeroFeeEstimate:", nativeFee);
+
+        srcDeployer.hub().lz_reportUnderlying(
+            IVault(address(srcDeployer.vaultProxy())),
+            chainsToReport,
+            strategiesToReport,
+            bytes("")
+        );
+
         vm.stopBroadcast();
     }
 }

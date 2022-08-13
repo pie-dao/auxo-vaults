@@ -144,6 +144,19 @@ xchain-deposit-ftm-arbitrum-test :; forge script script/Deploy.s.sol:XChainDepos
 	--rpc-url https://rpc.testnet.fantom.network/ \
 	-vvvv 
 
+# Stage 5: Update remote hubs with strategy report
+xchain-report-arbitrum-ftm-test :; forge script script/Deploy.s.sol:XChainReportArbitrumToFTMTest \
+	--private-key ${PRIVATE_KEY_TEST_ACCOUNT} \
+	--rpc-url https://arbitrum-rinkeby.infura.io/v3/${INFURA_API_KEY} \
+	-vvvv 
+
+xchain-report-ftm-arbitrum-test :; forge script script/Deploy.s.sol:XChainReportFTMToArbitrumTest \
+	--private-key ${PRIVATE_KEY_TEST_ACCOUNT} \
+	--rpc-url https://rpc.testnet.fantom.network/ \
+	-vvvv 
+
+
+
 
 
 ### -------- FORK Operations ---------- ####
