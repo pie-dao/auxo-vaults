@@ -1,14 +1,14 @@
-Testnet TX between FTM Test <-> Arbitrum Rinkeby
+Testnet TX between FTM Test <-> Avax Fuju
 
 1000 USDC was sent each way.
 
-This failed due to a bug in the contract: the request withdraw method was not marked as payable.
+Completed
 
 # Deployer addresses
 
-[Arbitrum Rinkeby](https://testnet.arbiscan.io/address/0xb0509dcf35d1683e398bb42069dc19ac472747ea#readContract)
+[Avax Fuji](https://testnet.snowtrace.io/address/0xE6489A6a6D85e5BCC2CE0f64BF76cA073892E344#readContract)
 
-[Fantom Testnet](https://testnet.ftmscan.com/address/0xb5eb2afe697e4cadbefa385104b52234ad871266#readContract)
+[Fantom Testnet](https://testnet.ftmscan.com/address/0xE4F4290eFf20e4d0eef7AB43c3d139d078F6c0f2#readContract)
 
 # Notes and areas for improvement
 
@@ -19,6 +19,13 @@ This failed due to a bug in the contract: the request withdraw method was not ma
 * The deployer is handy, but an offchain executor and registry would be the cheapest and easiest way to handle all addresses
 
 * We need to check refund address and amounts - where do they go?
+
+* You lose bits and pieces of underlying due to fees, can all get quite hard to keep track of
+
+// Check this...
+* Reporting *might* be able to brick things on the strat side:
+    * Call report too early and it'll reject
+    * Call report before tokens removed, tokens can't be removed
 
 # Checklist
 
@@ -31,17 +38,16 @@ This failed due to a bug in the contract: the request withdraw method was not ma
 [x] Report underlying send
 [x] Report underlying receive
 [x] Set vault as exiting
-[] Initiate withdraw request
-[] Receive withdraw request
-[] Execute batch burn
-[] Exit batch burn
-[] Return tokens
-[] Receive tokens
-[] Withdraw to strategy
+[x] Initiate withdraw request
+[x] Receive withdraw request
+[x] Exit Vault
+[x] Return tokens
+[x] Receive tokens
+[x] Withdraw to strategy
 [] Withdraw to Vault
 [] Withdraw to user
 
-## Arbitrum
+## Avax
 
 [x] Deploy/Setup Components
 [x] Deposit into Vault
@@ -50,12 +56,10 @@ This failed due to a bug in the contract: the request withdraw method was not ma
 [x] Report underlying send
 [x] Report underlying receive
 [x] Set vault as exiting
-[] Initiate withdraw request
-[] Receive withdraw request
-[] Execute batch burn
-[] Exit batch burn
-[] Return tokens
-[] Receive tokens
-[] Withdraw to strategy
-[] Withdraw to Vault
-[] Withdraw to user
+[x] Initiate withdraw request
+[x] Receive withdraw request
+[x] Exit Vault
+[x] Return tokens
+[x] Receive tokens
+[x] Withdraw to strategy
+[x] Withdraw to Vault

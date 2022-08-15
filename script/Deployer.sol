@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity ^0.8.12;
+
 pragma abicoder v2;
 
 import "@std/console.sol";
@@ -15,7 +16,8 @@ import {XChainHubSingle} from "@hub/XChainHubSingle.sol";
 import {Vault} from "@vaults/Vault.sol";
 import {VaultFactory} from "@vaults/factory/VaultFactory.sol";
 
-import {MultiRolesAuthority} from "@vaults/auth/authorities/MultiRolesAuthority.sol";
+import {MultiRolesAuthority} from
+    "@vaults/auth/authorities/MultiRolesAuthority.sol";
 import {Authority} from "@vaults/auth/Auth.sol";
 
 import {IVault} from "@interfaces/IVault.sol";
@@ -69,7 +71,9 @@ function deployAuthAndDeployer(
     address _governor,
     address _strategist,
     address _refundAddress
-) returns (Deployer) {
+)
+    returns (Deployer)
+{
     VaultFactory factory = new VaultFactory();
 
     // We deploy these outside the srcDeployer because these components will exist already
@@ -104,7 +108,9 @@ function deployAuthAndDeployerNoOwnershipTransfer(
     address _governor,
     address _strategist,
     address _refundAddress
-) returns (Deployer) {
+)
+    returns (Deployer)
+{
     VaultFactory factory = new VaultFactory();
 
     // We deploy these outside the srcDeployer because these components will exist already
@@ -136,11 +142,9 @@ function deployVaultHubStrat(Deployer _deployer) {
 
 /// @notice deploys components before
 /// @param _chainId of the chain the router is deployed on (used as srcChainId)
-function deployExternal(
-    uint16 _chainId,
-    address _feeCollector,
-    ERC20 token
-) returns (IStargateRouter, ERC20) {
+function deployExternal(uint16 _chainId, address _feeCollector, ERC20 token)
+    returns (IStargateRouter, ERC20)
+{
     StargateRouterMock mockRouter = new StargateRouterMock(
         _chainId,
         _feeCollector
@@ -192,7 +196,9 @@ function _deployVault(
     ERC20 _underlying,
     address _governor,
     VaultFactory _factory
-) returns (Vault, Vault) {
+)
+    returns (Vault, Vault)
+{
     require(address(_auth) != address(0), "deployVault::Auth Not Set");
     require(address(_underlying) != address(0), "token Not Set");
     require(_governor != address(0), "gov Not Set");
@@ -200,12 +206,7 @@ function _deployVault(
     Vault implementation = new Vault();
     _factory.setImplementation(address(implementation));
     return (
-        _factory.deployVault(
-            address(_underlying),
-            address(_auth),
-            _governor,
-            _governor
-        ),
+        _factory.deployVault(address(_underlying), address(_auth), _governor, _governor),
         implementation
     );
 }
@@ -213,8 +214,7 @@ function _deployVault(
 function deployXChainHub(Deployer _deployer) {
     require(address(_deployer.router()) != address(0), "Not set sg endpoint");
     require(
-        address(_deployer.lzEndpoint()) != address(0),
-        "Not set lz endpoint"
+        address(_deployer.lzEndpoint()) != address(0), "Not set lz endpoint"
     );
     require(_deployer.refundAddress() != address(0), "Not set governor");
     XChainHub hub = new XChainHub(
@@ -227,14 +227,8 @@ function deployXChainHub(Deployer _deployer) {
 
 function deployXChainStrategy(Deployer _deployer, string memory _name) {
     require(address(_deployer.hub()) != address(0), "Not set hub");
-    require(
-        address(_deployer.vaultProxy()) != address(0),
-        "Not set VaultProxy"
-    );
-    require(
-        address(_deployer.underlying()) != address(0),
-        "Not set Underlying"
-    );
+    require(address(_deployer.vaultProxy()) != address(0), "Not set VaultProxy");
+    require(address(_deployer.underlying()) != address(0), "Not set Underlying");
     require(_deployer.governor() != address(0), "Not set mgr");
     require(_deployer.strategist() != address(0), "Not set strat");
     XChainStrategy strategy = new XChainStrategy(
@@ -397,7 +391,10 @@ contract Deployer is DeployerState {
         vaultImpl = _impl;
     }
 
-    function setXChainHub(XChainHub _hub) public notZeroAddress(address(_hub)) {
+    function setXChainHub(XChainHub _hub)
+        public
+        notZeroAddress(address(_hub))
+    {
         hub = _hub;
     }
 
@@ -443,7 +440,9 @@ contract Deployer is DeployerState {
 
         auth.setUserRole(governor, GOV_ROLE, true);
 
-        if (_transferOwnership) auth.setUserRole(address(this), GOV_ROLE, true);
+        if (_transferOwnership) {
+            auth.setUserRole(address(this), GOV_ROLE, true);
+        }
 
         _setCapabilities();
     }
@@ -452,14 +451,16 @@ contract Deployer is DeployerState {
         uint16 _dstChainId,
         address _dstHub,
         address _remoteStrategy
-    ) external {
+    )
+        external
+    {
         _prepareVault();
         _prepareHub(_dstChainId, _dstHub, _remoteStrategy);
     }
 
     function getUnits() public view returns (uint8, uint256) {
         uint8 decimals = vaultProxy.underlying().decimals();
-        uint256 baseUnit = 10**decimals;
+        uint256 baseUnit = 10 ** decimals;
         return (decimals, baseUnit);
     }
 
@@ -475,7 +476,9 @@ contract Deployer is DeployerState {
         uint16 _dstChainId,
         address _dstHub,
         address _remoteStrategy
-    ) internal {
+    )
+        internal
+    {
         hub.setTrustedRemote(_dstChainId, abi.encodePacked(_dstHub));
         hub.setTrustedVault(address(vaultProxy), true);
         /// @dev this really highlights a weakness in the vault checks
@@ -516,8 +519,9 @@ function setupRoles(Deployer _d, bool _transferOwnership) {
 
     _d.auth().setUserRole(_d.governor(), _d.GOV_ROLE(), true);
 
-    if (_transferOwnership)
+    if (_transferOwnership) {
         _d.auth().setUserRole(msg.sender, _d.GOV_ROLE(), true);
+    }
 
     _setCapabilities(_d);
 }
@@ -534,7 +538,7 @@ function prepareDeposit(
 
 function getUnits(Deployer _d) view returns (uint8, uint256) {
     uint8 decimals = _d.vaultProxy().underlying().decimals();
-    uint256 baseUnit = 10**decimals;
+    uint256 baseUnit = 10 ** decimals;
     return (decimals, baseUnit);
 }
 
@@ -563,8 +567,5 @@ function _prepareHub(
 }
 
 function depositIntoStrategy(Deployer _d, uint256 _amt) {
-    _d.vaultProxy().depositIntoStrategy(
-        IStrategy(address(_d.strategy())),
-        _amt
-    );
+    _d.vaultProxy().depositIntoStrategy(IStrategy(address(_d.strategy())), _amt);
 }

@@ -223,7 +223,7 @@ contract XChainStrategy is BaseStrategy, XChainStrategyEvents {
         address payable refundAddress,
         uint16 dstChain,
         address dstVault
-    ) external {
+    ) external payable {
         require(
             msg.sender == manager || msg.sender == strategist,
             "XChainStrategy::startRequestToWithdrawUnderlying:UNAUTHORIZED"
@@ -236,7 +236,7 @@ contract XChainStrategy is BaseStrategy, XChainStrategyEvents {
 
         state = WITHDRAWING;
 
-        hub.lz_requestWithdrawFromChain(
+        hub.lz_requestWithdrawFromChain{value: msg.value}(
             dstChain,
             dstVault,
             amountVaultShares,

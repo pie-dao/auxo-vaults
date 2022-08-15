@@ -8,7 +8,8 @@ import {PRBTest} from "@prb/test/PRBTest.sol";
 
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {ERC20} from "@oz/token/ERC20/ERC20.sol";
-import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import {TransparentUpgradeableProxy} from
+    "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 import {AuxoTest} from "@hub-test/mocks/MockERC20.sol";
 
@@ -17,7 +18,8 @@ import {XChainHub} from "@hub/XChainHub.sol";
 import {XChainHubSingle} from "@hub/XChainHubSingle.sol";
 import {Vault} from "@vaults/Vault.sol";
 import {VaultFactory} from "@vaults/factory/VaultFactory.sol";
-import {MultiRolesAuthority} from "@vaults/auth/authorities/MultiRolesAuthority.sol";
+import {MultiRolesAuthority} from
+    "@vaults/auth/authorities/MultiRolesAuthority.sol";
 import {Authority} from "@vaults/auth/Auth.sol";
 
 import {IVault} from "@interfaces/IVault.sol";
@@ -40,8 +42,7 @@ contract E2EAuthTest is PRBTest {
     address private srcRefundAddress =
         0xC8834c2084F565527D40e7D48415dc10F6f9985F;
     address private strategist = 0xeB959af810FEC83dE7021A77906ab3d9fDe567B1;
-    address private srcFeeCollector =
-        0xB50c633C6B0541ccCe0De36A57E7b30550CE51Ec;
+    address private srcFeeCollector = 0xB50c633C6B0541ccCe0De36A57E7b30550CE51Ec;
 
     uint16 private srcChainId = 10001;
 
@@ -49,11 +50,8 @@ contract E2EAuthTest is PRBTest {
         sharedToken = new AuxoTest();
         loadSigs();
 
-        (srcRouter, srcToken) = deployExternal(
-            srcChainId,
-            srcFeeCollector,
-            sharedToken
-        );
+        (srcRouter, srcToken) =
+            deployExternal(srcChainId, srcFeeCollector, sharedToken);
 
         vm.startPrank(governor);
         deployer = deployAuthAndDeployer(

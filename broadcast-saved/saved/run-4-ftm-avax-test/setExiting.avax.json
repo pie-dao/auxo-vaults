@@ -1,0 +1,45 @@
+{
+    "transactions": [
+      {
+        "hash": "0x9bfce994e51bda81b0aa49501715bf54d3c1fbd42149e830d2e561c8fae19add",
+        "transactionType": "CALL",
+        "contractName": null,
+        "contractAddress": "0xa340852ce199c0acd58f21cbf300a3f44595907e",
+        "function": null,
+        "arguments": null,
+        "transaction": {
+          "type": "0x02",
+          "from": "0x63bce354dba7d6270cb34daa46b869892abb3a79",
+          "to": "0xa340852ce199c0acd58f21cbf300a3f44595907e",
+          "gas": "0xfaa6",
+          "value": "0x0",
+          "data": "0xa651cdd400000000000000000000000079cfbb5d5c554bddb5d8e3038ce371e5a935b5f20000000000000000000000000000000000000000000000000000000000000001",
+          "nonce": "0x70",
+          "accessList": []
+        }
+      }
+    ],
+    "receipts": [
+      {
+        "transactionHash": "0x9bfce994e51bda81b0aa49501715bf54d3c1fbd42149e830d2e561c8fae19add",
+        "transactionIndex": "0x0",
+        "blockHash": "0x6c6358c7b07000a23b5cc32bdd02c589e7387950cfdee3a9b73d2a8a5871842f",
+        "blockNumber": "0xbf8469",
+        "from": "0x63bce354dba7d6270cb34daa46b869892abb3a79",
+        "to": "0xa340852ce199c0acd58f21cbf300a3f44595907e",
+        "cumulativeGasUsed": "0xb578",
+        "gasUsed": "0xb578",
+        "contractAddress": null,
+        "logs": [],
+        "status": "0x1",
+        "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+        "type": "0x2",
+        "effectiveGasPrice": "0x684ee1800"
+      }
+    ],
+    "libraries": [],
+    "pending": [],
+    "path": "broadcast/Deploy.s.sol/43113/run-latest.json",
+    "returns": {},
+    "timestamp": 1660551960
+  }

@@ -56,11 +56,11 @@ function getDeployers() pure returns (Deployers memory) {
 function getDeployers_test() pure returns (Deployers memory) {
     return
         Deployers({
-            avax: 0xB14F1b2ddb80eb8CF57dD77EFE48e493088232F8,
+            avax: 0xE6489A6a6D85e5BCC2CE0f64BF76cA073892E344,
             polygon: address(0),
             optimism: address(0),
-            arbitrum: 0xB0509dcf35D1683e398BB42069Dc19aC472747ea,
-            fantom: 0xB5EB2afe697e4CaDbEfa385104b52234ad871266
+            arbitrum: 0xB0509dcf35D1683e398BB42069Dc19aC472747ea, /// OOD
+            fantom: 0xE4F4290eFf20e4d0eef7AB43c3d139d078F6c0f2
         });
 }
 

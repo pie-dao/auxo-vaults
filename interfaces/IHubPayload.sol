@@ -38,8 +38,8 @@ interface IHubPayload {
         uint256 min;
     }
 
-    /// @param vault on the dst chain
-    /// @param strategy (to withdraw from?)
+    /// @param vault from where the funds were sent
+    /// @param strategy that originally made the withdrawal
     struct FinalizeWithdrawPayload {
         address vault;
         address strategy;

@@ -18,7 +18,8 @@ import {XChainHub} from "@hub/XChainHub.sol";
 import {XChainHubSingle} from "@hub/XChainHubSingle.sol";
 import {Vault} from "@vaults/Vault.sol";
 import {VaultFactory} from "@vaults/factory/VaultFactory.sol";
-import {MultiRolesAuthority} from "@vaults/auth/authorities/MultiRolesAuthority.sol";
+import {MultiRolesAuthority} from
+    "@vaults/auth/authorities/MultiRolesAuthority.sol";
 import {Authority} from "@vaults/auth/Auth.sol";
 
 import {IVault} from "@interfaces/IVault.sol";
@@ -52,8 +53,7 @@ contract Deploy is Script {
     // Anvil unlocked account
     address public srcStrategist = 0xeB959af810FEC83dE7021A77906ab3d9fDe567B1;
     address public srcFeeCollector = 0xB50c633C6B0541ccCe0De36A57E7b30550CE51Ec;
-    address public srcRefundAddress =
-        0xB50c633C6B0541ccCe0De36A57E7b30550CE51Ec;
+    address public srcRefundAddress = 0xB50c633C6B0541ccCe0De36A57E7b30550CE51Ec;
 
     constructor(ChainConfig memory _network) {
         network = _network;
@@ -87,7 +87,7 @@ interface IMintable is IERC20 {
 abstract contract Deposit is Script, Deploy {
     function depositToVault() public {
         uint256 balance = srcToken.balanceOf(msg.sender);
-        uint256 baseUnit = 10**srcToken.decimals();
+        uint256 baseUnit = 10 ** srcToken.decimals();
         Vault vault = srcDeployer.vaultProxy();
         if (balance < baseUnit * 1000) {
             // if no tokens, send a milly
@@ -107,7 +107,7 @@ abstract contract XChainDeposit is Script, Deploy {
         require(dstVault != address(0), "INIT VAULT");
         require(dstHub != address(0), "INIT HUB");
 
-        uint256 baseUnit = 10**srcToken.decimals();
+        uint256 baseUnit = 10 ** srcToken.decimals();
         uint256 amt = 1000 * baseUnit;
         uint256 min = (amt * 995) / 1000;
 
@@ -123,6 +123,155 @@ abstract contract XChainDeposit is Script, Deploy {
                     strategy: address(strategy),
                     amountUnderyling: amt,
                     min: min
+                })
+                )
+        });
+
+        (uint256 feeEstimate,) = srcRouter.quoteLayerZeroFee(
+            dst.id,
+            1, // function type
+            abi.encodePacked(dstHub), // where to go
+            abi.encode(message), // payload
+            IStargateRouter.lzTxObj({
+                dstGasForCall: 200_000,
+                dstNativeAmount: 0,
+                dstNativeAddr: abi.encodePacked(address(0x0))
+            })
+        );
+        console.log("Fee Estimate", feeEstimate);
+
+        // if (feeEstimate > 0.1 ether) feeEstimate = 0.1 ether;
+
+        strategy.depositUnderlying{value: feeEstimate}(
+            XChainStrategy.DepositParams({
+                amount: amt,
+                minAmount: min,
+                dstChain: dst.id,
+                srcPoolId: network.usdc.poolId,
+                dstPoolId: dst.usdc.poolId,
+                dstHub: dstHub,
+                dstVault: dstVault,
+                refundAddress: payable(srcGovernor)
+            })
+        );
+    }
+}
+
+abstract contract XChainReport is Script, Deploy {
+    uint16[] chainsToReport;
+    address[] strategiesToReport;
+    address dstStrategy;
+    ChainConfig dst;
+
+    function _report() internal {
+        require(dstStrategy != address(0x0), "XChainReport::SET STRATEGY");
+
+        IHubPayload.Message memory message = IHubPayload.Message({
+            action: srcDeployer.hub().REPORT_UNDERLYING_ACTION(),
+            payload: abi.encode(
+                IHubPayload.ReportUnderlyingPayload({
+                    strategy: dstStrategy,
+                    // uint for fee estimate only
+                    amountToReport: type(uint256).max
+                })
+                )
+        });
+
+        bytes memory adapterParams = abi.encodePacked(
+            uint16(2), // endpoint version
+            uint256(200_000), // gas (default)
+            uint256(0), // airdrop qty
+            address(0) // airdrop address
+        );
+
+        (uint256 feeEstimate,) = ILayerZeroEndpoint(srcDeployer.lzEndpoint())
+            .estimateFees(
+            dst.id, // destination chain id
+            address(srcDeployer.hub()), // address of *calling* contract
+            abi.encode(message), // payload
+            false, // pay in zro
+            adapterParams
+        );
+        
+        console.log("XChainReport::LayerZeroFeeEstimate:", feeEstimate);
+
+        srcDeployer.hub().lz_reportUnderlying{value: feeEstimate}(
+            IVault(address(srcDeployer.vaultProxy())),
+            chainsToReport,
+            strategiesToReport,
+            adapterParams
+        );
+    }
+}
+
+abstract contract XChainRequestWithdraw is Script, Deploy {
+        ChainConfig dst;
+        address dstVault;
+
+        function _request() internal {
+        require(dstVault != address(0x0), "XChainReport::SET VAULT");
+
+        XChainStrategy strategy = srcDeployer.strategy();
+
+        IHubPayload.Message memory message = IHubPayload.Message({
+            action: srcDeployer.hub().REPORT_UNDERLYING_ACTION(),
+            payload: abi.encode(
+                IHubPayload.RequestWithdrawPayload({
+                    vault: dstVault,
+                    strategy: address(strategy),
+                    // uint for fee estimate only
+                    amountVaultShares: type(uint256).max
+                })
+                )
+        });
+
+        bytes memory adapterParams = abi.encodePacked(
+            uint16(2), // endpoint version
+            uint256(200_000), // gas (default)
+            uint256(0), // airdrop qty
+            address(0) // airdrop address
+        );
+
+        (uint256 feeEstimate,) = ILayerZeroEndpoint(srcDeployer.lzEndpoint())
+            .estimateFees(
+            dst.id, // destination chain id
+            address(srcDeployer.hub()), // address of *calling* contract
+            abi.encode(message), // payload
+            false, // pay in zro
+            adapterParams
+        );
+        
+        console.log("XChainWithdrawalRequest::LayerZeroFeeEstimate:", feeEstimate);
+
+        strategy.startRequestToWithdrawUnderlying{value:feeEstimate}(
+            strategy.reportedUnderlying(),
+            bytes(""),
+            payable(srcDeployer.refundAddress()),
+            dst.id,
+            dstVault
+        );
+    }
+}
+
+abstract contract XChainFinalize is Script, Deploy {
+    ChainConfig dst;
+    address dstStrategy;
+    address dstHub;
+
+    function _finalize() internal {
+        require(dstStrategy != address(0), "INIT Strat");
+        require(dstHub != address(0), "INIT Hub");
+
+        Vault vault = srcDeployer.vaultProxy();
+        uint256 amt = 999 * (10 ** vault.underlying().decimals());
+        uint256 min = (amt * 99) / 100;
+
+        IHubPayload.Message memory message = IHubPayload.Message({
+            action: srcDeployer.hub().FINALIZE_WITHDRAW_ACTION(),
+            payload: abi.encode(
+                IHubPayload.FinalizeWithdrawPayload({
+                    vault: address(vault),
+                    strategy: dstStrategy
                 })
             )
         });
@@ -140,17 +289,14 @@ abstract contract XChainDeposit is Script, Deploy {
         );
         console.log("Fee Estimate", feeEstimate);
 
-        strategy.depositUnderlying{value: feeEstimate}(
-            XChainStrategy.DepositParams({
-                amount: amt,
-                minAmount: min,
-                dstChain: dst.id,
-                srcPoolId: network.usdc.poolId,
-                dstPoolId: dst.usdc.poolId,
-                dstHub: dstHub,
-                dstVault: dstVault,
-                refundAddress: payable(srcGovernor)
-            })
+        srcDeployer.hub().sg_finalizeWithdrawFromChain{value: feeEstimate}(
+            dst.id, // uint16 _dstChainId,
+            address(vault), // address _vault,
+            dstStrategy, // address _strategy,
+            min, // uint256 _minOutUnderlying,
+            network.usdc.poolId, // uint256 _srcPoolId,
+            dst.usdc.poolId, // uint256 _dstPoolId,
+            vault.batchBurnRound() // uint256 currentRound
         );
     }
 }
