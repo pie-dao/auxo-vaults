@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.12;
+
 pragma abicoder v2;
 
 import {PRBTest} from "@prb/test/PRBTest.sol";
@@ -42,11 +43,7 @@ contract TestXChainHubSrcAndDst is PRBTest, XChainHubEvents {
         hub.setVaultForChain(_attacker, 1);
     }
 
-    function testStrategyRevertsWithPending(
-        uint16 _srcChainId,
-        address _strategy,
-        uint256 _shares
-    ) public {
+    function testStrategyRevertsWithPending(uint16 _srcChainId, address _strategy, uint256 _shares) public {
         vm.assume(_shares > 0);
 
         // check passes first
@@ -64,27 +61,17 @@ contract TestXChainHubSrcAndDst is PRBTest, XChainHubEvents {
         hub.setStrategyForChain(_strategy, _srcChainId);
     }
 
-    function testSettingVaultRevertsWithPendiing(
-        uint16 _chain,
-        uint256 _shares,
-        address _strategy
-    ) public {
+    function testSettingVaultRevertsWithPendiing(uint16 _chain, uint256 _shares, address _strategy) public {
         vm.assume(_shares > 0);
         vm.assume(_strategy != address(0));
 
         hub.setStrategyForChain(_strategy, _chain);
-        vault.setBatchBurnReceiptsForSender(
-            _strategy,
-            MockVault.BatchBurnReceipt({shares: _shares, round: 0})
-        );
+        vault.setBatchBurnReceiptsForSender(_strategy, MockVault.BatchBurnReceipt({shares: _shares, round: 0}));
 
         vm.expectRevert("XChainHub::setVaultForChain:NOT EMPTY");
         hub.setVaultForChain(address(vault), _chain);
 
-        vault.setBatchBurnReceiptsForSender(
-            _strategy,
-            MockVault.BatchBurnReceipt({shares: 0, round: 0})
-        );
+        vault.setBatchBurnReceiptsForSender(_strategy, MockVault.BatchBurnReceipt({shares: 0, round: 0}));
         vault.mint(_strategy, _shares);
 
         vm.expectRevert("XChainHub::setVaultForChain:NOT EMPTY");
@@ -96,11 +83,10 @@ contract TestXChainHubSrcAndDst is PRBTest, XChainHubEvents {
         uint256 _amount,
         uint16 _srcChainId,
         address _strategy
-    ) public {
-        vault.setBatchBurnReceiptsForSender(
-            _strategy,
-            MockVault.BatchBurnReceipt({shares: 0, round: 0})
-        );
+    )
+        public
+    {
+        vault.setBatchBurnReceiptsForSender(_strategy, MockVault.BatchBurnReceipt({shares: 0, round: 0}));
 
         hub.setStrategyForChain(_strategy, _srcChainId);
         hub.setVaultForChain(address(vault), _srcChainId);
@@ -114,7 +100,6 @@ contract TestXChainHubSrcAndDst is PRBTest, XChainHubEvents {
         assertEq(hub.srcChainId(), _srcChainId);
         assertEq(hub.amountReceived(), _amount);
 
-        assertEq(hub.min(), _payload.min);
         assertEq(hub.strategy(), _strategy);
         assertEq(hub.vault(), address(vault));
     }

@@ -19,6 +19,7 @@ import "@std/console.sol";
 import {XChainHub} from "@hub/XChainHub.sol";
 import {BaseStrategy} from "@hub/strategy/BaseStrategy.sol";
 import {XChainStrategyEvents} from "@hub/strategy/XChainStrategyEvents.sol";
+import {CallFacet} from "@hub/CallFacet.sol";
 
 import {IVault} from "@interfaces/IVault.sol";
 import {IXChainHub} from "@interfaces/IXChainHub.sol";
@@ -28,14 +29,14 @@ import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 /// @title A Cross Chain Strategy enabled to use Stargate Finance
 /// @notice Handles interactions with the Auxo cross chain hub
 /// @dev how to manage the names of this - filename?
-contract XChainStrategy is BaseStrategy, XChainStrategyEvents {
+contract XChainStrategy is BaseStrategy, XChainStrategyEvents, CallFacet {
     using SafeERC20 for IERC20;
 
     /// ------------------
     /// Structs
     /// ------------------
 
-    /// @dev stack too deep fix
+    /// @dev Passing params in struct addresses stack too deep issues
     struct DepositParams {
         uint256 amount;
         uint256 minAmount;
@@ -45,6 +46,7 @@ contract XChainStrategy is BaseStrategy, XChainStrategyEvents {
         address dstHub;
         address dstVault;
         address payable refundAddress;
+        uint256 dstGas;
     }
 
     /// ------------------
@@ -147,7 +149,7 @@ contract XChainStrategy is BaseStrategy, XChainStrategyEvents {
         );
 
         require(
-            msg.value > 0,
+            msg.value > 0 && params.dstGas > 0,
             "XChainStrategy::depositUnderlying:NO GAS FOR FEES"
         );
 
@@ -171,7 +173,8 @@ contract XChainStrategy is BaseStrategy, XChainStrategyEvents {
             params.dstVault,
             amount,
             params.minAmount,
-            params.refundAddress
+            params.refundAddress,
+            params.dstGas
         );
 
         emit DepositXChain(
@@ -200,8 +203,6 @@ contract XChainStrategy is BaseStrategy, XChainStrategyEvents {
         state = DEPOSITED;
         amountWithdrawn += _amount;
 
-        underlying.safeTransferFrom(address(hub), address(this), _amount);
-
         // Here, we manually change the reported amount
         // because, otherwise the contract will keep a broken accounting until the next automated report
         // since (float + reportedUnderlying) would double count the _amount that we just withdrawn
@@ -210,19 +211,24 @@ contract XChainStrategy is BaseStrategy, XChainStrategyEvents {
         } else {
             reportedUnderlying -= _amount;
         }
+
+        underlying.safeTransferFrom(address(hub), address(this), _amount);
         emit WithdrawFromHub(address(hub), _amount);
     }
 
     /// @notice makes a request to the remote hub to begin the withdrawal process
-    /// @param amountVaultShares the quantity of vault shares to burn on the destination
+    /// @param _amountVaultShares the quantity of vault shares to burn on the destination
     /// @dev - should this be underlying?
-    /// @param adapterParams anything to send to the layerZero endpoint
+    /// @param _dstGas gas on the destination endpoint
+    /// @param _refundAddress refund additional gas not needed to address on this chain 
+    /// @param _dstChain layerZero chain id to send the message to
+    /// @param _dstVault vault address on the destination chain
     function startRequestToWithdrawUnderlying(
-        uint256 amountVaultShares,
-        bytes memory adapterParams,
-        address payable refundAddress,
-        uint16 dstChain,
-        address dstVault
+        uint256 _amountVaultShares,
+        uint256 _dstGas,
+        address payable _refundAddress,
+        uint16 _dstChain,
+        address _dstVault
     ) external payable {
         require(
             msg.sender == manager || msg.sender == strategist,
@@ -233,18 +239,16 @@ contract XChainStrategy is BaseStrategy, XChainStrategyEvents {
             state == DEPOSITED,
             "XChainStrategy::startRequestToWithdrawUnderlying:WRONG STATE"
         );
-
         state = WITHDRAWING;
 
         hub.lz_requestWithdrawFromChain{value: msg.value}(
-            dstChain,
-            dstVault,
-            amountVaultShares,
-            adapterParams,
-            refundAddress
+            _dstChain,
+            _dstVault,
+            _amountVaultShares,
+            _refundAddress,
+            _dstGas
         );
-
-        emit WithdrawRequestXChain(dstChain, dstVault, amountVaultShares);
+        emit WithdrawRequestXChain(_dstChain, _dstVault, _amountVaultShares);
     }
 
     /// @notice allows the hub to update the qty of tokens held in the account
@@ -265,8 +269,20 @@ contract XChainStrategy is BaseStrategy, XChainStrategyEvents {
         }
 
         if (state == DEPOSITING) state = DEPOSITED;
-
-        emit ReportXChain(reportedUnderlying, _reportedUnderlying);
         reportedUnderlying = _reportedUnderlying;
+        emit ReportXChain(reportedUnderlying, _reportedUnderlying);
+    }
+
+    /// @notice remove funds from the contract in the event that a revert locks them in
+    /// @dev use sweep for non-underlying tokens
+    /// @param _amount the quantity of tokens to remove
+    function emergencyWithdraw(uint256 _amount) external {
+        require(
+            msg.sender == manager,
+            "XChainStrategy::emergencyWithdraw:UNAUTHORIZED"
+        );
+        /// @dev - update reporting here
+        amountWithdrawn += _amount;
+        underlying.safeTransfer(msg.sender, _amount);
     }
 }

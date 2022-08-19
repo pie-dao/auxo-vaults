@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.12;
+
 pragma abicoder v2;
 
 import "@oz/token/ERC20/ERC20.sol";
@@ -28,7 +29,9 @@ contract MockXChainStrategy is XChainStrategy {
         address manager_,
         address strategist_,
         string memory name_
-    ) XChainStrategy(hub_, vault_, underlying_, manager_, strategist_, name_) {}
+    )
+        XChainStrategy(hub_, vault_, underlying_, manager_, strategist_, name_)
+    {}
 
     function setState(uint8 newState) external {
         state = newState;

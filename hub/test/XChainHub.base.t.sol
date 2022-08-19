@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.12;
+
 pragma abicoder v2;
 
 import {PRBTest} from "@prb/test/PRBTest.sol";
@@ -31,10 +32,11 @@ contract TestXChainHubSrc is PRBTest {
     MockStrat strat;
 
     address public lz;
-    address public refund;
+    address payable public refund;
     XChainHub public hub;
     address[] public strategies;
     uint16[] public dstChains;
+    uint256 public dstDefaultGas = 200_000;
     // random addr
     address private stratAddr = 0x4A1c900Ee1042dC2BA405821F0ea13CfBADCAb7B;
 
@@ -50,7 +52,7 @@ contract TestXChainHubSrc is PRBTest {
         (stargate, lz, refund) = (
             0x4A1c900Ee1042dC2BA405821F0ea13CfBADCAb7B,
             0x63BCe354DBA7d6270Cb34dAA46B869892AbB3A79,
-            0x675e75A6f90E0610d150f415e4406B4989AaD023
+            payable(0x675e75A6f90E0610d150f415e4406B4989AaD023)
         );
         hub = new XChainHub(stargate, lz, refund);
         hubMockActions = new XChainHubMockActions(stargate, lz, refund);
@@ -60,7 +62,6 @@ contract TestXChainHubSrc is PRBTest {
     function testInitialContractState() public {
         assertEq(address(hub.stargateRouter()), stargate);
         assertEq(address(hub.layerZeroEndpoint()), lz);
-        assertEq(address(hub.refundRecipient()), refund);
     }
 
     // test we can set/unset a trusted vault
@@ -93,7 +94,7 @@ contract TestXChainHubSrc is PRBTest {
         IVault iVault = IVault(address(vault));
         vm.startPrank(_notOwner);
         vm.expectRevert(onlyOwnerErr);
-        hub.lz_reportUnderlying(iVault, dstChains, strats, bytes(""));
+        hub.lz_reportUnderlying(iVault, dstChains, strats, dstDefaultGas, refund);
 
         vm.expectRevert(onlyOwnerErr);
         hub.setTrustedVault(vaultAddr, true);
@@ -108,11 +109,7 @@ contract TestXChainHubSrc is PRBTest {
         hub.emergencyWithdraw(1, address(token));
 
         vm.expectRevert(onlyOwnerErr);
-        hub.emergencyReducer(
-            1,
-            IHubPayload.Message({action: 1, payload: bytes("")}),
-            1
-        );
+        hub.emergencyReducer(1, IHubPayload.Message({action: 1, payload: bytes("")}), 1);
     }
 
     function testFinalizeWithdrawFromVault() public {
@@ -124,16 +121,10 @@ contract TestXChainHubSrc is PRBTest {
         token.transfer(address(vault), 1e26); // 1/2 balance
         assertEq(token.balanceOf(address(vault)), 1e26);
 
-        MockVault.BatchBurn memory batchBurn = MockVault.BatchBurn({
-            totalShares: 100 ether,
-            amountPerShare: 10**18
-        });
+        MockVault.BatchBurn memory batchBurn = MockVault.BatchBurn({totalShares: 100 ether, amountPerShare: 10 ** 18});
 
         // receipts are saved for previous rounds
-        MockVault.BatchBurnReceipt memory receipt = MockVault.BatchBurnReceipt({
-            round: _round - 1,
-            shares: 1e26
-        });
+        MockVault.BatchBurnReceipt memory receipt = MockVault.BatchBurnReceipt({round: _round - 1, shares: 1e26});
 
         _vault.setBatchBurnReceiptsForSender(address(hub), receipt);
         _vault.setBatchBurnRound(_round);

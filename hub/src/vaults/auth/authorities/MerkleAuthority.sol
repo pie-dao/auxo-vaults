@@ -14,7 +14,8 @@
 pragma solidity >=0.8.0;
 
 import {Authority, MultiRolesAuthority} from "./MultiRolesAuthority.sol";
-import {MerkleProofUpgradeable as MerkleProof} from "@openzeppelin/contracts-upgradeable/utils/cryptography/MerkleProofUpgradeable.sol";
+import {MerkleProofUpgradeable as MerkleProof} from
+    "@openzeppelin/contracts-upgradeable/utils/cryptography/MerkleProofUpgradeable.sol";
 
 /// @title MerkleAuth
 /// @author dantop114
@@ -62,11 +63,7 @@ contract MerkleAuth is MultiRolesAuthority {
 
     /// @notice Authorize a user using a proof.
     /// @dev This method can be called by anyone.
-    function authorize(
-        address toAuthorize,
-        uint8 role,
-        bytes32[] calldata proof
-    ) external {
+    function authorize(address toAuthorize, uint8 role, bytes32[] calldata proof) external {
         bytes32 root = merkleRoot;
         bytes32 node = keccak256(abi.encodePacked(toAuthorize, role));
 

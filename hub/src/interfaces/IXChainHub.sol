@@ -50,7 +50,9 @@ interface IXChainHub is IStargateReceiver {
         uint16[] memory dstChains,
         address[] memory strats,
         bytes memory adapterParams
-    ) external payable;
+    )
+        external
+        payable;
 
     /// @notice callable by strategy only
     /// @notice makes a deposit of the underyling token into the vault on a given chain
@@ -71,7 +73,9 @@ interface IXChainHub is IStargateReceiver {
         uint256 _amount,
         uint256 _minOut,
         address payable _refundAddress
-    ) external payable;
+    )
+        external
+        payable;
 
     /// @notice Only called by x-chain Strategy
     /// @dev IMPORTANT you need to add the dstHub as a trustedRemote on the src chain BEFORE calling
@@ -90,7 +94,9 @@ interface IXChainHub is IStargateReceiver {
         uint256 amountVaultShares,
         bytes memory adapterParams,
         address payable refundAddress
-    ) external payable;
+    )
+        external
+        payable;
 
     /// @notice provided a successful batch burn has been executed, sends a message to
     ///     a vault to release the underlying tokens to the strategy, on a given chain.
@@ -109,7 +115,9 @@ interface IXChainHub is IStargateReceiver {
         uint16 srcPoolId,
         uint16 dstPoolId,
         uint256 minOutUnderlying
-    ) external payable;
+    )
+        external
+        payable;
 
     // --------------------------
     //    Entrypoints
@@ -127,18 +135,16 @@ interface IXChainHub is IStargateReceiver {
         address _token,
         uint256 _amountLD,
         bytes memory _payload
-    ) external override;
+    )
+        external
+        override;
 
     /// @notice approve a strategy to withdraw tokens from the hub
     /// @dev call before withdrawing from the strategy
     /// @param _strategy the address of the XChainStrategy on this chain
     /// @param underlying the token
     /// @param _amount the quantity to approve
-    function approveWithdrawalForStrategy(
-        address _strategy,
-        IERC20 underlying,
-        uint256 _amount
-    ) external;
+    function approveWithdrawalForStrategy(address _strategy, IERC20 underlying, uint256 _amount) external;
 
     /// @notice calls the vault on the current chain to exit batch burn
     /// @param vault the vault on the same chain as the hub

@@ -20,7 +20,8 @@ import {SafeCastLib as SafeCast} from "./libraries/SafeCastLib.sol";
 import {FixedPointMathLib as FixedPointMath} from "./libraries/FixedPointMathLib.sol";
 import {ERC20Upgradeable as ERC20} from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import {PausableUpgradeable as Pausable} from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
-import {SafeERC20Upgradeable as SafeERC20} from "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
+import {SafeERC20Upgradeable as SafeERC20} from
+    "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
 
 /// @title Vault
 /// @author dantop114
@@ -237,33 +238,20 @@ contract Vault is ERC20, Pausable {
     /// @param round Batched burn round.
     /// @param account User's address.
     /// @param amount Amount of shares to be burned.
-    event EnterBatchBurn(
-        uint256 indexed round,
-        address indexed account,
-        uint256 amount
-    );
+    event EnterBatchBurn(uint256 indexed round, address indexed account, uint256 amount);
 
     /// @notice Emitted after a user exits a batched burn round.
     /// @param round Batched burn round.
     /// @param account User's address.
     /// @param amount Amount of underlying redeemed.
-    event ExitBatchBurn(
-        uint256 indexed round,
-        address indexed account,
-        uint256 amount
-    );
+    event ExitBatchBurn(uint256 indexed round, address indexed account, uint256 amount);
 
     /// @notice Emitted after a batched burn event happens.
     /// @param round Batched burn round.
     /// @param executor User that executes the batch burn.
     /// @param shares Total amount of burned shares.
     /// @param amount Total amount of underlying redeemed.
-    event ExecuteBatchBurn(
-        uint256 indexed round,
-        address indexed executor,
-        uint256 shares,
-        uint256 amount
-    );
+    event ExecuteBatchBurn(uint256 indexed round, address indexed executor, uint256 shares, uint256 amount);
 
     /// @notice Emitted after a successful harvest.
     /// @param account The harvester address.
@@ -274,21 +262,13 @@ contract Vault is ERC20, Pausable {
     /// @param account The address depositing funds into the strategy.
     /// @param strategy The strategy that was deposited into.
     /// @param underlyingAmount The amount of underlying tokens that were deposited.
-    event StrategyDeposit(
-        address indexed account,
-        IStrategy indexed strategy,
-        uint256 underlyingAmount
-    );
+    event StrategyDeposit(address indexed account, IStrategy indexed strategy, uint256 underlyingAmount);
 
     /// @notice Emitted after the Vault withdraws funds from a strategy contract.
     /// @param account The user pulling funds from the strategy
     /// @param strategy The strategy that was withdrawn from.
     /// @param underlyingAmount The amount of underlying tokens that were withdrawn.
-    event StrategyWithdrawal(
-        address indexed account,
-        IStrategy indexed strategy,
-        uint256 underlyingAmount
-    );
+    event StrategyWithdrawal(address indexed account, IStrategy indexed strategy, uint256 underlyingAmount);
 
     /// @notice Event emitted when the deposit limits are updated.
     /// @param perUser New underlying limit per address.
@@ -329,7 +309,10 @@ contract Vault is ERC20, Pausable {
         address burnFeeReceiver_,
         string memory name_,
         string memory symbol_
-    ) internal initializer {
+    )
+        internal
+        initializer
+    {
         // Initialize ERC20 trait.
         __ERC20_init(name_, symbol_);
 
@@ -341,7 +324,7 @@ contract Vault is ERC20, Pausable {
 
         // Initialize the storage.
         underlying = underlying_;
-        baseUnit = 10**underlying_.decimals();
+        baseUnit = 10 ** underlying_.decimals();
         underlyingDecimals = underlying_.decimals();
 
         auth = auth_;
@@ -358,12 +341,10 @@ contract Vault is ERC20, Pausable {
     /// @param auth_ The Auth module that will be used for this Vault.
     /// @param harvestFeeReceiver_ The harvesting fee receiver address.
     /// @param burnFeeReceiver_ The batched burns fee receiver address.
-    function initialize(
-        ERC20 underlying_,
-        Authority auth_,
-        address harvestFeeReceiver_,
-        address burnFeeReceiver_
-    ) external initializer {
+    function initialize(ERC20 underlying_, Authority auth_, address harvestFeeReceiver_, address burnFeeReceiver_)
+        external
+        initializer
+    {
         // Initialize the Vault.
         __Vault_init(
             underlying_,
@@ -393,10 +374,7 @@ contract Vault is ERC20, Pausable {
     /// @notice Set new deposit limits for this vault.
     /// @param user New user deposit limit.
     /// @param vault New vault deposit limit.
-    function setDepositLimits(uint256 user, uint256 vault)
-        external
-        requiresAuth(msg.sender)
-    {
+    function setDepositLimits(uint256 user, uint256 vault) external requiresAuth(msg.sender) {
         userDepositLimit = user;
         vaultDepositLimit = vault;
 
@@ -420,10 +398,7 @@ contract Vault is ERC20, Pausable {
 
     /// @notice Sets blocks per year.
     /// @param blocks Blocks in a given year.
-    function setBlocksPerYear(uint256 blocks)
-        external
-        requiresAuth(msg.sender)
-    {
+    function setBlocksPerYear(uint256 blocks) external requiresAuth(msg.sender) {
         blocksPerYear = blocks;
     }
 
@@ -433,10 +408,7 @@ contract Vault is ERC20, Pausable {
 
     /// @notice Set a new fee percentage.
     /// @param newFeePercent The new fee percentage.
-    function setHarvestFeePercent(uint256 newFeePercent)
-        external
-        requiresAuth(msg.sender)
-    {
+    function setHarvestFeePercent(uint256 newFeePercent) external requiresAuth(msg.sender) {
         // A fee percentage over 100% doesn't make sense.
         require(newFeePercent <= 1e18, "setHarvestFeePercent::FEE_TOO_HIGH");
 
@@ -448,15 +420,9 @@ contract Vault is ERC20, Pausable {
 
     /// @notice Set a new burning fee percentage.
     /// @param newFeePercent The new fee percentage.
-    function setBurningFeePercent(uint256 newFeePercent)
-        external
-        requiresAuth(msg.sender)
-    {
+    function setBurningFeePercent(uint256 newFeePercent) external requiresAuth(msg.sender) {
         // A fee percentage over 100% doesn't make sense.
-        require(
-            newFeePercent <= 1e18,
-            "setBatchedBurningFeePercent::FEE_TOO_HIGH"
-        );
+        require(newFeePercent <= 1e18, "setBatchedBurningFeePercent::FEE_TOO_HIGH");
 
         // Update the fee percentage.
         burningFeePercent = newFeePercent;
@@ -466,10 +432,7 @@ contract Vault is ERC20, Pausable {
 
     /// @notice Set a new harvest fees receiver.
     /// @param harvestFeeReceiver_ The new harvest fees receiver.
-    function setHarvestFeeReceiver(address harvestFeeReceiver_)
-        external
-        requiresAuth(msg.sender)
-    {
+    function setHarvestFeeReceiver(address harvestFeeReceiver_) external requiresAuth(msg.sender) {
         // Update the fee percentage.
         harvestFeeReceiver = harvestFeeReceiver_;
 
@@ -478,10 +441,7 @@ contract Vault is ERC20, Pausable {
 
     /// @notice Set a new burning fees receiver.
     /// @param burningFeeReceiver_ The new burning fees receiver.
-    function setBurningFeeReceiver(address burningFeeReceiver_)
-        external
-        requiresAuth(msg.sender)
-    {
+    function setBurningFeeReceiver(address burningFeeReceiver_) external requiresAuth(msg.sender) {
         // Update the fee percentage.
         burningFeeReceiver = burningFeeReceiver_;
 
@@ -495,15 +455,9 @@ contract Vault is ERC20, Pausable {
     /// @notice Set a new harvest window.
     /// @param newHarvestWindow The new harvest window.
     /// @dev The Vault's harvestDelay must already be set before calling.
-    function setHarvestWindow(uint128 newHarvestWindow)
-        external
-        requiresAuth(msg.sender)
-    {
+    function setHarvestWindow(uint128 newHarvestWindow) external requiresAuth(msg.sender) {
         // A harvest window longer than the harvest delay doesn't make sense.
-        require(
-            newHarvestWindow <= harvestDelay,
-            "setHarvestWindow::WINDOW_TOO_LONG"
-        );
+        require(newHarvestWindow <= harvestDelay, "setHarvestWindow::WINDOW_TOO_LONG");
 
         // Update the harvest window.
         harvestWindow = newHarvestWindow;
@@ -516,10 +470,7 @@ contract Vault is ERC20, Pausable {
     /// @dev If the current harvest delay is 0, meaning it has not
     /// been set before, it will be updated immediately; otherwise
     /// it will be scheduled to take effect after the next harvest.
-    function setHarvestDelay(uint64 newHarvestDelay)
-        external
-        requiresAuth(msg.sender)
-    {
+    function setHarvestDelay(uint64 newHarvestDelay) external requiresAuth(msg.sender) {
         // A harvest delay of 0 makes harvests vulnerable to sandwich attacks.
         require(newHarvestDelay != 0, "setHarvestDelay::DELAY_CANNOT_BE_ZERO");
 
@@ -555,15 +506,9 @@ contract Vault is ERC20, Pausable {
     /// @notice Set the withdrawal queue.
     /// @param newQueue The new withdrawal queue.
     /// @dev There are no sanity checks on the `newQueue` argument so they should be done off-chain.
-    function setWithdrawalQueue(IStrategy[] calldata newQueue)
-        external
-        requiresAuth(msg.sender)
-    {
+    function setWithdrawalQueue(IStrategy[] calldata newQueue) external requiresAuth(msg.sender) {
         // Check for duplicated in queue
-        require(
-            newQueue.length <= MAX_STRATEGIES,
-            "setWithdrawalQueue::QUEUE_TOO_BIG"
-        );
+        require(newQueue.length <= MAX_STRATEGIES, "setWithdrawalQueue::QUEUE_TOO_BIG");
 
         // Replace the withdrawal queue.
         withdrawalQueue = newQueue;
@@ -577,16 +522,10 @@ contract Vault is ERC20, Pausable {
 
     /// @notice Store a strategy as trusted, enabling it to be harvested.
     /// @param strategy The strategy to make trusted.
-    function trustStrategy(IStrategy strategy)
-        external
-        requiresAuth(msg.sender)
-    {
+    function trustStrategy(IStrategy strategy) external requiresAuth(msg.sender) {
         // Ensure the strategy accepts the correct underlying token.
         // If the strategy accepts ETH the Vault should accept WETH, it'll handle wrapping when necessary.
-        require(
-            strategy.underlying() == underlying,
-            "trustStrategy::WRONG_UNDERLYING"
-        );
+        require(strategy.underlying() == underlying, "trustStrategy::WRONG_UNDERLYING");
 
         // Store the strategy as trusted.
         getStrategyData[strategy].trusted = true;
@@ -596,10 +535,7 @@ contract Vault is ERC20, Pausable {
 
     /// @notice Store a strategy as untrusted, disabling it from being harvested.
     /// @param strategy The strategy to make untrusted.
-    function distrustStrategy(IStrategy strategy)
-        external
-        requiresAuth(msg.sender)
-    {
+    function distrustStrategy(IStrategy strategy) external requiresAuth(msg.sender) {
         // Store the strategy as untrusted.
         getStrategyData[strategy].trusted = false;
 
@@ -615,16 +551,8 @@ contract Vault is ERC20, Pausable {
     /// @param to The address to receive shares corresponding to the deposit.
     /// @param underlyingAmount The amount of the underlying token to deposit.
     /// @return shares The amount of shares minted using `underlyingAmount`.
-    function deposit(address to, uint256 underlyingAmount)
-        external
-        requiresAuth(to)
-        returns (uint256 shares)
-    {
-        _deposit(
-            to,
-            (shares = calculateShares(underlyingAmount)),
-            underlyingAmount
-        );
+    function deposit(address to, uint256 underlyingAmount) external requiresAuth(to) returns (uint256 shares) {
+        _deposit(to, (shares = calculateShares(underlyingAmount)), underlyingAmount);
     }
 
     /// @notice Enter a batched burn event.
@@ -647,10 +575,7 @@ contract Vault is ERC20, Pausable {
             //      - second case: revert, user needs to withdraw before requesting
             //                     to take part in another round.
 
-            require(
-                userRound == batchBurnRound_,
-                "enterBatchBurn::DIFFERENT_ROUNDS"
-            );
+            require(userRound == batchBurnRound_, "enterBatchBurn::DIFFERENT_ROUNDS");
             userBatchBurnReceipts[msg.sender].shares += shares;
         }
 
@@ -667,18 +592,12 @@ contract Vault is ERC20, Pausable {
         BatchBurnReceipt memory receipt = userBatchBurnReceipts[msg.sender];
 
         require(receipt.round != 0, "exitBatchBurn::NO_DEPOSITS");
-        require(
-            receipt.round < batchBurnRound_,
-            "exitBatchBurn::ROUND_NOT_EXECUTED"
-        );
+        require(receipt.round < batchBurnRound_, "exitBatchBurn::ROUND_NOT_EXECUTED");
 
         userBatchBurnReceipts[msg.sender].round = 0;
         userBatchBurnReceipts[msg.sender].shares = 0;
 
-        uint256 underlyingAmount = receipt.shares.fmul(
-            batchBurns[receipt.round].amountPerShare,
-            baseUnit
-        );
+        uint256 underlyingAmount = receipt.shares.fmul(batchBurns[receipt.round].amountPerShare, baseUnit);
 
         batchBurnBalance -= underlyingAmount;
         underlying.safeTransfer(msg.sender, underlyingAmount);
@@ -689,10 +608,7 @@ contract Vault is ERC20, Pausable {
     /// @notice Execute batched burns
     function execBatchBurn() external requiresAuth(msg.sender) {
         // let's wait for lockedProfit to go to 0
-        require(
-            block.timestamp >= (lastHarvest + harvestDelay),
-            "batchBurn::LATEST_HARVEST_NOT_EXPIRED"
-        );
+        require(block.timestamp >= (lastHarvest + harvestDelay), "batchBurn::LATEST_HARVEST_NOT_EXPIRED");
 
         uint256 batchBurnRound_ = batchBurnRound++;
 
@@ -703,59 +619,34 @@ contract Vault is ERC20, Pausable {
         require(totalShares != 0, "batchBurn::TOTAL_SHARES_CANNOT_BE_ZERO");
 
         uint256 underlyingAmount = totalShares.fmul(exchangeRate(), baseUnit);
-        require(
-            underlyingAmount <= totalFloat(),
-            "batchBurn::NOT_ENOUGH_UNDERLYING"
-        );
+        require(underlyingAmount <= totalFloat(), "batchBurn::NOT_ENOUGH_UNDERLYING");
 
         _burn(address(this), totalShares);
 
         // Compute fees and transfer underlying amount if any
         if (burningFeePercent != 0) {
-            uint256 accruedFees = underlyingAmount.fmul(
-                burningFeePercent,
-                10**18
-            );
+            uint256 accruedFees = underlyingAmount.fmul(burningFeePercent, 10 ** 18);
             underlyingAmount -= accruedFees;
 
             underlying.safeTransfer(burningFeeReceiver, accruedFees);
         }
 
-        batchBurns[batchBurnRound_].amountPerShare = underlyingAmount.fdiv(
-            totalShares,
-            baseUnit
-        );
+        batchBurns[batchBurnRound_].amountPerShare = underlyingAmount.fdiv(totalShares, baseUnit);
         batchBurnBalance += underlyingAmount;
 
-        emit ExecuteBatchBurn(
-            batchBurnRound_,
-            msg.sender,
-            totalShares,
-            underlyingAmount
-        );
+        emit ExecuteBatchBurn(batchBurnRound_, msg.sender, totalShares, underlyingAmount);
     }
 
     /// @dev Internal function to deposit into the Vault.
     /// @param to The address to receive shares corresponding to the deposit.
     /// @param shares The amount of Vault's shares to mint.
     /// @param underlyingAmount The amount of the underlying token to deposit.
-    function _deposit(
-        address to,
-        uint256 shares,
-        uint256 underlyingAmount
-    ) internal virtual whenNotPaused {
-        uint256 userUnderlying = calculateUnderlying(balanceOf(to)) +
-            underlyingAmount;
+    function _deposit(address to, uint256 shares, uint256 underlyingAmount) internal virtual whenNotPaused {
+        uint256 userUnderlying = calculateUnderlying(balanceOf(to)) + underlyingAmount;
         uint256 vaultUnderlying = totalUnderlying() + underlyingAmount;
 
-        require(
-            userUnderlying <= userDepositLimit,
-            "_deposit::USER_DEPOSIT_LIMITS_REACHED"
-        );
-        require(
-            vaultUnderlying <= vaultDepositLimit,
-            "_deposit::VAULT_DEPOSIT_LIMITS_REACHED"
-        );
+        require(userUnderlying <= userDepositLimit, "_deposit::USER_DEPOSIT_LIMITS_REACHED");
+        require(vaultUnderlying <= vaultDepositLimit, "_deposit::VAULT_DEPOSIT_LIMITS_REACHED");
 
         // Determine te equivalent amount of shares and mint them
         _mint(to, shares);
@@ -764,32 +655,20 @@ contract Vault is ERC20, Pausable {
 
         // Transfer in underlying tokens from the user.
         // This will revert if the user does not have the amount specified.
-        underlying.safeTransferFrom(
-            msg.sender,
-            address(this),
-            underlyingAmount
-        );
+        underlying.safeTransferFrom(msg.sender, address(this), underlyingAmount);
     }
 
     /// @notice Calculates the amount of Vault's shares for a given amount of underlying tokens.
     /// @param underlyingAmount The underlying token's amount.
     /// @return The amount of shares given `underlyingAmount`.
-    function calculateShares(uint256 underlyingAmount)
-        public
-        view
-        returns (uint256)
-    {
+    function calculateShares(uint256 underlyingAmount) public view returns (uint256) {
         return underlyingAmount.fdiv(exchangeRate(), baseUnit);
     }
 
     /// @notice Calculates the amount of underlying tokens corresponding to a given amount of Vault's shares.
     /// @param sharesAmount The shares amount.
     /// @return The amount of underlying given `sharesAmount`.
-    function calculateUnderlying(uint256 sharesAmount)
-        public
-        view
-        returns (uint256)
-    {
+    function calculateUnderlying(uint256 sharesAmount) public view returns (uint256) {
         return sharesAmount.fmul(exchangeRate(), baseUnit);
     }
 
@@ -801,10 +680,7 @@ contract Vault is ERC20, Pausable {
     /// @param strategies The trusted strategies to harvest.
     /// @dev Will always revert if called outside of an active
     /// harvest window or before the harvest delay has passed.
-    function harvest(IStrategy[] calldata strategies)
-        external
-        requiresAuth(msg.sender)
-    {
+    function harvest(IStrategy[] calldata strategies) external requiresAuth(msg.sender) {
         // If this is the first harvest after the last window:
         if (block.timestamp >= lastHarvest + harvestDelay) {
             // Accounts for:
@@ -812,19 +688,14 @@ contract Vault is ERC20, Pausable {
             //    - harvest exchange rate
             //    - harvest window starting block
             lastHarvestExchangeRate = exchangeRate();
-            lastHarvestIntervalInBlocks =
-                block.number -
-                lastHarvestWindowStartBlock;
+            lastHarvestIntervalInBlocks = block.number - lastHarvestWindowStartBlock;
             lastHarvestWindowStartBlock = block.number;
 
             // Set the harvest window's start timestamp.
             lastHarvestWindowStart = uint64(block.timestamp);
         } else {
             // We know this harvest is not the first in the window so we need to ensure it's within it.
-            require(
-                block.timestamp <= lastHarvestWindowStart + harvestWindow,
-                "harvest::BAD_HARVEST_TIME"
-            );
+            require(block.timestamp <= lastHarvestWindowStart + harvestWindow, "harvest::BAD_HARVEST_TIME");
         }
 
         // Get the Vault's current total strategy holdings.
@@ -843,28 +714,22 @@ contract Vault is ERC20, Pausable {
 
             // If an untrusted strategy could be harvested a malicious user could use
             // a fake strategy that over-reports holdings to manipulate the exchange rate.
-            require(
-                getStrategyData[strategy].trusted,
-                "harvest::UNTRUSTED_STRATEGY"
-            );
+            require(getStrategyData[strategy].trusted, "harvest::UNTRUSTED_STRATEGY");
 
             // Get the strategy's previous and current balance.
             uint256 balanceLastHarvest = getStrategyData[strategy].balance;
             uint256 balanceThisHarvest = strategy.estimatedUnderlying();
 
             // Update the strategy's stored balance.
-            getStrategyData[strategy].balance = balanceThisHarvest
-                .safeCastTo248();
+            getStrategyData[strategy].balance = balanceThisHarvest.safeCastTo248();
 
             // Increase/decrease newTotalStrategyHoldings based on the profit/loss registered.
             // We cannot wrap the subtraction in parenthesis as it would underflow if the strategy had a loss.
-            newTotalStrategyHoldings =
-                newTotalStrategyHoldings +
-                balanceThisHarvest -
-                balanceLastHarvest;
+            newTotalStrategyHoldings = newTotalStrategyHoldings + balanceThisHarvest - balanceLastHarvest;
 
             // Update the total profit accrued while counting losses as zero profit.
-            totalProfitAccrued += balanceThisHarvest > balanceLastHarvest
+            totalProfitAccrued +=
+                balanceThisHarvest > balanceLastHarvest
                 ? balanceThisHarvest - balanceLastHarvest // Profits since last harvest.
                 : 0; // If the strategy registered a net loss we don't have any new profit.
         }
@@ -874,26 +739,17 @@ contract Vault is ERC20, Pausable {
 
         // If we accrued any fees, mint an equivalent amount of Vault's shares.
         if (feesAccrued != 0 && harvestFeeReceiver != address(0)) {
-            _mint(
-                harvestFeeReceiver,
-                feesAccrued.fdiv(exchangeRate(), baseUnit)
-            );
+            _mint(harvestFeeReceiver, feesAccrued.fdiv(exchangeRate(), baseUnit));
         }
 
         // Update max unlocked profit based on any remaining locked profit plus new profit.
-        uint128 maxLockedProfit_ = (lockedProfit() +
-            totalProfitAccrued -
-            feesAccrued).safeCastTo128();
+        uint128 maxLockedProfit_ = (lockedProfit() + totalProfitAccrued - feesAccrued).safeCastTo128();
         maxLockedProfit = maxLockedProfit_;
 
         // Compute estimated returns
-        uint256 strategyHoldings = newTotalStrategyHoldings -
-            uint256(maxLockedProfit_);
-        estimatedReturn = computeEstimatedReturns(
-            strategyHoldings,
-            uint256(maxLockedProfit_),
-            lastHarvestIntervalInBlocks
-        );
+        uint256 strategyHoldings = newTotalStrategyHoldings - uint256(maxLockedProfit_);
+        estimatedReturn =
+            computeEstimatedReturns(strategyHoldings, uint256(maxLockedProfit_), lastHarvestIntervalInBlocks);
 
         // Set strategy holdings to our new total.
         totalStrategyHoldings = newTotalStrategyHoldings;
@@ -925,21 +781,12 @@ contract Vault is ERC20, Pausable {
     /// @notice Deposit a specific amount of float into a trusted strategy.
     /// @param strategy The trusted strategy to deposit into.
     /// @param underlyingAmount The amount of underlying tokens in float to deposit.
-    function depositIntoStrategy(IStrategy strategy, uint256 underlyingAmount)
-        external
-        requiresAuth(msg.sender)
-    {
+    function depositIntoStrategy(IStrategy strategy, uint256 underlyingAmount) external requiresAuth(msg.sender) {
         // A strategy must be trusted before it can be deposited into.
-        require(
-            getStrategyData[strategy].trusted,
-            "depositIntoStrategy::UNTRUSTED_STRATEGY"
-        );
+        require(getStrategyData[strategy].trusted, "depositIntoStrategy::UNTRUSTED_STRATEGY");
 
         // We don't allow depositing 0 to prevent emitting a useless event.
-        require(
-            underlyingAmount != 0,
-            "depositIntoStrategy::AMOUNT_CANNOT_BE_ZERO"
-        );
+        require(underlyingAmount != 0, "depositIntoStrategy::AMOUNT_CANNOT_BE_ZERO");
 
         // Increase totalStrategyHoldings to account for the deposit.
         totalStrategyHoldings += underlyingAmount;
@@ -953,31 +800,19 @@ contract Vault is ERC20, Pausable {
         underlying.safeApprove(address(strategy), underlyingAmount);
 
         // Deposit into the strategy and revert if it returns an error code.
-        require(
-            strategy.deposit(underlyingAmount) == 0,
-            "depositIntoStrategy::MINT_FAILED"
-        );
+        require(strategy.deposit(underlyingAmount) == 0, "depositIntoStrategy::MINT_FAILED");
     }
 
     /// @notice Withdraw a specific amount of underlying tokens from a strategy.
     /// @param strategy The strategy to withdraw from.
     /// @param underlyingAmount  The amount of underlying tokens to withdraw.
     /// @dev Withdrawing from a strategy will not remove it from the withdrawal queue.
-    function withdrawFromStrategy(IStrategy strategy, uint256 underlyingAmount)
-        external
-        requiresAuth(msg.sender)
-    {
+    function withdrawFromStrategy(IStrategy strategy, uint256 underlyingAmount) external requiresAuth(msg.sender) {
         // A strategy must be trusted before it can be withdrawn from.
-        require(
-            getStrategyData[strategy].trusted,
-            "withdrawFromStrategy::UNTRUSTED_STRATEGY"
-        );
+        require(getStrategyData[strategy].trusted, "withdrawFromStrategy::UNTRUSTED_STRATEGY");
 
         // We don't allow withdrawing 0 to prevent emitting a useless event.
-        require(
-            underlyingAmount != 0,
-            "withdrawFromStrategy::AMOUNT_CANNOT_BE_ZERO"
-        );
+        require(underlyingAmount != 0, "withdrawFromStrategy::AMOUNT_CANNOT_BE_ZERO");
 
         // Without this the next harvest would count the withdrawal as a loss.
         getStrategyData[strategy].balance -= underlyingAmount.safeCastTo248();
@@ -988,10 +823,7 @@ contract Vault is ERC20, Pausable {
         emit StrategyWithdrawal(msg.sender, strategy, underlyingAmount);
 
         // Withdraw from the strategy and revert if returns an error code.
-        require(
-            strategy.withdraw(underlyingAmount) == 0,
-            "withdrawFromStrategy::REDEEM_FAILED"
-        );
+        require(strategy.withdraw(underlyingAmount) == 0, "withdrawFromStrategy::REDEEM_FAILED");
     }
 
     /*///////////////////////////////////////////////////////////////
@@ -1005,7 +837,9 @@ contract Vault is ERC20, Pausable {
         uint256 shareSupply = totalSupply();
 
         // If there are no shares in circulation, return an exchange rate of 1:1.
-        if (shareSupply == 0) return baseUnit;
+        if (shareSupply == 0) {
+            return baseUnit;
+        }
 
         return totalUnderlying().fdiv(shareSupply, baseUnit);
     }
@@ -1031,16 +865,15 @@ contract Vault is ERC20, Pausable {
         uint256 harvestInterval = harvestDelay;
 
         // If the harvest delay has passed, there is no locked profit.
-        if (block.timestamp >= previousHarvest + harvestInterval) return 0;
+        if (block.timestamp >= previousHarvest + harvestInterval) {
+            return 0;
+        }
 
         // Get the maximum amount we could return.
         uint256 maximumLockedProfit = maxLockedProfit;
 
         // Compute how much profit remains locked based on the last harvest and harvest delay.
-        return
-            maximumLockedProfit -
-            (maximumLockedProfit * (block.timestamp - previousHarvest)) /
-            harvestInterval;
+        return maximumLockedProfit - (maximumLockedProfit * (block.timestamp - previousHarvest)) / harvestInterval;
     }
 
     /// @notice Calculates the total amount of underlying tokens the Vault holds.
@@ -1053,16 +886,11 @@ contract Vault is ERC20, Pausable {
     /// @param invested The underlying deposited in strategies.
     /// @param profit The profit derived from harvest.
     /// @param interval The period during which `profit` was generated.
-    function computeEstimatedReturns(
-        uint256 invested,
-        uint256 profit,
-        uint256 interval
-    ) internal view returns (uint256) {
-        return
-            (invested == 0 || profit == 0)
-                ? 0
-                : profit.fdiv(invested, baseUnit) *
-                    (blocksPerYear / interval) *
-                    100;
+    function computeEstimatedReturns(uint256 invested, uint256 profit, uint256 interval)
+        internal
+        view
+        returns (uint256)
+    {
+        return (invested == 0 || profit == 0) ? 0 : profit.fdiv(invested, baseUnit) * (blocksPerYear / interval) * 100;
     }
 }

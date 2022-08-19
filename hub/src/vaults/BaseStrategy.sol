@@ -15,13 +15,16 @@ pragma solidity 0.8.12;
 
 import {ERC20Upgradeable as ERC20} from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import {OwnableUpgradeable as Ownable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import {AccessControlUpgradeable as AccessControl} from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
-import {ReentrancyGuardUpgradeable as ReentrancyGuard} from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
+import {AccessControlUpgradeable as AccessControl} from
+    "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import {ReentrancyGuardUpgradeable as ReentrancyGuard} from
+    "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import {AddressUpgradeable as Address} from "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
 
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {IERC20Upgradeable as IERC20} from "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
-import {SafeERC20Upgradeable as SafeERC20} from "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
+import {SafeERC20Upgradeable as SafeERC20} from
+    "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
 
 import {IVault} from "../interfaces/IVault.sol";
 
@@ -94,13 +97,11 @@ abstract contract BaseStrategy is Initializable {
                             INITIALIZE
     //////////////////////////////////////////////////////////////*/
 
-    function __initialize(
-        IVault vault_,
-        IERC20 underlying_,
-        address manager_,
-        address strategist_,
-        string memory name_
-    ) internal virtual initializer {
+    function __initialize(IVault vault_, IERC20 underlying_, address manager_, address strategist_, string memory name_)
+        internal
+        virtual
+        initializer
+    {
         name = name_;
         vault = vault_;
         manager = manager_;

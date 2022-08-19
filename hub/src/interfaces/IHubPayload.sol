@@ -30,12 +30,10 @@ interface IHubPayload {
     /// @param vault on the dst chain
     /// @param strategy will be a Xchain trusted strategy on the src
     /// @param amountUnderyling to deposit
-    /// @param min amount accepted as part of the stargate swap
     struct DepositPayload {
         address vault;
         address strategy;
         uint256 amountUnderyling;
-        uint256 min;
     }
 
     /// @param vault on the dst chain

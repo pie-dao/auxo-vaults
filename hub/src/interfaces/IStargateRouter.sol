@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 
 pragma solidity ^0.8.12;
+
 pragma abicoder v2;
 
 interface IStargateRouter {
@@ -20,11 +21,7 @@ interface IStargateRouter {
     /// @param _poolId the stargate poolId representing the specific ERC20 token
     /// @param _amountLD the amount to loan. quantity in local decimals
     /// @param _to the address to receive the LP token. ie: shares of the pool
-    function addLiquidity(
-        uint256 _poolId,
-        uint256 _amountLD,
-        address _to
-    ) external;
+    function addLiquidity(uint256 _poolId, uint256 _amountLD, address _to) external;
 
     /// @notice executes the stargate swap
     /// @param _dstChainId the layerZero chainId for the destination chain
@@ -47,7 +44,9 @@ interface IStargateRouter {
         lzTxObj memory _lzTxParams,
         bytes calldata _to,
         bytes calldata _payload
-    ) external payable;
+    )
+        external
+        payable;
 
     /// @notice Removing user liquidity across multiple chains..
     /// @param _dstChainId the chainId to remove liquidity
@@ -67,13 +66,11 @@ interface IStargateRouter {
         uint256 _minAmountLD,
         bytes calldata _to,
         lzTxObj memory _lzTxParams
-    ) external payable;
+    )
+        external
+        payable;
 
-    function instantRedeemLocal(
-        uint16 _srcPoolId,
-        uint256 _amountLP,
-        address _to
-    ) external returns (uint256);
+    function instantRedeemLocal(uint16 _srcPoolId, uint256 _amountLP, address _to) external returns (uint256);
 
     /// @notice Removing user liquidity on local chain.
     /// @param _dstChainId the chainId to remove liquidity
@@ -91,19 +88,18 @@ interface IStargateRouter {
         uint256 _amountLP,
         bytes calldata _to,
         lzTxObj memory _lzTxParams
-    ) external payable;
+    )
+        external
+        payable;
 
     /// @notice Part of the Delta-Algorithm implementation. Shares state information with destination chainId.
     /// @param _dstChainId destination chainId
     /// @param _srcPoolId source poolId
     /// @param _dstPoolId destination poolId
     /// @param _refundAddress refund extra native gas to this address
-    function sendCredits(
-        uint16 _dstChainId,
-        uint256 _srcPoolId,
-        uint256 _dstPoolId,
-        address payable _refundAddress
-    ) external payable;
+    function sendCredits(uint16 _dstChainId, uint256 _srcPoolId, uint256 _dstPoolId, address payable _refundAddress)
+        external
+        payable;
 
     /// @notice gets a fee estimate for the cross chain transaction
     /// @dev can be passed as {value:fee} to swap()
@@ -119,5 +115,8 @@ interface IStargateRouter {
         bytes calldata _toAddress,
         bytes calldata _transferAndCallPayload,
         lzTxObj memory _lzTxParams
-    ) external view returns (uint256, uint256);
+    )
+        external
+        view
+        returns (uint256, uint256);
 }

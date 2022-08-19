@@ -54,11 +54,7 @@ contract StargateRouterMock is IStargateRouter {
     }
 
     // give 20 bytes, return the decoded address
-    function packedBytesToAddr(bytes calldata _b)
-        public
-        pure
-        returns (address)
-    {
+    function packedBytesToAddr(bytes calldata _b) public pure returns (address) {
         address addr;
         assembly {
             let ptr := mload(0x40)
@@ -68,9 +64,7 @@ contract StargateRouterMock is IStargateRouter {
         return addr;
     }
 
-    function setDestSgEndpoint(address destAddr, address sgEndpointAddr)
-        external
-    {
+    function setDestSgEndpoint(address destAddr, address sgEndpointAddr) external {
         sgEndpointLookup[destAddr] = sgEndpointAddr;
     }
 
@@ -80,10 +74,7 @@ contract StargateRouterMock is IStargateRouter {
     }
 
     // get the router mock from the destination
-    function getStargateRouterMock(bytes calldata _dst)
-        public
-        returns (StargateRouterMock)
-    {
+    function getStargateRouterMock(bytes calldata _dst) public returns (StargateRouterMock) {
         address destination = packedBytesToAddr(_dst);
         address endpoint = sgEndpointLookup[destination];
         return StargateRouterMock(endpoint);
@@ -104,7 +95,9 @@ contract StargateRouterMock is IStargateRouter {
         lzTxObj memory _lzTxParams,
         bytes calldata _destination,
         bytes calldata _payload
-    ) internal {
+    )
+        internal
+    {
         bytes memory params = abi.encode(
             _dstChainId,
             _srcPoolId,
@@ -123,11 +116,7 @@ contract StargateRouterMock is IStargateRouter {
         }
     }
 
-    function _swap(
-        uint256 _amountLD,
-        uint256 _minAmountLD,
-        bytes calldata _destination
-    ) internal returns (uint256) {
+    function _swap(uint256 _amountLD, uint256 _minAmountLD, bytes calldata _destination) internal returns (uint256) {
         // calculate swap fees
         uint256 fee = (_amountLD * swapFeePc) / 100;
         uint256 amountActual = _amountLD - fee;
@@ -168,7 +157,11 @@ contract StargateRouterMock is IStargateRouter {
         lzTxObj memory _lzTxParams,
         bytes calldata _destination,
         bytes calldata _payload
-    ) external payable override {
+    )
+        external
+        payable
+        override
+    {
         require(hasEndpoint(_destination), "sgMock::swap:ENDPOINT NOT FOUND");
         saveParams(
             _dstChainId,
@@ -210,11 +203,7 @@ contract StargateRouterMock is IStargateRouter {
         );
     }
 
-    function addLiquidity(
-        uint256 _poolId,
-        uint256 _amountLD,
-        address _to
-    ) external {}
+    function addLiquidity(uint256 _poolId, uint256 _amountLD, address _to) external {}
 
     function redeemRemote(
         uint16 _dstChainId,
@@ -225,13 +214,12 @@ contract StargateRouterMock is IStargateRouter {
         uint256 _minAmountLD,
         bytes calldata _to,
         lzTxObj memory _lzTxParams
-    ) external payable {}
+    )
+        external
+        payable
+    {}
 
-    function instantRedeemLocal(
-        uint16 _srcPoolId,
-        uint256 _amountLP,
-        address _to
-    ) external returns (uint256) {
+    function instantRedeemLocal(uint16 _srcPoolId, uint256 _amountLP, address _to) external returns (uint256) {
         return 0;
     }
 
@@ -243,14 +231,15 @@ contract StargateRouterMock is IStargateRouter {
         uint256 _amountLP,
         bytes calldata _to,
         lzTxObj memory _lzTxParams
-    ) external payable {}
+    )
+        external
+        payable
+    {}
 
-    function sendCredits(
-        uint16 _dstChainId,
-        uint256 _srcPoolId,
-        uint256 _dstPoolId,
-        address payable _refundAddress
-    ) external payable {}
+    function sendCredits(uint16 _dstChainId, uint256 _srcPoolId, uint256 _dstPoolId, address payable _refundAddress)
+        external
+        payable
+    {}
 
     function quoteLayerZeroFee(
         uint16 _dstChainId,
@@ -258,7 +247,11 @@ contract StargateRouterMock is IStargateRouter {
         bytes calldata _toAddress,
         bytes calldata _transferAndCallPayload,
         lzTxObj memory _lzTxParams
-    ) external view returns (uint256, uint256) {
+    )
+        external
+        view
+        returns (uint256, uint256)
+    {
         return (0, 0);
     }
 }
@@ -290,17 +283,12 @@ contract MockRouterPayloadCapture is IStargateRouter {
         lzTxObj memory _lzTxParams,
         bytes calldata _to,
         bytes calldata _payload
-    ) external payable {
+    )
+        external
+        payable
+    {
         bytes memory params = abi.encode(
-            _dstChainId,
-            _srcPoolId,
-            _dstPoolId,
-            _refundAddress,
-            _amountLD,
-            _minAmountLD,
-            _lzTxParams,
-            _to,
-            _payload
+            _dstChainId, _srcPoolId, _dstPoolId, _refundAddress, _amountLD, _minAmountLD, _lzTxParams, _to, _payload
         );
         if (callparams.length == 0) {
             callparams = [params];
@@ -309,11 +297,7 @@ contract MockRouterPayloadCapture is IStargateRouter {
         }
     }
 
-    function addLiquidity(
-        uint256 _poolId,
-        uint256 _amountLD,
-        address _to
-    ) external {}
+    function addLiquidity(uint256 _poolId, uint256 _amountLD, address _to) external {}
 
     function redeemRemote(
         uint16 _dstChainId,
@@ -324,13 +308,12 @@ contract MockRouterPayloadCapture is IStargateRouter {
         uint256 _minAmountLD,
         bytes calldata _to,
         lzTxObj memory _lzTxParams
-    ) external payable {}
+    )
+        external
+        payable
+    {}
 
-    function instantRedeemLocal(
-        uint16 _srcPoolId,
-        uint256 _amountLP,
-        address _to
-    ) external returns (uint256) {
+    function instantRedeemLocal(uint16 _srcPoolId, uint256 _amountLP, address _to) external returns (uint256) {
         return 0;
     }
 
@@ -342,14 +325,15 @@ contract MockRouterPayloadCapture is IStargateRouter {
         uint256 _amountLP,
         bytes calldata _to,
         lzTxObj memory _lzTxParams
-    ) external payable {}
+    )
+        external
+        payable
+    {}
 
-    function sendCredits(
-        uint16 _dstChainId,
-        uint256 _srcPoolId,
-        uint256 _dstPoolId,
-        address payable _refundAddress
-    ) external payable {}
+    function sendCredits(uint16 _dstChainId, uint256 _srcPoolId, uint256 _dstPoolId, address payable _refundAddress)
+        external
+        payable
+    {}
 
     function quoteLayerZeroFee(
         uint16 _dstChainId,
@@ -357,7 +341,11 @@ contract MockRouterPayloadCapture is IStargateRouter {
         bytes calldata _toAddress,
         bytes calldata _transferAndCallPayload,
         lzTxObj memory _lzTxParams
-    ) external view returns (uint256, uint256) {
+    )
+        external
+        view
+        returns (uint256, uint256)
+    {
         return (0, 0);
     }
 }

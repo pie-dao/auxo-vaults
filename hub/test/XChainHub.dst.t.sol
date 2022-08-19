@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.12;
+
 pragma abicoder v2;
 
 import {PRBTest} from "@prb/test/PRBTest.sol";
@@ -45,7 +46,7 @@ contract TestXChainHubDst is PRBTest, XChainHubEvents {
             0x63BCe354DBA7d6270Cb34dAA46B869892AbB3A79,
             0x675e75A6f90E0610d150f415e4406B4989AaD023
         );
-        hub = new XChainHub(stargate, lz, refund);
+        hub = new XChainHub(stargate, lz);
 
         hubMockReducer = new XChainHubMockReducer(stargate, lz, refund);
         hubMockActions = new XChainHubMockActions(stargate, lz, refund);
@@ -55,7 +56,6 @@ contract TestXChainHubDst is PRBTest, XChainHubEvents {
     function testInitialContractState() public {
         assertEq(address(hub.stargateRouter()), stargate);
         assertEq(address(hub.layerZeroEndpoint()), lz);
-        assertEq(address(hub.refundRecipient()), refund);
     }
 
     // Test reducer
@@ -64,11 +64,7 @@ contract TestXChainHubDst is PRBTest, XChainHubEvents {
 
         vm.startPrank(address(hubMockReducer));
         _checkReducerAction(hub.DEPOSIT_ACTION(), hubMockReducer, _amt);
-        _checkReducerAction(
-            hub.FINALIZE_WITHDRAW_ACTION(),
-            hubMockReducer,
-            _amt
-        );
+        _checkReducerAction(hub.FINALIZE_WITHDRAW_ACTION(), hubMockReducer, _amt);
         _checkReducerAction(hub.REQUEST_WITHDRAW_ACTION(), hubMockReducer);
         _checkReducerAction(hub.REPORT_UNDERLYING_ACTION(), hubMockReducer);
     }
@@ -77,24 +73,10 @@ contract TestXChainHubDst is PRBTest, XChainHubEvents {
     function testEmergencyReducerSwitchesCorrectly(uint256 _amt) public {
         assertEq(hubMockReducer.lastCall(), 0);
 
-        _checkEmergencyReducerAction(
-            hub.DEPOSIT_ACTION(),
-            hubMockReducer,
-            _amt
-        );
-        _checkEmergencyReducerAction(
-            hub.REQUEST_WITHDRAW_ACTION(),
-            hubMockReducer
-        );
-        _checkEmergencyReducerAction(
-            hub.FINALIZE_WITHDRAW_ACTION(),
-            hubMockReducer,
-            _amt
-        );
-        _checkEmergencyReducerAction(
-            hub.REPORT_UNDERLYING_ACTION(),
-            hubMockReducer
-        );
+        _checkEmergencyReducerAction(hub.DEPOSIT_ACTION(), hubMockReducer, _amt);
+        _checkEmergencyReducerAction(hub.REQUEST_WITHDRAW_ACTION(), hubMockReducer);
+        _checkEmergencyReducerAction(hub.FINALIZE_WITHDRAW_ACTION(), hubMockReducer, _amt);
+        _checkEmergencyReducerAction(hub.REPORT_UNDERLYING_ACTION(), hubMockReducer);
     }
 
     function testReducerRevertsOnUnknownAction(uint8 actionId) public {
@@ -110,14 +92,7 @@ contract TestXChainHubDst is PRBTest, XChainHubEvents {
         vm.assume(_caller != address(hub));
         vm.prank(_caller);
         vm.expectRevert(bytes("XChainHub::sgRecieve:NOT STARGATE ROUTER"));
-        hub.sgReceive(
-            1,
-            abi.encodePacked(vaultAddr),
-            1,
-            vaultAddr,
-            1,
-            bytes("")
-        );
+        hub.sgReceive(1, abi.encodePacked(vaultAddr), 1, vaultAddr, 1, bytes(""));
     }
 
     function testLayerZeroCannotBeCalledByExternal(address _caller) public {
@@ -129,51 +104,26 @@ contract TestXChainHubDst is PRBTest, XChainHubEvents {
 
     function testSgReceiveWhitelistedActions(uint8 _action) public {
         vm.assume(_action <= hub.LAYER_ZERO_MAX_VALUE());
-        IHubPayload.Message memory message = IHubPayload.Message({
-            action: _action,
-            payload: bytes("")
-        });
+        IHubPayload.Message memory message = IHubPayload.Message({action: _action, payload: bytes("")});
         vm.startPrank(stargate);
         vm.expectRevert(bytes("XChainHub::sgRecieve:PROHIBITED ACTION"));
-        hub.sgReceive(
-            1,
-            abi.encodePacked(vaultAddr),
-            1,
-            vaultAddr,
-            1,
-            abi.encode(message)
-        );
+        hub.sgReceive(1, abi.encodePacked(vaultAddr), 1, vaultAddr, 1, abi.encode(message));
     }
 
     // should silently pass
     function testEmptyPayloadSgReceive() public {
         vm.startPrank(stargate);
-        hub.sgReceive(
-            1,
-            abi.encodePacked(vaultAddr),
-            1,
-            vaultAddr,
-            1,
-            bytes("")
-        );
+        hub.sgReceive(1, abi.encodePacked(vaultAddr), 1, vaultAddr, 1, bytes(""));
     }
 
-    function testDepositActionRevertsWithUntrustedVault(address _untrusted)
-        public
-    {
+    function testDepositActionRevertsWithUntrustedVault(address _untrusted) public {
         token.transfer(address(hubMockActions), token.balanceOf(address(this)));
         hubMockActions.setTrustedVault(address(_vault), true);
 
         vm.assume(_untrusted != address(_vault));
 
-        bytes memory payload = abi.encode(
-            IHubPayload.DepositPayload({
-                vault: _untrusted,
-                strategy: stratAddr,
-                amountUnderyling: 1e20,
-                min: 9e19
-            })
-        );
+        bytes memory payload =
+            abi.encode(IHubPayload.DepositPayload({vault: _untrusted, strategy: stratAddr, amountUnderyling: 1e20}));
 
         vm.expectRevert("XChainHub::_depositAction:UNTRUSTED VAULT");
         hubMockActions.depositAction(1, payload, 0);
@@ -184,14 +134,8 @@ contract TestXChainHubDst is PRBTest, XChainHubEvents {
         hubMockActions.setTrustedVault(address(_vault), true);
         uint256 balance = token.balanceOf(address(this));
 
-        bytes memory payload = abi.encode(
-            IHubPayload.DepositPayload({
-                vault: address(_vault),
-                strategy: stratAddr,
-                amountUnderyling: balance,
-                min: balance + 1
-            })
-        );
+        bytes memory payload =
+            abi.encode(IHubPayload.DepositPayload({vault: address(_vault), strategy: stratAddr, amountUnderyling: balance}));
 
         vm.expectRevert(bytes("XChainHub::_depositAction:UNTRUSTED STRATEGY"));
         hubMockActions.depositAction(1, payload, 0);
@@ -205,18 +149,10 @@ contract TestXChainHubDst is PRBTest, XChainHubEvents {
 
         hubMockActions.setTrustedStrategy(stratAddr, true);
 
-        bytes memory payload = abi.encode(
-            IHubPayload.DepositPayload({
-                vault: address(_vault),
-                strategy: stratAddr,
-                amountUnderyling: balance,
-                min: balance + 1
-            })
-        );
+        bytes memory payload =
+            abi.encode(IHubPayload.DepositPayload({vault: address(_vault), strategy: stratAddr, amountUnderyling: balance}));
 
-        vm.expectRevert(
-            bytes("XChainHub::_depositAction:INSUFFICIENT MINTED SHARES")
-        );
+        vm.expectRevert(bytes("XChainHub::_depositAction:INSUFFICIENT MINTED SHARES"));
         hubMockActions.depositAction(1, payload, 0);
     }
 
@@ -227,14 +163,8 @@ contract TestXChainHubDst is PRBTest, XChainHubEvents {
         uint256 balance = token.balanceOf(address(this));
         vm.assume(amount <= balance);
 
-        bytes memory payload = abi.encode(
-            IHubPayload.DepositPayload({
-                vault: address(_vault),
-                strategy: stratAddr,
-                amountUnderyling: amount,
-                min: (amount * 99) / 100
-            })
-        );
+        bytes memory payload =
+            abi.encode(IHubPayload.DepositPayload({vault: address(_vault), strategy: stratAddr, amountUnderyling: amount}));
 
         hubMockActions.setTrustedStrategy(stratAddr, true);
         hubMockActions.depositAction(1, payload, amount);
@@ -246,11 +176,7 @@ contract TestXChainHubDst is PRBTest, XChainHubEvents {
 
     function testRequestWithdrawActionRevertsIfVaultUntrusted() public {
         bytes memory payload = abi.encode(
-            IHubPayload.RequestWithdrawPayload({
-                vault: address(_vault),
-                strategy: stratAddr,
-                amountVaultShares: 1e20
-            })
+            IHubPayload.RequestWithdrawPayload({vault: address(_vault), strategy: stratAddr, amountVaultShares: 1e20})
         );
 
         vm.expectRevert("XChainHub::_requestWithdrawAction:UNTRUSTED");
@@ -261,29 +187,19 @@ contract TestXChainHubDst is PRBTest, XChainHubEvents {
         hubMockActions.setTrustedVault(address(_vault), true);
 
         bytes memory payload = abi.encode(
-            IHubPayload.RequestWithdrawPayload({
-                vault: address(_vault),
-                strategy: stratAddr,
-                amountVaultShares: 1e20
-            })
+            IHubPayload.RequestWithdrawPayload({vault: address(_vault), strategy: stratAddr, amountVaultShares: 1e20})
         );
 
         vm.expectRevert("XChainHub::_requestWithdrawAction:VAULT NOT EXITING");
         hubMockActions.requestWithdrawAction(1, payload);
     }
 
-    function testRequestWithdrawActionRevertsIfBatchBurnRoundsMismatched()
-        public
-    {
+    function testRequestWithdrawActionRevertsIfBatchBurnRoundsMismatched() public {
         hubMockActions.setTrustedVault(address(_vault), true);
         hubMockActions.setExiting(address(_vault), true);
 
         bytes memory payload = abi.encode(
-            IHubPayload.RequestWithdrawPayload({
-                vault: address(_vault),
-                strategy: stratAddr,
-                amountVaultShares: 1e20
-            })
+            IHubPayload.RequestWithdrawPayload({vault: address(_vault), strategy: stratAddr, amountVaultShares: 1e20})
         );
 
         hubMockActions.setCurrentRoundPerStrategy(1, stratAddr, 1);
@@ -299,11 +215,7 @@ contract TestXChainHubDst is PRBTest, XChainHubEvents {
         hubMockActions.setExiting(address(_vault), true);
 
         bytes memory payload = abi.encode(
-            IHubPayload.RequestWithdrawPayload({
-                vault: address(_vault),
-                strategy: stratAddr,
-                amountVaultShares: _amount
-            })
+            IHubPayload.RequestWithdrawPayload({vault: address(_vault), strategy: stratAddr, amountVaultShares: _amount})
         );
 
         _vault.mint(address(hubMockActions), _amount);
@@ -313,10 +225,7 @@ contract TestXChainHubDst is PRBTest, XChainHubEvents {
         hubMockActions.requestWithdrawAction(1, payload);
 
         assertEq(hubMockActions.sharesPerStrategy(1, stratAddr), 0);
-        assertEq(
-            hubMockActions.exitingSharesPerStrategy(1, stratAddr),
-            2 * _amount
-        );
+        assertEq(hubMockActions.exitingSharesPerStrategy(1, stratAddr), 2 * _amount);
         assertEq(_vault.balanceOf(address(_vault)), _amount);
     }
 
@@ -324,29 +233,22 @@ contract TestXChainHubDst is PRBTest, XChainHubEvents {
         uint256 amount = 1e21;
         uint16 srcChainId = 123;
 
-        IHubPayload.FinalizeWithdrawPayload memory payload = IHubPayload
-            .FinalizeWithdrawPayload({vault: vaultAddr, strategy: stratAddr});
+        IHubPayload.FinalizeWithdrawPayload memory payload =
+            IHubPayload.FinalizeWithdrawPayload({vault: vaultAddr, strategy: stratAddr});
 
         // match non indexed payloads only
         hubMockActions = new XChainHubMockActions(stargate, lz, refund);
 
         vm.expectEmit(false, false, false, true);
         emit WithdrawalReceived(srcChainId, amount, vaultAddr, stratAddr);
-        hubMockActions.finalizeWithdrawAction(
-            srcChainId,
-            abi.encode(payload),
-            amount
-        );
+        hubMockActions.finalizeWithdrawAction(srcChainId, abi.encode(payload), amount);
     }
 
     function testReportUnderlyingAction(uint256 amount) public {
         MockStrat strat = new MockStrat(token);
 
-        IHubPayload.ReportUnderlyingPayload memory payload = IHubPayload
-            .ReportUnderlyingPayload({
-                strategy: address(strat),
-                amountToReport: amount
-            });
+        IHubPayload.ReportUnderlyingPayload memory payload =
+            IHubPayload.ReportUnderlyingPayload({strategy: address(strat), amountToReport: amount});
 
         hubMockActions.reportUnderlyingAction(abi.encode(payload));
 

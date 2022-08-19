@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.12;
+
 pragma abicoder v2;
 
 import {PRBTest} from "@prb/test/PRBTest.sol";
@@ -33,10 +34,13 @@ contract TestXChainHubSrcAndDst is PRBTest, XChainHubEvents {
     bytes public byteAddressHubSrc;
     bytes public byteAddressHubDst;
 
+    address payable refund = payable(address(0x0));
+
     ERC20 public token;
     MockStrat public strategy;
     MockVault public vault;
     address feesRecipient = 0x63BCe354DBA7d6270Cb34dAA46B869892AbB3A79;
+    uint256 public constant dstDefaultGas = 200_000;
 
     address[] strategies;
     uint16[] dstChains;
@@ -102,7 +106,7 @@ contract TestXChainHubSrcAndDst is PRBTest, XChainHubEvents {
         address dstVault = address(vault);
         uint256 amount = token.balanceOf(address(strategy));
         uint256 minOut = (amount * 9) / 10;
-        address payable refund = payable(address(0x0));
+        uint dstGas = 200_000;
 
         hubSrc.setTrustedStrategy(address(strategy), true);
         hubDst.setTrustedStrategy(address(strategy), true);
@@ -113,15 +117,7 @@ contract TestXChainHubSrcAndDst is PRBTest, XChainHubEvents {
         token.approve(address(hubSrc), token.balanceOf(address(strategy)));
 
         vm.expectEmit(false, false, false, true);
-        hubSrc.sg_depositToChain(
-            chainIdDst,
-            srcPoolId,
-            dstPoolId,
-            dstVault,
-            amount,
-            minOut,
-            refund
-        );
+        hubSrc.sg_depositToChain(chainIdDst, srcPoolId, dstPoolId, dstVault, amount, minOut, refund, dstGas);
 
         vm.stopPrank();
 
@@ -134,10 +130,7 @@ contract TestXChainHubSrcAndDst is PRBTest, XChainHubEvents {
         // vault should have tokens
         assertEq(token.balanceOf(address(vault)), amount - fees);
         // shares per strategy should have updated
-        assertEq(
-            hubDst.sharesPerStrategy(chainIdSrc, address(strategy)),
-            amount - fees
-        );
+        assertEq(hubDst.sharesPerStrategy(chainIdSrc, address(strategy)), amount - fees);
     }
 
     // function testRequestWithdraw(uint256 amount, uint8 round) public {
@@ -161,26 +154,14 @@ contract TestXChainHubSrcAndDst is PRBTest, XChainHubEvents {
 
         vm.prank(address(strategy));
 
-        hubSrc.lz_requestWithdrawFromChain(
-            chainIdDst,
-            address(vault),
-            amount,
-            bytes(""),
-            payable(address(0x0))
-        );
+        hubSrc.lz_requestWithdrawFromChain(chainIdDst, address(vault), amount, refund, dstDefaultGas);
 
         assertEq(token.balanceOf(address(vault)), amount);
         assertEq(vault.balanceOf(address(hubDst)), 0);
         assertEq(vault.balanceOf(address(vault)), amount);
         assertEq(hubDst.sharesPerStrategy(chainIdSrc, address(strategy)), 0);
-        assertEq(
-            hubDst.exitingSharesPerStrategy(chainIdSrc, address(strategy)),
-            amount
-        );
-        assertEq(
-            hubDst.currentRoundPerStrategy(chainIdSrc, address(strategy)),
-            round
-        );
+        assertEq(hubDst.exitingSharesPerStrategy(chainIdSrc, address(strategy)), amount);
+        assertEq(hubDst.currentRoundPerStrategy(chainIdSrc, address(strategy)), round);
     }
 
     function testFinalizeWithdrawal(uint256 _amount, uint8 _fee) public {
@@ -199,21 +180,10 @@ contract TestXChainHubSrcAndDst is PRBTest, XChainHubEvents {
         hubSrc.setTrustedVault(address(vault), true);
         hubDst.setTrustedVault(address(vault), true);
 
-        hubSrc.setCurrentRoundPerStrategy(
-            chainIdDst,
-            address(strategy),
-            _round
-        );
+        hubSrc.setCurrentRoundPerStrategy(chainIdDst, address(strategy), _round);
         hubSrc.setWithdrawnPerRound(address(vault), _round, _amount);
 
-        hubSrc.sg_finalizeWithdrawFromChain(
-            chainIdDst,
-            address(vault),
-            address(strategy),
-            0,
-            1,
-            1
-        );
+        hubSrc.sg_finalizeWithdrawFromChain(chainIdDst, address(vault), address(strategy), 0, 1, 1);
 
         // ensure the destination is cleared out
         assertEq(token.balanceOf(address(hubSrc)), 0);
@@ -238,13 +208,8 @@ contract TestXChainHubSrcAndDst is PRBTest, XChainHubEvents {
         // report delay is 6 hours
         vm.warp(block.timestamp + 6 hours);
 
-        hubSrc.lz_reportUnderlying(
-            IVault(address(vault)),
-            dstChains,
-            strategies,
-            bytes("")
-        );
+        hubSrc.lz_reportUnderlying(IVault(address(vault)), dstChains, strategies, dstDefaultGas, refund);
 
-        assertEq(stratDst.reported(), (shares * vault.exchangeRate()) / 10**18);
+        assertEq(stratDst.reported(), (shares * vault.exchangeRate()) / 10 ** 18);
     }
 }

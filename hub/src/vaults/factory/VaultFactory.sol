@@ -47,12 +47,10 @@ contract VaultFactory is ProxyAdmin {
     /// @param auth The Auth module used by the Vault.
     /// @param harvestFeeReceiver The harvest fees receiver.
     /// @param burnFeeReceiver The batched burns fees receiver.
-    function deployVault(
-        address underlying,
-        address auth,
-        address harvestFeeReceiver,
-        address burnFeeReceiver
-    ) external returns (Vault vault) {
+    function deployVault(address underlying, address auth, address harvestFeeReceiver, address burnFeeReceiver)
+        external
+        returns (Vault vault)
+    {
         TransparentUpgradeableProxy proxy = new TransparentUpgradeableProxy(
             implementation,
             address(this),

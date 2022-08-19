@@ -13,8 +13,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity ^0.8.12;
 
-/// @dev delete before production commit!
-import "@std/console.sol";
 import {IStargateRouter} from "@interfaces/IStargateRouter.sol";
 
 /// @title XChainHubBase
@@ -57,20 +55,17 @@ contract XChainHubStorage {
     mapping(uint16 => mapping(address => uint256)) public sharesPerStrategy;
 
     /// @notice Origin Chain ID => Strategy => CurrentRound (Batch Burn)
-    mapping(uint16 => mapping(address => uint256))
-        public currentRoundPerStrategy;
+    mapping(uint16 => mapping(address => uint256)) public currentRoundPerStrategy;
 
     /// @notice Shares waiting for burn. Origin Chain ID => Strategy => ExitingShares
-    mapping(uint16 => mapping(address => uint256))
-        public exitingSharesPerStrategy;
+    mapping(uint16 => mapping(address => uint256)) public exitingSharesPerStrategy;
 
-    /// @notice Latest updates per strategy. Origin Chain ID => Strategy => LatestUpdate
+    /// @notice Latest updated block.timestamp per strategy. Origin Chain ID => Strategy => LatestUpdate
     mapping(uint16 => mapping(address => uint256)) public latestUpdate;
 
     // --------------------------
     // Variables
     // --------------------------
-    address public refundRecipient;
 
     /// @notice https://stargateprotocol.gitbook.io/stargate/developers/official-erc20-addresses
     IStargateRouter public stargateRouter;

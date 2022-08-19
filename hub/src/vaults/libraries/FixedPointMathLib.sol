@@ -17,49 +17,33 @@ library FixedPointMathLib {
                          FIXED POINT OPERATIONS
     //////////////////////////////////////////////////////////////*/
 
-    function fmul(
-        uint256 x,
-        uint256 y,
-        uint256 baseUnit
-    ) internal pure returns (uint256 z) {
+    function fmul(uint256 x, uint256 y, uint256 baseUnit) internal pure returns (uint256 z) {
         assembly {
             // Store x * y in z for now.
             z := mul(x, y)
 
             // Equivalent to require(x == 0 || (x * y) / x == y)
-            if iszero(or(iszero(x), eq(div(z, x), y))) {
-                revert(0, 0)
-            }
+            if iszero(or(iszero(x), eq(div(z, x), y))) { revert(0, 0) }
 
             // If baseUnit is zero this will return zero instead of reverting.
             z := div(z, baseUnit)
         }
     }
 
-    function fdiv(
-        uint256 x,
-        uint256 y,
-        uint256 baseUnit
-    ) internal pure returns (uint256 z) {
+    function fdiv(uint256 x, uint256 y, uint256 baseUnit) internal pure returns (uint256 z) {
         assembly {
             // Store x * baseUnit in z for now.
             z := mul(x, baseUnit)
 
             // Equivalent to require(y != 0 && (x == 0 || (x * baseUnit) / x == baseUnit))
-            if iszero(and(iszero(iszero(y)), or(iszero(x), eq(div(z, x), baseUnit)))) {
-                revert(0, 0)
-            }
+            if iszero(and(iszero(iszero(y)), or(iszero(x), eq(div(z, x), baseUnit)))) { revert(0, 0) }
 
             // We ensure y is not zero above, so there is never division by zero here.
             z := div(z, y)
         }
     }
 
-    function fpow(
-        uint256 x,
-        uint256 n,
-        uint256 baseUnit
-    ) internal pure returns (uint256 z) {
+    function fpow(uint256 x, uint256 n, uint256 baseUnit) internal pure returns (uint256 z) {
         assembly {
             switch x
             case 0 {
@@ -96,9 +80,7 @@ library FixedPointMathLib {
                 } {
                     // Revert immediately if x ** 2 would overflow.
                     // Equivalent to iszero(eq(div(xx, x), x)) here.
-                    if shr(128, x) {
-                        revert(0, 0)
-                    }
+                    if shr(128, x) { revert(0, 0) }
 
                     // Store x squared.
                     let xx := mul(x, x)
@@ -107,9 +89,7 @@ library FixedPointMathLib {
                     let xxRound := add(xx, half)
 
                     // Revert if xx + half overflowed.
-                    if lt(xxRound, xx) {
-                        revert(0, 0)
-                    }
+                    if lt(xxRound, xx) { revert(0, 0) }
 
                     // Set x to scaled xxRound.
                     x := div(xxRound, baseUnit)
@@ -122,18 +102,14 @@ library FixedPointMathLib {
                         // If z * x overflowed:
                         if iszero(eq(div(zx, x), z)) {
                             // Revert if x is non-zero.
-                            if iszero(iszero(x)) {
-                                revert(0, 0)
-                            }
+                            if iszero(iszero(x)) { revert(0, 0) }
                         }
 
                         // Round to the nearest number.
                         let zxRound := add(zx, half)
 
                         // Revert if zx + half overflowed.
-                        if lt(zxRound, zx) {
-                            revert(0, 0)
-                        }
+                        if lt(zxRound, zx) { revert(0, 0) }
 
                         // Return properly scaled zxRound.
                         z := div(zxRound, baseUnit)
@@ -198,9 +174,7 @@ library FixedPointMathLib {
             let zRoundDown := div(x, z)
 
             // If zRoundDown is smaller, use it.
-            if lt(zRoundDown, z) {
-                z := zRoundDown
-            }
+            if lt(zRoundDown, z) { z := zRoundDown }
         }
     }
 }

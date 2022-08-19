@@ -34,22 +34,13 @@ import {XChainHubEvents} from "@hub/XChainHubEvents.sol";
 /// @dev we rely heavily on Solditiy's implementation of C3 Lineraization to resolve dependency conflicts.
 ///      it is advisable you have a base understanding of the concept before changing import ordering.
 ///      see https://twitter.com/Alexintosh/status/1554892187787214849 for a summary
-contract XChainHub is
-    Ownable,
-    XChainHubStorage,
-    XChainHubEvents,
-    XChainHubSrc,
-    XChainHubDest
-{
+contract XChainHub is Ownable, XChainHubStorage, XChainHubEvents, XChainHubSrc, XChainHubDest {
     using SafeERC20 for IERC20;
 
-    constructor(
-        address _stargateEndpoint,
-        address _lzEndpoint,
-        address _refundRecipient
-    ) XChainHubSrc(_stargateEndpoint) XChainHubDest(_lzEndpoint) {
-        refundRecipient = _refundRecipient;
-    }
+    constructor(address _stargateEndpoint, address _lzEndpoint)
+        XChainHubSrc(_stargateEndpoint)
+        XChainHubDest(_lzEndpoint)
+    {}
 
     /// @notice updates a vault on the current chain to be either trusted or untrusted
     function setTrustedVault(address vault, bool trusted) external onlyOwner {
@@ -57,10 +48,7 @@ contract XChainHub is
     }
 
     /// @notice updates a strategy on the current chain to be either trusted or untrusted
-    function setTrustedStrategy(address strategy, bool trusted)
-        external
-        onlyOwner
-    {
+    function setTrustedStrategy(address strategy, bool trusted) external onlyOwner {
         trustedStrategy[strategy] = trusted;
     }
 
@@ -74,15 +62,13 @@ contract XChainHub is
     /// @dev this could happen because of a revert on one of the forwarding functions
     /// @param _amount the quantity of tokens to remove
     /// @param _token the address of the token to withdraw
-    function emergencyWithdraw(uint256 _amount, address _token)
-        external
-        onlyOwner
-    {
+    function emergencyWithdraw(uint256 _amount, address _token) external onlyOwner {
         IERC20 underlying = IERC20(_token);
+        /// @dev - update reporting here
         underlying.safeTransfer(msg.sender, _amount);
     }
 
-    /// @notice Triggers the Vault's pause
+    /// @notice Triggers the Hub's pause
     function triggerPause() external onlyOwner {
         paused() ? _unpause() : _pause();
     }

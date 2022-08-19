@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.12;
+
 pragma abicoder v2;
 
 import {PRBTest} from "@prb/test/PRBTest.sol";
@@ -29,7 +30,10 @@ contract MockHub {
         uint256 _amount,
         uint256 _minOut,
         address payable _refundAddress
-    ) external payable {}
+    )
+        external
+        payable
+    {}
 
     function lz_requestWithdrawFromChain(
         uint16 dstChainId,
@@ -37,7 +41,10 @@ contract MockHub {
         uint256 amountVaultShares,
         bytes memory adapterParams,
         address payable refundAddress
-    ) external payable {}
+    )
+        external
+        payable
+    {}
 
     function sg_finalizeWithdrawFromChain(
         uint16 dstChainId,
@@ -47,7 +54,10 @@ contract MockHub {
         uint16 srcPoolId,
         uint16 dstPoolId,
         uint256 minOutUnderlying
-    ) external payable {}
+    )
+        external
+        payable
+    {}
 }
 
 contract Test is PRBTest, XChainStrategyEvents {
@@ -83,7 +93,8 @@ contract Test is PRBTest, XChainStrategyEvents {
             dstPoolId: 0,
             dstHub: address(0),
             dstVault: address(0),
-            refundAddress: payable(address(0))
+            refundAddress: payable(address(0)),
+            dstGas: 200_000
         });
     }
 
@@ -123,16 +134,8 @@ contract Test is PRBTest, XChainStrategyEvents {
         vm.expectRevert("XChainStrategy::withdrawFromHub:UNAUTHORIZED");
         strategy.withdrawFromHub(1);
 
-        vm.expectRevert(
-            "XChainStrategy::startRequestToWithdrawUnderlying:UNAUTHORIZED"
-        );
-        strategy.startRequestToWithdrawUnderlying(
-            0,
-            bytes(""),
-            payable(_attacker),
-            1,
-            vaultAddr
-        );
+        vm.expectRevert("XChainStrategy::startRequestToWithdrawUnderlying:UNAUTHORIZED");
+        strategy.startRequestToWithdrawUnderlying(0, 200_000, payable(_attacker), 1, vaultAddr);
     }
 
     function testRestrictedFunctionsMgr(address _attacker) public {
@@ -177,9 +180,7 @@ contract Test is PRBTest, XChainStrategyEvents {
         assertEq(address(strategy.vault()), _vault);
     }
 
-    function testDepositUnderlying(IXChainStrategy.DepositParams memory _params)
-        public
-    {
+    function testDepositUnderlying(IXChainStrategy.DepositParams memory _params) public {
         vm.deal(strategist, 1 ether);
         vm.startPrank(strategist);
 
@@ -193,12 +194,7 @@ contract Test is PRBTest, XChainStrategyEvents {
         strategy.setState(strategy.NOT_DEPOSITED());
 
         vm.expectEmit(true, true, true, true);
-        emit DepositXChain(
-            _params.dstHub,
-            _params.dstVault,
-            _params.dstChain,
-            _params.amount
-        );
+        emit DepositXChain(_params.dstHub, _params.dstVault, _params.dstChain, _params.amount);
 
         strategy.depositUnderlying{value: 1 ether}(_params);
 
@@ -209,7 +205,7 @@ contract Test is PRBTest, XChainStrategyEvents {
 
     function testWithdrawFromHub(uint256 _amount) public {
         vm.assume(_amount > 0 && _amount <= token.balanceOf(address(this)));
-        XChainHub hubReal = new XChainHub(address(0), address(0), address(0));
+        XChainHub hubReal = new XChainHub(address(0), address(0));
 
         token.transfer(address(hubReal), _amount);
         vm.startPrank(manager);
@@ -240,29 +236,15 @@ contract Test is PRBTest, XChainStrategyEvents {
 
     function testWithdrawUnderlying(uint256 _amt) public {
         vm.startPrank(strategist);
-        vm.expectRevert(
-            "XChainStrategy::startRequestToWithdrawUnderlying:WRONG STATE"
-        );
-        strategy.startRequestToWithdrawUnderlying(
-            0,
-            bytes(""),
-            payable(address(0)),
-            1,
-            vaultAddr
-        );
+        vm.expectRevert("XChainStrategy::startRequestToWithdrawUnderlying:WRONG STATE");
+        strategy.startRequestToWithdrawUnderlying(0, 200_000, payable(address(0)), 1, vaultAddr);
 
         strategy.setState(strategy.DEPOSITED());
 
         vm.expectEmit(true, true, false, true);
         emit WithdrawRequestXChain(1, address(vault), _amt);
 
-        strategy.startRequestToWithdrawUnderlying(
-            _amt,
-            bytes(""),
-            payable(address(0)),
-            1,
-            vaultAddr
-        );
+        strategy.startRequestToWithdrawUnderlying(_amt, 200_000, payable(address(0)), 1, vaultAddr);
         assert(strategy.state() == strategy.WITHDRAWING());
     }
 

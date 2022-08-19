@@ -2,7 +2,8 @@
 pragma solidity >=0.8.10;
 
 import {IERC20Upgradeable as IERC20} from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
-import {SafeERC20Upgradeable as SafeERC20} from "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
+import {SafeERC20Upgradeable as SafeERC20} from
+    "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
 
 import {BaseStrategy} from "../BaseStrategy.sol";
 import {IVault} from "../../interfaces/IVault.sol";
@@ -12,13 +13,9 @@ contract MockStrategy is BaseStrategy {
 
     bool internal success = true;
 
-    function initialize(
-        IVault vault_,
-        IERC20 underlying_,
-        address manager_,
-        address strategist_,
-        string calldata name_
-    ) external {
+    function initialize(IVault vault_, IERC20 underlying_, address manager_, address strategist_, string calldata name_)
+        external
+    {
         __initialize(vault_, underlying_, manager_, strategist_, name_);
     }
 
@@ -37,7 +34,9 @@ contract MockStrategy is BaseStrategy {
     /// @notice Deposit a specific amount of underlying tokens.
     /// @param amount The amount of underlying tokens to deposit.
     function deposit(uint256 amount) external override returns (uint8 succ) {
-        if (!success) return 1;
+        if (!success) {
+            return 1;
+        }
 
         require(msg.sender == address(vault), "deposit::NOT_VAULT");
 

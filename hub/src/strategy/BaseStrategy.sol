@@ -69,11 +69,7 @@ abstract contract BaseStrategy is ReentrancyGuard {
     event UpdateStrategist(address indexed strategist);
 
     /// @notice Event emitted when rewards are sold.
-    event RewardsHarvested(
-        address indexed reward,
-        uint256 rewards,
-        uint256 underlying
-    );
+    event RewardsHarvested(address indexed reward, uint256 rewards, uint256 underlying);
 
     /// @notice Event emitted when underlying is deposited in this strategy.
     event Deposited(address indexed vault, uint256 amount);
@@ -94,13 +90,10 @@ abstract contract BaseStrategy is ReentrancyGuard {
                             INITIALIZE
     //////////////////////////////////////////////////////////////*/
 
-    function __initialize(
-        IVault vault_,
-        IERC20 underlying_,
-        address manager_,
-        address strategist_,
-        string memory name_
-    ) internal virtual {
+    function __initialize(IVault vault_, IERC20 underlying_, address manager_, address strategist_, string memory name_)
+        internal
+        virtual
+    {
         name = name_;
         vault = vault_;
         manager = manager_;

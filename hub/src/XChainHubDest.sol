@@ -13,8 +13,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity ^0.8.12;
 
-import "@std/console.sol";
-
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 
@@ -38,13 +36,7 @@ import {IStargateRouter} from "@interfaces/IStargateRouter.sol";
 /// @title XChainHub Destination
 /// @notice Grouping of XChainHub functions on the destination chain
 /// @dev destination refers to the chain in which XChain deposits are initially received
-abstract contract XChainHubDest is
-    Pausable,
-    LayerZeroAdapter,
-    IStargateReceiver,
-    XChainHubStorage,
-    XChainHubEvents
-{
+abstract contract XChainHubDest is Pausable, LayerZeroAdapter, IStargateReceiver, XChainHubStorage, XChainHubEvents {
     using SafeERC20 for IERC20;
 
     /// --------------------------
@@ -80,11 +72,7 @@ abstract contract XChainHubDest is
     /// @dev sgReceive and _nonBlockingLzReceive both call this function
     /// @param _srcChainId the layerZero chain ID
     /// @param message containing action type and payload
-    function _reducer(
-        uint16 _srcChainId,
-        IHubPayload.Message memory message,
-        uint256 amount
-    ) internal {
+    function _reducer(uint16 _srcChainId, IHubPayload.Message memory message, uint256 amount) internal {
         if (message.action == DEPOSIT_ACTION) {
             _sg_depositAction(_srcChainId, message.payload, amount);
         } else if (message.action == REQUEST_WITHDRAW_ACTION) {
@@ -102,11 +90,10 @@ abstract contract XChainHubDest is
     /// @param _srcChainId chainId to simulate from
     /// @param message the payload to send
     /// @param amount to send in case of deposit action
-    function emergencyReducer(
-        uint16 _srcChainId,
-        IHubPayload.Message memory message,
-        uint256 amount
-    ) external onlyOwner {
+    function emergencyReducer(uint16 _srcChainId, IHubPayload.Message memory message, uint256 amount)
+        external
+        onlyOwner
+    {
         _reducer(_srcChainId, message, amount);
     }
 
@@ -119,16 +106,11 @@ abstract contract XChainHubDest is
     /// @param _srcAddress bytes encoded sender address
     /// @param _srcChainId layerZero chainId of the source request
     /// @param onRevert message to throw if the hub is untrusted
-    function _validateOriginCaller(
-        bytes memory _srcAddress,
-        uint16 _srcChainId,
-        string memory onRevert
-    ) internal view {
-        require(
-            keccak256(trustedRemoteLookup[_srcChainId]) ==
-                keccak256(_srcAddress),
-            onRevert
-        );
+    function _validateOriginCaller(bytes memory _srcAddress, uint16 _srcChainId, string memory onRevert)
+        internal
+        view
+    {
+        require(keccak256(trustedRemoteLookup[_srcChainId]) == keccak256(_srcAddress), onRevert);
     }
 
     /// @notice called by the stargate application on the dstChain
@@ -143,23 +125,17 @@ abstract contract XChainHubDest is
         address, // the underlying contract on this chain
         uint256 amountLD,
         bytes memory _payload
-    ) external override {
-        require(
-            msg.sender == address(stargateRouter),
-            "XChainHub::sgRecieve:NOT STARGATE ROUTER"
-        );
+    )
+        external
+        override
+    {
+        require(msg.sender == address(stargateRouter), "XChainHub::sgRecieve:NOT STARGATE ROUTER");
 
         if (_payload.length > 0) {
-            IHubPayload.Message memory message = abi.decode(
-                _payload,
-                (IHubPayload.Message)
-            );
+            IHubPayload.Message memory message = abi.decode(_payload, (IHubPayload.Message));
 
             // actions 0 - 85 cannot be initiated through sgReceive
-            require(
-                message.action > LAYER_ZERO_MAX_VALUE,
-                "XChainHub::sgRecieve:PROHIBITED ACTION"
-            );
+            require(message.action > LAYER_ZERO_MAX_VALUE, "XChainHub::sgRecieve:PROHIBITED ACTION");
 
             _reducer(_srcChainId, message, amountLD);
         }
@@ -167,31 +143,28 @@ abstract contract XChainHubDest is
 
     /// @notice called by the Lz application on the dstChain, then executes the corresponding action.
     /// @param _srcChainId the layerZero chain id
-    /// @param _srcAddress UNUSED PARAM
+    /// @param _srcAddress address of the calling contract on the origin chain
     /// @param _payload bytes encoded Message to be passed to the action
     /// @dev do not confuse _payload with Message.payload, these are encoded separately
     function _nonblockingLzReceive(
         uint16 _srcChainId,
         bytes memory _srcAddress,
         uint64,
+        /// TODO introduce the nonce
         bytes memory _payload
-    ) internal virtual override {
-        _validateOriginCaller(
-            _srcAddress,
-            _srcChainId,
-            "XChainHub::_nonBlockingLzReceive:UNTRUSTED"
-        );
+    )
+        internal
+        virtual
+        override
+    {
+        _validateOriginCaller(_srcAddress, _srcChainId, "XChainHub::_nonBlockingLzReceive:UNTRUSTED");
 
         if (_payload.length > 0) {
-            IHubPayload.Message memory message = abi.decode(
-                _payload,
-                (IHubPayload.Message)
-            );
+            IHubPayload.Message memory message = abi.decode(_payload, (IHubPayload.Message));
 
             // actions 86 - 171 cannot be initiated through layerzero
             require(
-                message.action <= LAYER_ZERO_MAX_VALUE ||
-                    message.action > STARGATE_MAX_VALUE,
+                message.action <= LAYER_ZERO_MAX_VALUE || message.action > STARGATE_MAX_VALUE,
                 "XChainHub::_nonblockingLzReceive:PROHIBITED ACTION"
             );
 
@@ -208,81 +181,43 @@ abstract contract XChainHubDest is
     /// @param _srcChainId layerZero chain id from where deposit came
     /// @param _payload abi encoded as IHubPayload.DepositPayload
     /// @param _amountReceived underlying tokens to be deposited
-    function _sg_depositAction(
-        uint16 _srcChainId,
-        bytes memory _payload,
-        uint256 _amountReceived
-    ) internal virtual {
-        IHubPayload.DepositPayload memory payload = abi.decode(
-            _payload,
-            (IHubPayload.DepositPayload)
-        );
-        _makeDeposit(
-            _srcChainId,
-            _amountReceived,
-            payload.min,
-            payload.strategy,
-            payload.vault
-        );
+    function _sg_depositAction(uint16 _srcChainId, bytes memory _payload, uint256 _amountReceived) internal virtual {
+        IHubPayload.DepositPayload memory payload = abi.decode(_payload, (IHubPayload.DepositPayload));
+        _makeDeposit(_srcChainId, _amountReceived, payload.strategy, payload.vault);
     }
 
     /// @notice actions the deposit
     /// @param _srcChainId what layerZero chainId was the request initiated from
     /// @param _amountReceived is the amount of underyling from stargate swap after fees
-    /// @param _min minimumAmount of minted shares that will be accepted
     /// @param _strategy source XChainStrategy of the deposit request
     /// @param _vault in which to make the deposit
-    function _makeDeposit(
-        uint16 _srcChainId,
-        uint256 _amountReceived,
-        uint256 _min,
-        address _strategy,
-        address _vault
-    ) internal virtual {
-        IVault vault = IVault(_vault);
-        require(
-            trustedVault[_vault],
-            "XChainHub::_depositAction:UNTRUSTED VAULT"
-        );
+    function _makeDeposit(uint16 _srcChainId, uint256 _amountReceived, address _strategy, address _vault)
+        internal
+        virtual
+    {
+        require(trustedVault[_vault], "XChainHub::_depositAction:UNTRUSTED VAULT");
 
         /// @dev do we need this on both chains
-        require(
-            trustedStrategy[_strategy],
-            "XChainHub::_depositAction:UNTRUSTED STRATEGY"
-        );
+        require(trustedStrategy[_strategy], "XChainHub::_depositAction:UNTRUSTED STRATEGY");
+
+        IVault vault = IVault(_vault);
+        uint256 vaultBalance = vault.balanceOf(address(this));
 
         IERC20 underlying = vault.underlying();
-        uint256 vaultBalance = vault.balanceOf(address(this));
         underlying.safeApprove(address(vault), _amountReceived);
         vault.deposit(address(this), _amountReceived);
 
         uint256 mintedShares = vault.balanceOf(address(this)) - vaultBalance;
-        require(
-            mintedShares >= _min,
-            "XChainHub::_depositAction:INSUFFICIENT MINTED SHARES"
-        );
 
         sharesPerStrategy[_srcChainId][_strategy] += mintedShares;
-        emit DepositReceived(
-            _srcChainId,
-            _amountReceived,
-            mintedShares,
-            _vault,
-            _strategy
-        );
+        emit DepositReceived(_srcChainId, _amountReceived, mintedShares, _vault, _strategy);
     }
 
     /// @notice enter the batch burn for a vault on the current chain
     /// @param _srcChainId layerZero chain id where the request originated
     /// @param _payload abi encoded as IHubPayload.RequestWithdrawPayload
-    function _lz_requestWithdrawAction(
-        uint16 _srcChainId,
-        bytes memory _payload
-    ) internal virtual {
-        IHubPayload.RequestWithdrawPayload memory decoded = abi.decode(
-            _payload,
-            (IHubPayload.RequestWithdrawPayload)
-        );
+    function _lz_requestWithdrawAction(uint16 _srcChainId, bytes memory _payload) internal virtual {
+        IHubPayload.RequestWithdrawPayload memory decoded = abi.decode(_payload, (IHubPayload.RequestWithdrawPayload));
 
         address _vault = decoded.vault;
 
@@ -292,20 +227,11 @@ abstract contract XChainHubDest is
         uint256 round = vault.batchBurnRound();
         uint256 currentRound = currentRoundPerStrategy[_srcChainId][strategy];
 
-        require(
-            trustedVault[_vault],
-            "XChainHub::_requestWithdrawAction:UNTRUSTED"
-        );
+        require(trustedVault[_vault], "XChainHub::_requestWithdrawAction:UNTRUSTED");
 
-        require(
-            exiting[_vault],
-            "XChainHub::_requestWithdrawAction:VAULT NOT EXITING"
-        );
+        require(exiting[_vault], "XChainHub::_requestWithdrawAction:VAULT NOT EXITING");
 
-        require(
-            currentRound == 0 || currentRound == round,
-            "XChainHub::_requestWithdrawAction:ROUNDS MISMATCHED"
-        );
+        require(currentRound == 0 || currentRound == round, "XChainHub::_requestWithdrawAction:ROUNDS MISMATCHED");
 
         require(
             sharesPerStrategy[_srcChainId][strategy] >= amountVaultShares,
@@ -322,54 +248,36 @@ abstract contract XChainHubDest is
 
         vault.enterBatchBurn(amountVaultShares);
 
-        emit WithdrawRequestReceived(
-            _srcChainId,
-            amountVaultShares,
-            _vault,
-            strategy
-        );
+        emit WithdrawRequestReceived(_srcChainId, amountVaultShares, _vault, strategy);
     }
 
     /// @notice executes a withdrawal of underlying tokens from a vault to a strategy on the source chain
     /// @param _srcChainId what layerZero chainId was the request initiated from
     /// @param _payload abi encoded as IHubPayload.FinalizeWithdrawPayload
-    function _sg_finalizeWithdrawAction(
-        uint16 _srcChainId,
-        bytes memory _payload,
-        uint256 _amountReceived
-    ) internal virtual {
-        IHubPayload.FinalizeWithdrawPayload memory payload = abi.decode(
-            _payload,
-            (IHubPayload.FinalizeWithdrawPayload)
-        );
+    function _sg_finalizeWithdrawAction(uint16 _srcChainId, bytes memory _payload, uint256 _amountReceived)
+        internal
+        virtual
+    {
+        IHubPayload.FinalizeWithdrawPayload memory payload = abi.decode(_payload, (IHubPayload.FinalizeWithdrawPayload));
 
         /// @dev TODO: confirm if this provides sufficient accounting for further withdraws
         emit WithdrawalReceived(
             _srcChainId,
+            /// @dev - I think this amount should be stored somewhere
             _amountReceived,
             payload.vault,
             payload.strategy
-        );
+            );
     }
 
     /// @notice underlying holdings are updated on another chain and this function is broadcast
     ///     to all other chains for the strategy.
     /// @param _srcChainId the layerZero chain id from where the request originates
     /// @param _payload byte encoded data adhering to IHubPayload.lz_reportUnderlyingPayload
-    function _lz_reportUnderlyingAction(
-        uint16 _srcChainId,
-        bytes memory _payload
-    ) internal virtual {
-        IHubPayload.ReportUnderlyingPayload memory payload = abi.decode(
-            _payload,
-            (IHubPayload.ReportUnderlyingPayload)
-        );
+    function _lz_reportUnderlyingAction(uint16 _srcChainId, bytes memory _payload) internal virtual {
+        IHubPayload.ReportUnderlyingPayload memory payload = abi.decode(_payload, (IHubPayload.ReportUnderlyingPayload));
 
         IStrategy(payload.strategy).report(payload.amountToReport);
-        emit UnderlyingUpdated(
-            _srcChainId,
-            payload.amountToReport,
-            payload.strategy
-        );
+        emit UnderlyingUpdated(_srcChainId, payload.amountToReport, payload.strategy);
     }
 }

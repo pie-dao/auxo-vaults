@@ -21,13 +21,7 @@ contract XChainHubEvents {
     /// @param dstHub address of the remote hub
     /// @param vault on the remote chain to deposit into
     /// @param strategy XChainStrategy on this chain that made the deposit
-    event DepositSent(
-        uint16 dstChainId,
-        uint256 amountUnderlying,
-        bytes dstHub,
-        address vault,
-        address strategy
-    );
+    event DepositSent(uint16 dstChainId, uint256 amountUnderlying, bytes dstHub, address vault, address strategy);
 
     /// @notice emitted on the destination chain from DepositSent when a deposit is made into a vault
     /// @param srcChainId origin layerZero chain id of the Tx
@@ -36,11 +30,7 @@ contract XChainHubEvents {
     /// @param vault on this chain that accepted deposits
     /// @param strategy XChainStrategy (remote) that originally made the deposit
     event DepositReceived(
-        uint16 srcChainId,
-        uint256 amountUnderlyingReceived,
-        uint256 sharesMinted,
-        address vault,
-        address strategy
+        uint16 srcChainId, uint256 amountUnderlyingReceived, uint256 sharesMinted, address vault, address strategy
     );
 
     /// @notice emitted on the source chain when a request to enter batch burn is successfully sent
@@ -48,24 +38,14 @@ contract XChainHubEvents {
     /// @param shares to burn
     /// @param vault on the remote chain to burn shares
     /// @param strategy Xchainstrategy originating the request
-    event WithdrawRequested(
-        uint16 dstChainId,
-        uint256 shares,
-        address vault,
-        address strategy
-    );
+    event WithdrawRequested(uint16 dstChainId, uint256 shares, address vault, address strategy);
 
     /// @notice emitted on the destination chain from WithdrawRequested when a request to enter batch burn is accepted
     /// @param srcChainId origin layerZero chain id of the Tx
     /// @param shares to burn
     /// @param vault address of the vault on this chain to redeem from
     /// @param strategy remote XChainStrategy address from which the request was sent
-    event WithdrawRequestReceived(
-        uint16 srcChainId,
-        uint256 shares,
-        address vault,
-        address strategy
-    );
+    event WithdrawRequestReceived(uint16 srcChainId, uint256 shares, address vault, address strategy);
 
     /// @notice emitted when the hub successfully withdraws underlying after a batch burn
     /// @param withdrawn underlying token qty that have been redeemed
@@ -81,12 +61,7 @@ contract XChainHubEvents {
     /// @param strategy remote Xchainstrategy address
     /// @param round the round which was passed
     event WithdrawalSent(
-        uint16 dstChainId,
-        uint256 amountUnderlying,
-        bytes dstHub,
-        address vault,
-        address strategy,
-        uint256 round
+        uint16 dstChainId, uint256 amountUnderlying, bytes dstHub, address vault, address strategy, uint256 round
     );
 
     /// @notice emitted on the destination chain from WithdrawlSent when tokens have been received
@@ -94,30 +69,17 @@ contract XChainHubEvents {
     /// @param amountUnderlying that were received
     /// @param vault remote vault from which tokens withdrawn
     /// @param strategy on this chain to which the tokens are destined
-    event WithdrawalReceived(
-        uint16 srcChainId,
-        uint256 amountUnderlying,
-        address vault,
-        address strategy
-    );
+    event WithdrawalReceived(uint16 srcChainId, uint256 amountUnderlying, address vault, address strategy);
 
     /// @notice emitted on the source chain when a message is sent to update underlying balances for a strategy
     /// @param dstChainId destination layerZero chainId
     /// @param amount amount of underlying tokens reporte
     /// @param strategy remote Xchainstrategy address
-    event UnderlyingReported(
-        uint16 dstChainId,
-        uint256 amount,
-        address strategy
-    );
+    event UnderlyingReported(uint16 dstChainId, uint256 amount, address strategy);
 
     /// @notice emitted on the destination chain from UnderlyingReported on receipt of a report of underlying changed
     /// @param srcChainId origin layerZero chain id of the Tx
     /// @param amount of underlying tokens reporte
     /// @param strategy Xchainstrategy address on this chain
-    event UnderlyingUpdated(
-        uint16 srcChainId,
-        uint256 amount,
-        address strategy
-    );
+    event UnderlyingUpdated(uint16 srcChainId, uint256 amount, address strategy);
 }
