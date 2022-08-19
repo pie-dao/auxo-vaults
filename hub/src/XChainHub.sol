@@ -40,7 +40,9 @@ contract XChainHub is Ownable, XChainHubStorage, XChainHubEvents, XChainHubSrc, 
     constructor(address _stargateEndpoint, address _lzEndpoint)
         XChainHubSrc(_stargateEndpoint)
         XChainHubDest(_lzEndpoint)
-    {}
+    {
+        REPORT_DELAY = 6 hours;
+    }
 
     /// @notice updates a vault on the current chain to be either trusted or untrusted
     function setTrustedVault(address vault, bool trusted) external onlyOwner {
@@ -53,9 +55,14 @@ contract XChainHub is Ownable, XChainHubStorage, XChainHubEvents, XChainHubSrc, 
     }
 
     /// @notice indicates whether the vault is in an `exiting` state
-    /// @dev This is callable only by the owner
     function setExiting(address vault, bool exit) external onlyOwner {
         exiting[vault] = exit;
+    }
+
+    /// @notice alters the report delay to prevent overly frequent reporting
+    function setReportDelay(uint64 newDelay) external onlyOwner {
+        require(newDelay > 0, "XChainHub::setReportDelay:ZERO DELAY");
+        REPORT_DELAY = newDelay;
     }
 
     /// @notice remove funds from the contract in the event that a revert locks them in

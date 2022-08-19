@@ -26,7 +26,7 @@ contract TestXChainHubSrcAndDst is PRBTest, XChainHubEvents {
     ERC20 token;
 
     function setUp() public {
-        hub = new MockXChainHubSingle(address(0), address(0), address(0));
+        hub = new MockXChainHubSingle(address(0), address(0));
         token = new AuxoTest();
         vault = new MockVault(token);
     }
@@ -90,6 +90,8 @@ contract TestXChainHubSrcAndDst is PRBTest, XChainHubEvents {
 
         hub.setStrategyForChain(_strategy, _srcChainId);
         hub.setVaultForChain(address(vault), _srcChainId);
+        hub.setTrustedStrategy(_strategy, true);
+        hub.setTrustedVault(address(vault), true);
 
         hub.depositAction(_srcChainId, abi.encode(_payload), _amount);
 

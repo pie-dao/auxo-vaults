@@ -48,8 +48,8 @@ contract TestXChainHubDst is PRBTest, XChainHubEvents {
         );
         hub = new XChainHub(stargate, lz);
 
-        hubMockReducer = new XChainHubMockReducer(stargate, lz, refund);
-        hubMockActions = new XChainHubMockActions(stargate, lz, refund);
+        hubMockReducer = new XChainHubMockReducer(stargate, lz);
+        hubMockActions = new XChainHubMockActions(stargate, lz);
     }
 
     // test initial state of the contract
@@ -141,21 +141,6 @@ contract TestXChainHubDst is PRBTest, XChainHubEvents {
         hubMockActions.depositAction(1, payload, 0);
     }
 
-    function testDepositActionRevertsWithInsufficientMint() public {
-        token.transfer(address(hubMockActions), token.balanceOf(address(this)));
-        hubMockActions.setTrustedVault(address(_vault), true);
-
-        uint256 balance = token.balanceOf(address(this));
-
-        hubMockActions.setTrustedStrategy(stratAddr, true);
-
-        bytes memory payload =
-            abi.encode(IHubPayload.DepositPayload({vault: address(_vault), strategy: stratAddr, amountUnderyling: balance}));
-
-        vm.expectRevert(bytes("XChainHub::_depositAction:INSUFFICIENT MINTED SHARES"));
-        hubMockActions.depositAction(1, payload, 0);
-    }
-
     function testDepositAction(uint256 amount) public {
         token.transfer(address(hubMockActions), token.balanceOf(address(this)));
         hubMockActions.setTrustedVault(address(_vault), true);
@@ -237,7 +222,7 @@ contract TestXChainHubDst is PRBTest, XChainHubEvents {
             IHubPayload.FinalizeWithdrawPayload({vault: vaultAddr, strategy: stratAddr});
 
         // match non indexed payloads only
-        hubMockActions = new XChainHubMockActions(stargate, lz, refund);
+        hubMockActions = new XChainHubMockActions(stargate, lz);
 
         vm.expectEmit(false, false, false, true);
         emit WithdrawalReceived(srcChainId, amount, vaultAddr, stratAddr);

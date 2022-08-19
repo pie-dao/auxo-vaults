@@ -55,7 +55,7 @@ contract TestXChainHubSrc is PRBTest {
             payable(0x675e75A6f90E0610d150f415e4406B4989AaD023)
         );
         hub = new XChainHub(stargate, lz, refund);
-        hubMockActions = new XChainHubMockActions(stargate, lz, refund);
+        hubMockActions = new XChainHubMockActions(stargate, lz);
     }
 
     // test initial state of the contract

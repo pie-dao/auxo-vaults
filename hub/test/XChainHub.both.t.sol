@@ -8,6 +8,7 @@ import "@std/console.sol";
 import "@oz/token/ERC20/ERC20.sol";
 
 import {IVault} from "@interfaces/IVault.sol";
+import {IHubPayload} from "@interfaces/IHubPayload.sol";
 
 import {LZEndpointMock} from "@hub-test/mocks/MockLayerZeroEndpoint.sol";
 import {XChainHubEvents} from "@hub/XChainHubEvents.sol";
@@ -106,7 +107,7 @@ contract TestXChainHubSrcAndDst is PRBTest, XChainHubEvents {
         address dstVault = address(vault);
         uint256 amount = token.balanceOf(address(strategy));
         uint256 minOut = (amount * 9) / 10;
-        uint dstGas = 200_000;
+        uint256 dstGas = 200_000;
 
         hubSrc.setTrustedStrategy(address(strategy), true);
         hubDst.setTrustedStrategy(address(strategy), true);
@@ -117,7 +118,9 @@ contract TestXChainHubSrcAndDst is PRBTest, XChainHubEvents {
         token.approve(address(hubSrc), token.balanceOf(address(strategy)));
 
         vm.expectEmit(false, false, false, true);
-        hubSrc.sg_depositToChain(chainIdDst, srcPoolId, dstPoolId, dstVault, amount, minOut, refund, dstGas);
+        hubSrc.sg_depositToChain(
+            IHubPayload.SgDepositParams(chainIdDst, srcPoolId, dstPoolId, dstVault, amount, minOut, refund, dstGas)
+        );
 
         vm.stopPrank();
 
@@ -183,7 +186,9 @@ contract TestXChainHubSrcAndDst is PRBTest, XChainHubEvents {
         hubSrc.setCurrentRoundPerStrategy(chainIdDst, address(strategy), _round);
         hubSrc.setWithdrawnPerRound(address(vault), _round, _amount);
 
-        hubSrc.sg_finalizeWithdrawFromChain(chainIdDst, address(vault), address(strategy), 0, 1, 1);
+        hubSrc.sg_finalizeWithdrawFromChain(
+            IHubPayload.SgFinalizeParams(chainIdDst, address(vault), address(strategy), 0, 1, 1, _round, refund, dstDefaultGas)
+        );
 
         // ensure the destination is cleared out
         assertEq(token.balanceOf(address(hubSrc)), 0);

@@ -57,40 +57,7 @@ Deployment scripts are in the scripts folder, as of right now we have a large pa
 
 # Deploying a Cross Chain Application
 
-Instructions below for deploying all the components, if you want to do it manually:
-### Components
-
-- XChainHub:
-    - (R) Src 
-    - (R) Dest
-
-- XChainStrategy?
-    - (R) Src
-    - Dest
-
-- Vault:
-    - (R) Src
-    - (R) Dst
-
-- Vault Auth:
-    - (R) Src
-    - (R) Src
-
-- Token:
-    - (R) Src
-    - (R) Src
-
-- Dependencies (these must be present on the src and dst chains):
-    - Stargate
-    - LayerZero
-
-Ordering:
-- (Factory)
-- Auth
-- Vault
-- XHub
-- XStrategy
-
+See the deploy scripts
 # Strategies & XChainStrategies
 
 The cross chain strategy inherits from the BaseStrategy contract.
@@ -209,3 +176,7 @@ magager::ori::vault::xchainstrat::withdrawFromHub(AMOUNT_ONLY_MANAGER_KNOW(andGO
 
 Here we need an offchain component matching the requested amount with the received one.
 xchain strat, right now doesn't even care about accounting, we basically trust the manager or strategist to do that
+
+# Refunds
+
+We estimate fees before sending LayerZero or Stargate functions. There is, however, the potential for fees to be too high for the actual actions required. In this case, the user is able to set a `refundRecipient` 

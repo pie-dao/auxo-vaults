@@ -3,9 +3,10 @@ pragma solidity ^0.8.12;
 
 pragma abicoder v2;
 
-import {PRBTest} from "@prb/test/PRBTest.sol";
 import "@oz/token/ERC20/ERC20.sol";
 import "@std/console.sol";
+import {PRBTest} from "@prb/test/PRBTest.sol";
+
 import {XChainStrategy as IXChainStrategy} from "@hub/strategy/XChainStrategy.sol";
 import {MockXChainStrategy as XChainStrategy} from "@hub-test/mocks/MockStrategy.sol";
 
@@ -21,16 +22,7 @@ import {IXChainHub} from "@interfaces/IXChainHub.sol";
 import {IHubPayload} from "@interfaces/IHubPayload.sol";
 
 contract MockHub {
-    function sg_depositToChain(
-        uint16 _dstChainId,
-        uint16 _srcPoolId,
-        uint16 _dstPoolId,
-        address _dstHub,
-        address _dstVault,
-        uint256 _amount,
-        uint256 _minOut,
-        address payable _refundAddress
-    )
+    function sg_depositToChain(IHubPayload.SgDepositParams calldata params)
         external
         payable
     {}
@@ -39,8 +31,8 @@ contract MockHub {
         uint16 dstChainId,
         address dstVault,
         uint256 amountVaultShares,
-        bytes memory adapterParams,
-        address payable refundAddress
+        address payable refundAddress,
+        uint256 dstGas
     )
         external
         payable
@@ -181,6 +173,7 @@ contract Test is PRBTest, XChainStrategyEvents {
     }
 
     function testDepositUnderlying(IXChainStrategy.DepositParams memory _params) public {
+        vm.assume(_params.dstGas != 0);
         vm.deal(strategist, 1 ether);
         vm.startPrank(strategist);
 

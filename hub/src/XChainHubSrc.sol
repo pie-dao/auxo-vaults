@@ -85,8 +85,8 @@ abstract contract XChainHubSrc is Pausable, LayerZeroAdapter, XChainHubStorage, 
         onlyOwner
         whenNotPaused
     {
+        require(REPORT_DELAY > 0, "XChainHub::reportUnderlying:SET DELAY");
         require(trustedVault[address(_vault)], "XChainHub::reportUnderlying:UNTRUSTED");
-
         require(_dstChains.length == _strats.length, "XChainHub::reportUnderlying:LENGTH MISMATCH");
 
         uint256 amountToReport;
@@ -138,49 +138,41 @@ abstract contract XChainHubSrc is Pausable, LayerZeroAdapter, XChainHubStorage, 
 
     /// @dev Only Called by the Cross Chain Strategy
     /// @notice makes a deposit of the underyling token into the vault on a given chain
-    /// @param _dstChainId the layerZero chain id
-    /// @param _srcPoolId https://stargateprotocol.gitbook.io/stargate/developers/pool-ids
-    /// @param _dstPoolId https://stargateprotocol.gitbook.io/stargate/developers/pool-ids
-    /// @param _dstVault address of the vault on the destination chain
-    /// @param _amount is the amount to deposit in underlying tokens
-    /// @param _minOut min quantity to receive back out from swap
-    /// @param _refundAddress if native for fees is too high, refund to this addr on current chain
-    /// @param _dstGas gas to be sent with the request, for use on the dst chain.
-    /// @dev destination gas is non-refundable
-    function sg_depositToChain(
-        uint16 _dstChainId,
-        uint16 _srcPoolId,
-        uint16 _dstPoolId,
-        address _dstVault,
-        uint256 _amount,
-        uint256 _minOut,
-        address payable _refundAddress,
-        uint256 _dstGas
-    )
-        external
-        payable
-        whenNotPaused
-    {
+    /// @param _params a stuct encoding the deposit paramters
+    function sg_depositToChain(IHubPayload.SgDepositParams calldata _params) external payable whenNotPaused {
         require(trustedStrategy[msg.sender], "XChainHub::depositToChain:UNTRUSTED");
-        bytes memory dstHub = trustedRemoteLookup[_dstChainId];
+
+        bytes memory dstHub = trustedRemoteLookup[_params.dstChainId];
+
         require(dstHub.length != 0, "XChainHub::finalizeWithdrawFromChain:NO HUB");
-        _approveRouterTransfer(msg.sender, _amount);
+
+        // load some variables into memory
+        uint256 amount = _params.amount;
+        address dstVault = _params.dstVault;
+
+        _approveRouterTransfer(msg.sender, amount);
+
         IHubPayload.Message memory message = IHubPayload.Message({
             action: DEPOSIT_ACTION,
-            payload: abi.encode(IHubPayload.DepositPayload({vault: _dstVault, strategy: msg.sender, amountUnderyling: _amount}))
+            payload: abi.encode(IHubPayload.DepositPayload({vault: dstVault, strategy: msg.sender, amountUnderyling: amount}))
         });
+
         stargateRouter.swap{value: msg.value}(
-            _dstChainId,
-            _srcPoolId,
-            _dstPoolId,
-            _refundAddress,
-            _amount,
-            _minOut,
-            IStargateRouter.lzTxObj({dstGasForCall: _dstGas, dstNativeAmount: 0, dstNativeAddr: abi.encodePacked(address(0x0))}),
+            _params.dstChainId,
+            _params.srcPoolId,
+            _params.dstPoolId,
+            _params.refundAddress,
+            amount,
+            _params.minOut,
+            IStargateRouter.lzTxObj({
+                dstGasForCall: _params.dstGas,
+                dstNativeAmount: 0,
+                dstNativeAddr: abi.encodePacked(address(0x0))
+            }),
             dstHub, // This hub must implement sgReceive
             abi.encode(message)
         );
-        emit DepositSent(_dstChainId, _amount, dstHub, _dstVault, msg.sender);
+        emit DepositSent(_params.dstChainId, amount, dstHub, dstVault, msg.sender);
     }
 
     /// @notice Only called by x-chain Strategy
@@ -193,7 +185,7 @@ abstract contract XChainHubSrc is Pausable, LayerZeroAdapter, XChainHubStorage, 
     /// @param _dstVault address of the vault on destination
     /// @param _amountVaultShares the number of auxovault shares to burn for underlying
     /// @param _refundAddress addrss on the source chain to send rebates to
-    /// @param _dstGas required on dstChain for operations    
+    /// @param _dstGas required on dstChain for operations
     function lz_requestWithdrawFromChain(
         uint16 _dstChainId,
         address _dstVault,
@@ -242,26 +234,8 @@ abstract contract XChainHubSrc is Pausable, LayerZeroAdapter, XChainHubStorage, 
     }
 
     /// @notice sends tokens withdrawn from local vault to a remote hub
-    /// @param _dstChainId layerZero ChainId to send tokens
-    /// @param _vault the vault on this chain to validate the withdrawal against
-    /// @param _strategy the XChainStrategy that initially deposited the tokens
-    /// @param _minOutUnderlying minimum amount of underlying to receive after cross chain swap
-    /// @param _srcPoolId stargatePoolId this chain
-    /// @param _dstPoolId stargatePoolId target chain
-    /// @param _dstGas gas to be sent with the request, for use on the dst chain.
-    /// @dev destination gas is non-refundable
-    /// @param _refundAddress if native for fees is too high, refund to this addr on current chain
-    function sg_finalizeWithdrawFromChain(
-        uint16 _dstChainId,
-        address _vault,
-        address _strategy,
-        uint256 _minOutUnderlying,
-        uint256 _srcPoolId,
-        uint256 _dstPoolId,
-        uint256 currentRound,
-        address payable _refundAddress,
-        uint256 _dstGas
-    )
+    /// @param _params struct encoding arguments
+    function sg_finalizeWithdrawFromChain(IHubPayload.SgFinalizeParams calldata _params)
         external
         payable
         whenNotPaused
@@ -269,40 +243,42 @@ abstract contract XChainHubSrc is Pausable, LayerZeroAdapter, XChainHubStorage, 
     {
         /// @dev passing manually at the moment
         // uint256 currentRound = currentRoundPerStrategy[_dstChainId][_strategy];
-        bytes memory dstHub = trustedRemoteLookup[_dstChainId];
+
+        bytes memory dstHub = trustedRemoteLookup[_params.dstChainId];
+        uint256 strategyAmount = withdrawnPerRound[_params.vault][_params.currentRound];
+
         require(dstHub.length != 0, "XChainHub::finalizeWithdrawFromChain:NO HUB");
-
-        require(currentRound > 0, "XChainHub::finalizeWithdrawFromChain:NO ACTIVE ROUND");
-
-        require(!exiting[_vault], "XChainHub::finalizeWithdrawFromChain:EXITING");
-
-        require(trustedVault[_vault], "XChainHub::finalizeWithdrawFromChain:UNTRUSTED VAULT");
-
-        uint256 strategyAmount = withdrawnPerRound[_vault][currentRound];
+        require(_params.currentRound > 0, "XChainHub::finalizeWithdrawFromChain:NO ACTIVE ROUND");
+        require(!exiting[_params.vault], "XChainHub::finalizeWithdrawFromChain:EXITING");
+        require(trustedVault[_params.vault], "XChainHub::finalizeWithdrawFromChain:UNTRUSTED VAULT");
         require(strategyAmount > 0, "XChainHub::finalizeWithdrawFromChain:NO WITHDRAWS");
+
+        _approveRouter(_params.vault, strategyAmount);
+        currentRoundPerStrategy[_params.dstChainId][_params.strategy] = 0;
+        exitingSharesPerStrategy[_params.dstChainId][_params.strategy] = 0;
 
         IHubPayload.Message memory message = IHubPayload.Message({
             action: FINALIZE_WITHDRAW_ACTION,
-            payload: abi.encode(IHubPayload.FinalizeWithdrawPayload({vault: _vault, strategy: _strategy}))
+            payload: abi.encode(IHubPayload.FinalizeWithdrawPayload({vault: _params.vault, strategy: _params.strategy}))
         });
-
-        _approveRouter(_vault, strategyAmount);
-
-        currentRoundPerStrategy[_dstChainId][_strategy] = 0;
-        exitingSharesPerStrategy[_dstChainId][_strategy] = 0;
-
         stargateRouter.swap{value: msg.value}(
-            _dstChainId,
-            _srcPoolId,
-            _dstPoolId,
-            _refundAddress,
+            _params.dstChainId,
+            _params.srcPoolId,
+            _params.dstPoolId,
+            _params.refundAddress,
             strategyAmount,
-            _minOutUnderlying,
-            IStargateRouter.lzTxObj({dstGasForCall: _dstGas, dstNativeAmount: 0, dstNativeAddr: abi.encodePacked(address(0x0))}),
+            _params.minOutUnderlying,
+            IStargateRouter.lzTxObj({
+                dstGasForCall: _params.dstGas,
+                dstNativeAmount: 0,
+                dstNativeAddr: abi.encodePacked(address(0x0))
+            }),
             dstHub,
             abi.encode(message)
         );
 
-        emit WithdrawalSent(_dstChainId, strategyAmount, dstHub, _vault, _strategy, currentRound);
+        emit WithdrawalSent(
+            _params.dstChainId, strategyAmount, dstHub, _params.vault, _params.strategy, _params.currentRound
+            );
     }
 }

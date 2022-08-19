@@ -14,9 +14,7 @@ contract XChainHubMockReducer is XChainHub {
     uint8 public lastCall;
     uint256 public amountCalled;
 
-    constructor(address _stargateEndpoint, address _lzEndpoint, address _refundRecipient)
-        XChainHub(_stargateEndpoint, _lzEndpoint)
-    {}
+    constructor(address _stargateEndpoint, address _lzEndpoint) XChainHub(_stargateEndpoint, _lzEndpoint) {}
 
     /// @dev default arg
     function makeMessage(uint8 _action) external pure returns (IHubPayload.Message memory) {
@@ -77,9 +75,7 @@ contract XChainHubMockLzSend is XChainHub {
     address[] public zroPaymentAddresses;
     bytes[] public adapterParams;
 
-    constructor(address _stargateEndpoint, address _lzEndpoint, address _refundRecipient)
-        XChainHub(_stargateEndpoint, _lzEndpoint)
-    {}
+    constructor(address _stargateEndpoint, address _lzEndpoint) XChainHub(_stargateEndpoint, _lzEndpoint) {}
 
     /// @notice intercept the layerZero send and log the outgoing request
     function _lzSend(
@@ -129,9 +125,7 @@ contract XChainHubMockActions is XChainHub {
     address[] public zroPaymentAddresses;
     bytes[] public adapterParams;
 
-    constructor(address _stargateEndpoint, address _lzEndpoint, address _refundRecipient)
-        XChainHub(_stargateEndpoint, _lzEndpoint)
-    {}
+    constructor(address _stargateEndpoint, address _lzEndpoint) XChainHub(_stargateEndpoint, _lzEndpoint) {}
 
     function depositAction(uint16 _srcChainId, bytes memory _payload, uint256 _amount) external {
         return _sg_depositAction(_srcChainId, _payload, _amount);
@@ -261,9 +255,7 @@ contract MockXChainHubSingle is XChainHubSingle {
     address public strategy;
     address public vault;
 
-    constructor(address _stargateEndpoint, address _lzEndpoint, address _refundRecipient)
-        XChainHubSingle(_stargateEndpoint, _lzEndpoint)
-    {}
+    constructor(address _stargateEndpoint, address _lzEndpoint) XChainHubSingle(_stargateEndpoint, _lzEndpoint) {}
 
     function depositAction(uint16 _srcChainId, bytes memory _payload, uint256 _amount) external {
         return _sg_depositAction(_srcChainId, _payload, _amount);
