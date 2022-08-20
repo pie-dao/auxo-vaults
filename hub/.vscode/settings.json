@@ -1,13 +1,11 @@
 {
     "solidity.packageDefaultDependenciesContractsDirectory": "src",
     "solidity.packageDefaultDependenciesDirectory": "lib",
-    "solidity.compileUsingRemoteVersion": "v0.8.14",
+    "solidity.compileUsingRemoteVersion": "v0.8.12",
     "editor.formatOnSave": true,
+    "prettier.configPath": ".prettierconfig",
     "solidity.formatter": "prettier",
     "solidity.linter": "solhint",
-    "[solidity]": {
-      "editor.defaultFormatter": "JuanBlanco.solidity"
-    },
     "solidity.defaultCompiler": "localFile",
     "solidity.compileUsingLocalVersion": "/home/jordan/Documents/Dev/crypto/PieDAO/auxo-vaults/hub/soljson-v0.8.12+commit.f00d7308.js",
 }  

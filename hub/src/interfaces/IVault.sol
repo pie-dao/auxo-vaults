@@ -64,7 +64,7 @@ interface IVault is IERC20 {
     function batchBurnRound() external view returns (uint256);
 
     /// @notice Maps user's address to withdrawal request.
-    function userBatchBurnReceipt(address account) external view returns (BatchBurnReceipt memory);
+    function userBatchBurnReceipts(address account) external view returns (BatchBurnReceipt memory);
 
     /// @notice Maps social burning events rounds to batched burn details.
     function batchBurns(uint256 round) external view returns (BatchBurn memory);

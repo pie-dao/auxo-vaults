@@ -27,7 +27,7 @@ import {IHubPayload} from "@interfaces/IHubPayload.sol";
 
 import "../script/Deployer.sol";
 
-contract E2ETest is PRBTest {
+contract E2ETestSingle is PRBTest {
     /// keep one token to make testing easier
     ERC20 sharedToken;
     uint256 constant dstDefaultGas = 200_000;
@@ -53,28 +53,49 @@ contract E2ETest is PRBTest {
 
     uint16 private srcChainId = 10001;
     uint16 private dstChainId = 10002;
-    bool constant deploySingle = false;
+
+    bool constant deploySingleHub = true;
+
+    function setSingle(Deployer _srcDeployer, Deployer _dstDeployer) public {
+        XChainHubSingle hubSingleSrc = XChainHubSingle(address(_srcDeployer.hub()));
+        XChainHubSingle hubSingleDst = XChainHubSingle(address(_dstDeployer.hub()));
+
+        hubSingleSrc.setStrategyForChain(address(_dstDeployer.strategy()), dstChainId);
+        hubSingleSrc.setTrustedStrategy(address(_dstDeployer.strategy()), true);
+
+        hubSingleDst.setStrategyForChain(address(_srcDeployer.strategy()), srcChainId);
+        hubSingleDst.setTrustedStrategy(address(_srcDeployer.strategy()), true);
+
+        hubSingleSrc.setVaultForChain(address(_srcDeployer.vaultProxy()), dstChainId);
+        hubSingleSrc.setTrustedVault(address(_srcDeployer.vaultProxy()), true);
+
+        hubSingleDst.setVaultForChain(address(_dstDeployer.vaultProxy()), srcChainId);
+        hubSingleDst.setTrustedVault(address(_dstDeployer.vaultProxy()), true);
+    }
 
     function setUp() public {
         /// @dev ----- TEST ONLY -------
-
         sharedToken = new AuxoTest();
         (srcRouter, srcToken) = deployExternal(srcChainId, srcFeeCollector, sharedToken);
+
         srcLzEndpoint = new LZEndpointMock(srcChainId);
         dstLzEndpoint = new LZEndpointMock(dstChainId);
         /// @dev ----- END -------
 
         vm.startPrank(srcGovernor);
+
         srcDeployer = deployAuthAndDeployer(
             srcChainId, srcToken, srcRouter, address(srcLzEndpoint), srcGovernor, srcStrategist, srcRefundAddress
         );
-
         srcDeployer.setTrustedUser(address(srcDeployer), true);
         srcDeployer.setTrustedUser(address(this), true);
+
         vm.stopPrank();
 
         vm.startPrank(address(srcDeployer));
-        deployVaultHubStrat(srcDeployer, deploySingle);
+
+        deployVaultHubStrat(srcDeployer, deploySingleHub);
+
         vm.stopPrank();
 
         /// @dev ----- TEST ONLY -------
@@ -82,15 +103,30 @@ contract E2ETest is PRBTest {
         /// @dev ----- END -------
 
         vm.startPrank(dstGovernor);
+
         dstDeployer = deployAuthAndDeployer(
             dstChainId, dstToken, dstRouter, address(dstLzEndpoint), dstGovernor, dstStrategist, dstRefundAddress
         );
         dstDeployer.setTrustedUser(address(dstDeployer), true);
         dstDeployer.setTrustedUser(address(this), true);
+
         vm.stopPrank();
 
         vm.startPrank(address(dstDeployer));
-        deployVaultHubStrat(dstDeployer, deploySingle);
+
+        deployVaultHubStrat(dstDeployer, deploySingleHub);
+
+        vm.stopPrank();
+
+        /// setup the single config
+        vm.startPrank(address(dstDeployer));
+
+        XChainHubSingle hubSingleDst = XChainHubSingle(address(dstDeployer.hub()));
+        hubSingleDst.setStrategyForChain(address(srcDeployer.strategy()), srcChainId);
+        hubSingleDst.setTrustedStrategy(address(srcDeployer.strategy()), true);
+        hubSingleDst.setVaultForChain(address(dstDeployer.vaultProxy()), srcChainId);
+        hubSingleDst.setTrustedVault(address(dstDeployer.vaultProxy()), true);
+
         vm.stopPrank();
 
         /// @dev ----- TEST ONLY -------
@@ -264,7 +300,9 @@ contract E2ETest is PRBTest {
 
         assertEq(srcToken.balanceOf(address(srcDeployer.strategy())), 0);
         assertEq(srcToken.balanceOf(address(srcDeployer.hub())), 0);
-        assertEq(dstDeployer.hub().sharesPerStrategy(srcChainId, address(srcDeployer.strategy())), depositAmount);
+        uint256 actual = dstDeployer.hub().sharesPerStrategy(srcChainId, address(srcDeployer.strategy()));
+        console.log("shares", actual, "deposit", depositAmount);
+        assertEq(actual, depositAmount);
         /// @TODO: reporting
     }
 

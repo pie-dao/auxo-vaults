@@ -30,16 +30,14 @@ interface IHubPayload {
     /// @param vault on the dst chain
     /// @param strategy will be a Xchain trusted strategy on the src
     /// @param amountUnderyling to deposit
-    /// @param min amount accepted as part of the stargate swap
     struct DepositPayload {
         address vault;
         address strategy;
         uint256 amountUnderyling;
-        uint256 min;
     }
 
-    /// @param vault from where the funds were sent
-    /// @param strategy that originally made the withdrawal
+    /// @param vault on the dst chain
+    /// @param strategy (to withdraw from?)
     struct FinalizeWithdrawPayload {
         address vault;
         address strategy;
@@ -60,4 +58,47 @@ interface IHubPayload {
         address strategy;
         uint256 amountToReport;
     }
+
+    /// @notice arguments for the sg_depositToChain funtion
+    /// @param _dstChainId the layerZero chain id
+    /// @param _srcPoolId https://stargateprotocol.gitbook.io/stargate/developers/pool-ids
+    /// @param _dstPoolId https://stargateprotocol.gitbook.io/stargate/developers/pool-ids
+    /// @param _dstVault address of the vault on the destination chain
+    /// @param _amount is the amount to deposit in underlying tokens
+    /// @param _minOut min quantity to receive back out from swap
+    /// @param _refundAddress if native for fees is too high, refund to this addr on current chain
+    /// @param _dstGas gas to be sent with the request, for use on the dst chain.
+    /// @dev destination gas is non-refundable
+    struct SgDepositParams {
+        uint16 dstChainId;
+        uint16 srcPoolId;
+        uint16 dstPoolId;
+        address dstVault;
+        uint256 amount;
+        uint256 minOut;
+        address payable refundAddress;
+        uint256 dstGas;
+    }    
+
+    /// @notice arguments for sg_finalizeWithdrawFromChain function
+    /// @param _dstChainId layerZero ChainId to send tokens
+    /// @param _vault the vault on this chain to validate the withdrawal against
+    /// @param _strategy the XChainStrategy that initially deposited the tokens
+    /// @param _minOutUnderlying minimum amount of underlying to receive after cross chain swap
+    /// @param _srcPoolId stargatePoolId this chain
+    /// @param _dstPoolId stargatePoolId target chain
+    /// @param _dstGas gas to be sent with the request, for use on the dst chain.
+    /// @dev destination gas is non-refundable
+    /// @param _refundAddress if native for fees is too high, refund to this addr on current chain
+    struct SgFinalizeParams {
+        uint16 dstChainId;
+        address vault;
+        address strategy;
+        uint256 minOutUnderlying;
+        uint256 srcPoolId;
+        uint256 dstPoolId;
+        uint256 currentRound;
+        address payable refundAddress;
+        uint256 dstGas;
+    }    
 }

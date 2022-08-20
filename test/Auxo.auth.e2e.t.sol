@@ -8,8 +8,7 @@ import {PRBTest} from "@prb/test/PRBTest.sol";
 
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {ERC20} from "@oz/token/ERC20/ERC20.sol";
-import {TransparentUpgradeableProxy} from
-    "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 import {AuxoTest} from "@hub-test/mocks/MockERC20.sol";
 
@@ -18,8 +17,7 @@ import {XChainHub} from "@hub/XChainHub.sol";
 import {XChainHubSingle} from "@hub/XChainHubSingle.sol";
 import {Vault} from "@vaults/Vault.sol";
 import {VaultFactory} from "@vaults/factory/VaultFactory.sol";
-import {MultiRolesAuthority} from
-    "@vaults/auth/authorities/MultiRolesAuthority.sol";
+import {MultiRolesAuthority} from "@vaults/auth/authorities/MultiRolesAuthority.sol";
 import {Authority} from "@vaults/auth/Auth.sol";
 
 import {IVault} from "@interfaces/IVault.sol";
@@ -27,6 +25,9 @@ import {IStargateRouter} from "@interfaces/IStargateRouter.sol";
 import {IHubPayload} from "@interfaces/IHubPayload.sol";
 
 import "../script/Deployer.sol";
+
+// Vault deposits will fail for uints larger than this
+uint256 constant MAX_INT = 115792089237316195423570985008687907853269984665640564039458;
 
 /// @notice dedicated tests for auth sigs, a thing you REALLY don't want to get wrong
 contract E2EAuthTest is PRBTest {
@@ -39,19 +40,18 @@ contract E2EAuthTest is PRBTest {
     ERC20 private srcToken;
     IStargateRouter private srcRouter;
     address private governor = 0x3ec2f6f9B88a532a9A1B67Ce40A01DC49C6E0039;
-    address private srcRefundAddress =
-        0xC8834c2084F565527D40e7D48415dc10F6f9985F;
+    address private srcRefundAddress = 0xC8834c2084F565527D40e7D48415dc10F6f9985F;
     address private strategist = 0xeB959af810FEC83dE7021A77906ab3d9fDe567B1;
     address private srcFeeCollector = 0xB50c633C6B0541ccCe0De36A57E7b30550CE51Ec;
 
     uint16 private srcChainId = 10001;
+    bool constant deploySingle = false;
 
     function setUp() public {
         sharedToken = new AuxoTest();
         loadSigs();
 
-        (srcRouter, srcToken) =
-            deployExternal(srcChainId, srcFeeCollector, sharedToken);
+        (srcRouter, srcToken) = deployExternal(srcChainId, srcFeeCollector, sharedToken);
 
         vm.startPrank(governor);
         deployer = deployAuthAndDeployer(
@@ -64,10 +64,13 @@ contract E2EAuthTest is PRBTest {
             srcRefundAddress
         );
 
+        deployer.setTrustedUser(address(deployer), true);
+        deployer.setTrustedUser(address(this), true);
+
         vm.stopPrank();
 
         vm.startPrank(address(deployer));
-        deployVaultHubStrat(deployer);
+        deployVaultHubStrat(deployer, deploySingle);
         deployer.vaultFactory().transferOwnership(governor);
         deployer.auth().setOwner(governor);
         vm.stopPrank();
@@ -88,11 +91,7 @@ contract E2EAuthTest is PRBTest {
         assertEq(deployer.strategy().strategist(), strategist);
     }
 
-    function _getErrorMessageFromCall(bool _success, bytes memory _data)
-        internal
-        pure
-        returns (string memory)
-    {
+    function _getErrorMessageFromCall(bool _success, bytes memory _data) internal pure returns (string memory) {
         require(!_success, "Call did not fail");
         require(_data.length >= 68, "Call reverted without an error message");
 
@@ -104,17 +103,13 @@ contract E2EAuthTest is PRBTest {
     }
 
     /// @dev tests signatures fail correctly
-    function _checkCallFailsAsUnauthorized(bool _success, bytes memory _data)
-        public
-    {
+    function _checkCallFailsAsUnauthorized(bool _success, bytes memory _data) public {
         string memory decoded = _getErrorMessageFromCall(_success, _data);
         assertEq(decoded, "UNAUTHORIZED");
     }
 
     /// @dev check that the call made it through (no empty revert) even if reverted later
-    function _checkCallFailsDespiteAuthorized(bool _success, bytes memory _data)
-        public
-    {
+    function _checkCallFailsDespiteAuthorized(bool _success, bytes memory _data) public {
         string memory decoded = _getErrorMessageFromCall(_success, _data);
         assertNotEq(decoded, "UNAUTHORIZED");
     }
@@ -157,10 +152,7 @@ contract E2EAuthTest is PRBTest {
     /// might end up bricking the contract if these are set incorrectly
     function testAuthSigsMatch() public {
         for (uint256 s; s < selectedSigs.length; s++) {
-            assertEq(
-                deployer.getContractSignature(selectedSigStrings[s]),
-                selectedSigs[s]
-            );
+            assertEq(deployer.getContractSignature(selectedSigStrings[s]), selectedSigs[s]);
         }
     }
 
@@ -235,20 +227,20 @@ contract E2EAuthTest is PRBTest {
         vm.stopPrank();
     }
 
-    /// @dev TODO why TF does this revert with super large numbers?
-    function testPublicCanAccessPublicFunctions(address _notGov) public {
+    function testPublicCanAccessPublicFunctions(address _notGov, uint256 _amt) public {
+        vm.assume(_amt < MAX_INT);
         vm.assume(_notGov != governor);
         Vault proxy = deployer.vaultProxy();
 
-        vm.prank(_notGov);
-        (bool success, bytes memory data) = address(proxy).call(
-            abi.encodeWithSignature("deposit(address,uint256)", _notGov, 1e27)
-        );
+        (bool success, bytes memory data) =
+            address(proxy).call(abi.encodeWithSignature("deposit(address,uint256)", _notGov, _amt));
         _checkCallFailsDespiteAuthorized(success, data);
     }
 
     function testGovHasCorrectRoles(address _notGov) public {
         vm.assume(_notGov != governor);
+        vm.assume(_notGov != address(deployer.vaultFactory()));
+        vm.assume(_notGov != address(deployer));
 
         MultiRolesAuthority auth = deployer.auth();
         string[] memory gov_capabilities = deployer.gov_capabilities();

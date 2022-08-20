@@ -18,8 +18,7 @@ import {XChainHub} from "@hub/XChainHub.sol";
 import {XChainHubSingle} from "@hub/XChainHubSingle.sol";
 import {Vault} from "@vaults/Vault.sol";
 import {VaultFactory} from "@vaults/factory/VaultFactory.sol";
-import {MultiRolesAuthority} from
-    "@vaults/auth/authorities/MultiRolesAuthority.sol";
+import {MultiRolesAuthority} from "@vaults/auth/authorities/MultiRolesAuthority.sol";
 import {Authority} from "@vaults/auth/Auth.sol";
 
 import {IVault} from "@interfaces/IVault.sol";
@@ -37,6 +36,7 @@ import "./ChainConfig.sol";
 
 // my test account
 address constant srcGovernor = 0x63BCe354DBA7d6270Cb34dAA46B869892AbB3A79;
+uint256 constant dstDefaultGas = 200_000;
 
 contract Deploy is Script {
     ChainConfig network;
@@ -48,34 +48,30 @@ contract Deploy is Script {
     ILayerZeroEndpoint public srcLzEndpoint;
     Deployer public srcDeployer;
     VaultFactory public srcFactory;
+    bool public single;
 
     /// @dev you might need to update these addresses
     // Anvil unlocked account
     address public srcStrategist = 0xeB959af810FEC83dE7021A77906ab3d9fDe567B1;
-    address public srcFeeCollector = 0xB50c633C6B0541ccCe0De36A57E7b30550CE51Ec;
-    address public srcRefundAddress = 0xB50c633C6B0541ccCe0De36A57E7b30550CE51Ec;
+    address public srcFeeCollector = payable(0xB50c633C6B0541ccCe0De36A57E7b30550CE51Ec);
+    address public srcRefundAddress = payable(0xB50c633C6B0541ccCe0De36A57E7b30550CE51Ec);
 
-    constructor(ChainConfig memory _network) {
+    constructor(ChainConfig memory _network, bool _single) {
         network = _network;
         srcChainId = network.id;
         srcToken = ERC20(network.usdc.addr);
         srcRouter = IStargateRouter(network.sg);
         srcLzEndpoint = ILayerZeroEndpoint(network.lz);
+        single = _single;
     }
 
     function _runSetup() internal {
         vm.startBroadcast(srcGovernor);
         srcDeployer = deployAuthAndDeployerNoOwnershipTransfer(
-            srcChainId,
-            srcToken,
-            srcRouter,
-            network.lz,
-            srcGovernor,
-            srcStrategist,
-            srcRefundAddress
+            srcChainId, srcToken, srcRouter, network.lz, srcGovernor, srcStrategist, srcRefundAddress
         );
 
-        deployVaultHubStrat(srcDeployer);
+        deployVaultHubStrat(srcDeployer, single);
         vm.stopBroadcast();
     }
 }
@@ -118,12 +114,7 @@ abstract contract XChainDeposit is Script, Deploy {
         IHubPayload.Message memory message = IHubPayload.Message({
             action: srcDeployer.hub().DEPOSIT_ACTION(),
             payload: abi.encode(
-                IHubPayload.DepositPayload({
-                    vault: dstVault,
-                    strategy: address(strategy),
-                    amountUnderyling: amt,
-                    min: min
-                })
+                IHubPayload.DepositPayload({vault: dstVault, strategy: address(strategy), amountUnderyling: amt})
                 )
         });
 
@@ -133,7 +124,7 @@ abstract contract XChainDeposit is Script, Deploy {
             abi.encodePacked(dstHub), // where to go
             abi.encode(message), // payload
             IStargateRouter.lzTxObj({
-                dstGasForCall: 200_000,
+                dstGasForCall: dstDefaultGas,
                 dstNativeAmount: 0,
                 dstNativeAddr: abi.encodePacked(address(0x0))
             })
@@ -151,7 +142,8 @@ abstract contract XChainDeposit is Script, Deploy {
                 dstPoolId: dst.usdc.poolId,
                 dstHub: dstHub,
                 dstVault: dstVault,
-                refundAddress: payable(srcGovernor)
+                refundAddress: payable(srcGovernor),
+                dstGas: dstDefaultGas
             })
         );
     }
@@ -178,37 +170,35 @@ abstract contract XChainReport is Script, Deploy {
         });
 
         bytes memory adapterParams = abi.encodePacked(
-            uint16(2), // endpoint version
-            uint256(200_000), // gas (default)
-            uint256(0), // airdrop qty
-            address(0) // airdrop address
+            uint16(1), // endpoint version
+            uint256(dstDefaultGas) // gas (default)
         );
 
-        (uint256 feeEstimate,) = ILayerZeroEndpoint(srcDeployer.lzEndpoint())
-            .estimateFees(
+        (uint256 feeEstimate,) = ILayerZeroEndpoint(srcDeployer.lzEndpoint()).estimateFees(
             dst.id, // destination chain id
             address(srcDeployer.hub()), // address of *calling* contract
             abi.encode(message), // payload
             false, // pay in zro
             adapterParams
         );
-        
+
         console.log("XChainReport::LayerZeroFeeEstimate:", feeEstimate);
 
         srcDeployer.hub().lz_reportUnderlying{value: feeEstimate}(
             IVault(address(srcDeployer.vaultProxy())),
             chainsToReport,
             strategiesToReport,
-            adapterParams
+            dstDefaultGas,
+            payable(srcRefundAddress)
         );
     }
 }
 
 abstract contract XChainRequestWithdraw is Script, Deploy {
-        ChainConfig dst;
-        address dstVault;
+    ChainConfig dst;
+    address dstVault;
 
-        function _request() internal {
+    function _request() internal {
         require(dstVault != address(0x0), "XChainReport::SET VAULT");
 
         XChainStrategy strategy = srcDeployer.strategy();
@@ -226,26 +216,24 @@ abstract contract XChainRequestWithdraw is Script, Deploy {
         });
 
         bytes memory adapterParams = abi.encodePacked(
-            uint16(2), // endpoint version
-            uint256(200_000), // gas (default)
-            uint256(0), // airdrop qty
-            address(0) // airdrop address
+            uint16(1), // endpoint version
+            uint256(dstDefaultGas) // gas (default)
         );
 
-        (uint256 feeEstimate,) = ILayerZeroEndpoint(srcDeployer.lzEndpoint())
-            .estimateFees(
+        (uint256 feeEstimate,) = ILayerZeroEndpoint(srcDeployer.lzEndpoint()).estimateFees(
             dst.id, // destination chain id
             address(srcDeployer.hub()), // address of *calling* contract
             abi.encode(message), // payload
             false, // pay in zro
             adapterParams
         );
-        
+
         console.log("XChainWithdrawalRequest::LayerZeroFeeEstimate:", feeEstimate);
 
-        strategy.startRequestToWithdrawUnderlying{value:feeEstimate}(
+        strategy.startRequestToWithdrawUnderlying{value: feeEstimate}(
+            // This is vault shares - should it be?
             strategy.reportedUnderlying(),
-            bytes(""),
+            dstDefaultGas,
             payable(srcDeployer.refundAddress()),
             dst.id,
             dstVault
@@ -268,35 +256,30 @@ abstract contract XChainFinalize is Script, Deploy {
 
         IHubPayload.Message memory message = IHubPayload.Message({
             action: srcDeployer.hub().FINALIZE_WITHDRAW_ACTION(),
-            payload: abi.encode(
-                IHubPayload.FinalizeWithdrawPayload({
-                    vault: address(vault),
-                    strategy: dstStrategy
-                })
-            )
+            payload: abi.encode(IHubPayload.FinalizeWithdrawPayload({vault: address(vault), strategy: dstStrategy}))
         });
 
-        (uint256 feeEstimate, ) = srcRouter.quoteLayerZeroFee(
+        (uint256 feeEstimate,) = srcRouter.quoteLayerZeroFee(
             dst.id,
             1, // function type
             abi.encodePacked(dstHub), // where to go
             abi.encode(message), // payload
-            IStargateRouter.lzTxObj({
-                dstGasForCall: 200_000,
-                dstNativeAmount: 0,
-                dstNativeAddr: abi.encodePacked(address(0x0))
-            })
+            IStargateRouter.lzTxObj({dstGasForCall: 200_000, dstNativeAmount: 0, dstNativeAddr: abi.encodePacked(address(0x0))})
         );
         console.log("Fee Estimate", feeEstimate);
 
         srcDeployer.hub().sg_finalizeWithdrawFromChain{value: feeEstimate}(
-            dst.id, // uint16 _dstChainId,
-            address(vault), // address _vault,
-            dstStrategy, // address _strategy,
-            min, // uint256 _minOutUnderlying,
-            network.usdc.poolId, // uint256 _srcPoolId,
-            dst.usdc.poolId, // uint256 _dstPoolId,
-            vault.batchBurnRound() // uint256 currentRound
+            IHubPayload.SgFinalizeParams({
+                dstChainId: dst.id,
+                vault: address(vault),
+                strategy: dstStrategy,
+                minOutUnderlying: min,
+                srcPoolId: network.usdc.poolId,
+                dstPoolId: dst.usdc.poolId,
+                currentRound: vault.batchBurnRound(),
+                refundAddress: payable(srcDeployer.refundAddress()),
+                dstGas: dstDefaultGas
+            })
         );
     }
 }

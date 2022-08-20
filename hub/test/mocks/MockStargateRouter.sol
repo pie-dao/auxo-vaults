@@ -74,13 +74,13 @@ contract StargateRouterMock is IStargateRouter {
     }
 
     // get the router mock from the destination
-    function getStargateRouterMock(bytes calldata _dst) public returns (StargateRouterMock) {
+    function getStargateRouterMock(bytes calldata _dst) public view returns (StargateRouterMock) {
         address destination = packedBytesToAddr(_dst);
         address endpoint = sgEndpointLookup[destination];
         return StargateRouterMock(endpoint);
     }
 
-    function hasEndpoint(bytes calldata _dst) internal returns (bool) {
+    function hasEndpoint(bytes calldata _dst) internal view returns (bool) {
         address destination = packedBytesToAddr(_dst);
         return sgEndpointLookup[destination] != address(0);
     }

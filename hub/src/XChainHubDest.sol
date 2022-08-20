@@ -177,7 +177,7 @@ abstract contract XChainHubDest is Pausable, LayerZeroAdapter, IStargateReceiver
     /// --------------------------
 
     /// @notice called on destination chain to deposit underlying tokens into a vault
-    /// @dev designed to be overridden in the case of an untrusted payload
+    /// @dev the payload here cannot be trusted, use XChainHubSingle if you need to do critical operations
     /// @param _srcChainId layerZero chain id from where deposit came
     /// @param _payload abi encoded as IHubPayload.DepositPayload
     /// @param _amountReceived underlying tokens to be deposited
@@ -251,9 +251,11 @@ abstract contract XChainHubDest is Pausable, LayerZeroAdapter, IStargateReceiver
         emit WithdrawRequestReceived(_srcChainId, amountVaultShares, _vault, strategy);
     }
 
-    /// @notice executes a withdrawal of underlying tokens from a vault to a strategy on the source chain
+    /// @notice callback executed when funds are withdrawn back to origin chain
+    /// @dev the payload here cannot be trusted, use XChainHubSingle if you need to do critical operations
     /// @param _srcChainId what layerZero chainId was the request initiated from
     /// @param _payload abi encoded as IHubPayload.FinalizeWithdrawPayload
+    /// @param _amountReceived the qty of underlying tokens that were received
     function _sg_finalizeWithdrawAction(uint16 _srcChainId, bytes memory _payload, uint256 _amountReceived)
         internal
         virtual

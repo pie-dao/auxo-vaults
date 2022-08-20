@@ -33,7 +33,7 @@ contract MockVault is ERC20, Pausable {
 
     mapping(uint256 => BatchBurn) public batchBurns;
 
-    mapping(address => BatchBurnReceipt) public userBatchBurnReceipt;
+    mapping(address => BatchBurnReceipt) public userBatchBurnReceipts;
 
     constructor(ERC20 _underyling) ERC20("Auxo Test", "auxoTST") {
         underlying = _underyling;
@@ -52,7 +52,7 @@ contract MockVault is ERC20, Pausable {
 
     // set batch burn receipts artificially for testing
     function setBatchBurnReceiptsForSender(address _sender, BatchBurnReceipt memory _receipt) external {
-        userBatchBurnReceipt[_sender] = _receipt;
+        userBatchBurnReceipts[_sender] = _receipt;
     }
 
     // add small diff
@@ -91,13 +91,13 @@ contract MockVault is ERC20, Pausable {
     }
 
     function exitBatchBurn() external {
-        BatchBurnReceipt memory receipt = userBatchBurnReceipt[msg.sender];
+        BatchBurnReceipt memory receipt = userBatchBurnReceipts[msg.sender];
 
         require(receipt.round != 0, "exitBatchBurn::NO_DEPOSITS");
         require(receipt.round < batchBurnRound, "exitBatchBurn::ROUND_NOT_EXECUTED");
 
-        userBatchBurnReceipt[msg.sender].round = 0;
-        userBatchBurnReceipt[msg.sender].shares = 0;
+        userBatchBurnReceipts[msg.sender].round = 0;
+        userBatchBurnReceipts[msg.sender].shares = 0;
 
         BatchBurn memory batchBurn = batchBurns[batchBurnRound];
 
@@ -109,14 +109,14 @@ contract MockVault is ERC20, Pausable {
 
     function enterBatchBurn(uint256 shares) external {
         uint256 batchBurnRound_ = batchBurnRound;
-        uint256 userRound = userBatchBurnReceipt[msg.sender].round;
+        uint256 userRound = userBatchBurnReceipts[msg.sender].round;
 
         if (userRound == 0) {
             // user is depositing for the first time in this round
             // so we set his round to current round
 
-            userBatchBurnReceipt[msg.sender].round = batchBurnRound_;
-            userBatchBurnReceipt[msg.sender].shares = shares;
+            userBatchBurnReceipts[msg.sender].round = batchBurnRound_;
+            userBatchBurnReceipts[msg.sender].shares = shares;
         } else {
             // user is not depositing for the first time or took part in a previous round:
             //      - first case: we stack the deposits.
@@ -124,7 +124,7 @@ contract MockVault is ERC20, Pausable {
             //                     to take part in another round.
 
             require(userRound == batchBurnRound_, "enterBatchBurn::DIFFERENT_ROUNDS");
-            userBatchBurnReceipt[msg.sender].shares += shares;
+            userBatchBurnReceipts[msg.sender].shares += shares;
         }
 
         batchBurns[batchBurnRound_].totalShares += shares;
