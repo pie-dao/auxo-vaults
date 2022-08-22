@@ -28,17 +28,12 @@ import {IHubPayload} from "@interfaces/IHubPayload.sol";
 
 import "./Deployer.sol";
 import "./ChainConfig.sol";
+import "./Env.s.sol";
 
 /// @dev Configure here the shared logic for deploy scripts
 
-// Anvil unlocked account
-// address constant srcGovernor = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266;
+contract Deploy is Script, Env {
 
-// my test account
-address constant srcGovernor = 0x63BCe354DBA7d6270Cb34dAA46B869892AbB3A79;
-uint256 constant dstDefaultGas = 200_000;
-
-contract Deploy is Script {
     ChainConfig network;
 
     /// *** SOURCE ***
@@ -81,6 +76,7 @@ interface IMintable is IERC20 {
 }
 
 abstract contract Deposit is Script, Deploy {
+
     function depositToVault() public {
         uint256 balance = srcToken.balanceOf(msg.sender);
         uint256 baseUnit = 10 ** srcToken.decimals();

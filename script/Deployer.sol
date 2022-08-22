@@ -185,7 +185,7 @@ function _deployVault(MultiRolesAuthority _auth, ERC20 _underlying, address _gov
 function deployXChainHub(Deployer _deployer, bool _single) {
     require(address(_deployer.router()) != address(0), "Not set sg endpoint");
     require(address(_deployer.lzEndpoint()) != address(0), "Not set lz endpoint");
-    require(_deployer.refundAddress() != address(0), "Not set governor");
+    require(_deployer.refundAddress() != address(0), "Not set refund address");
 
     XChainHub hub;
     if (_single) {
