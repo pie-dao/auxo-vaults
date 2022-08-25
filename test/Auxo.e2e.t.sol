@@ -18,7 +18,8 @@ import {XChainHub} from "@hub/XChainHub.sol";
 import {XChainHubSingle} from "@hub/XChainHubSingle.sol";
 import {Vault} from "@vaults/Vault.sol";
 import {VaultFactory} from "@vaults/factory/VaultFactory.sol";
-import {MultiRolesAuthority} from "@vaults/auth/authorities/MultiRolesAuthority.sol";
+import {MultiRolesAuthority} from
+    "@vaults/auth/authorities/MultiRolesAuthority.sol";
 import {Authority} from "@vaults/auth/Auth.sol";
 
 import {IVault} from "@interfaces/IVault.sol";
@@ -38,7 +39,6 @@ contract E2ETest is PRBTest {
     IStargateRouter private srcRouter;
     LZEndpointMock private srcLzEndpoint;
     address private srcGovernor = 0x3ec2f6f9B88a532a9A1B67Ce40A01DC49C6E0039;
-    address private srcRefundAddress = 0xC8834c2084F565527D40e7D48415dc10F6f9985F;
     address private srcStrategist = 0xeB959af810FEC83dE7021A77906ab3d9fDe567B1;
     address private srcFeeCollector = 0xB50c633C6B0541ccCe0De36A57E7b30550CE51Ec;
 
@@ -47,26 +47,31 @@ contract E2ETest is PRBTest {
     IStargateRouter private dstRouter;
     LZEndpointMock private dstLzEndpoint;
     address private dstGovernor = 0x9f69a055FDC6c037153574d3702BE15450FfB5cF;
-    address private dstRefundAddress = 0xe64253d527b701d0048a9F246d87623eCaa8F6AB;
     address private dstStrategist = 0x28D33c44C63C0EA1cf2F49dBA12e0b6ca12813Fd;
     address private dstFeeCollector = 0x90b12c177e616e2cD7345FB95E06987F4DDeE983;
 
-    uint16 private srcChainId = 10001;
-    uint16 private dstChainId = 10002;
+    uint16 private srcChainId = 10_001;
+    uint16 private dstChainId = 10_002;
     bool constant deploySingle = false;
 
     function setUp() public {
         /// @dev ----- TEST ONLY -------
 
         sharedToken = new AuxoTest();
-        (srcRouter, srcToken) = deployExternal(srcChainId, srcFeeCollector, sharedToken);
+        (srcRouter, srcToken) =
+            deployExternal(srcChainId, srcFeeCollector, sharedToken);
         srcLzEndpoint = new LZEndpointMock(srcChainId);
         dstLzEndpoint = new LZEndpointMock(dstChainId);
         /// @dev ----- END -------
 
         vm.startPrank(srcGovernor);
         srcDeployer = deployAuthAndDeployer(
-            srcChainId, srcToken, srcRouter, address(srcLzEndpoint), srcGovernor, srcStrategist, srcRefundAddress
+            srcChainId,
+            srcToken,
+            srcRouter,
+            address(srcLzEndpoint),
+            srcGovernor,
+            srcStrategist
         );
 
         srcDeployer.setTrustedUser(address(srcDeployer), true);
@@ -78,12 +83,18 @@ contract E2ETest is PRBTest {
         vm.stopPrank();
 
         /// @dev ----- TEST ONLY -------
-        (dstRouter, dstToken) = deployExternal(dstChainId, dstFeeCollector, sharedToken);
+        (dstRouter, dstToken) =
+            deployExternal(dstChainId, dstFeeCollector, sharedToken);
         /// @dev ----- END -------
 
         vm.startPrank(dstGovernor);
         dstDeployer = deployAuthAndDeployer(
-            dstChainId, dstToken, dstRouter, address(dstLzEndpoint), dstGovernor, dstStrategist, dstRefundAddress
+            dstChainId,
+            dstToken,
+            dstRouter,
+            address(dstLzEndpoint),
+            dstGovernor,
+            dstStrategist
         );
         dstDeployer.setTrustedUser(address(dstDeployer), true);
         dstDeployer.setTrustedUser(address(this), true);
@@ -95,18 +106,30 @@ contract E2ETest is PRBTest {
 
         /// @dev ----- TEST ONLY -------
         connectRouters(
-            address(srcRouter), address(dstDeployer.hub()), address(dstDeployer.router()), srcChainId, address(srcToken)
+            address(srcRouter),
+            address(dstDeployer.hub()),
+            address(dstDeployer.router()),
+            srcChainId,
+            address(srcToken)
         );
         connectRouters(
-            address(dstRouter), address(srcDeployer.hub()), address(srcDeployer.router()), dstChainId, address(dstToken)
+            address(dstRouter),
+            address(srcDeployer.hub()),
+            address(srcDeployer.router()),
+            dstChainId,
+            address(dstToken)
         );
 
         // a set of addresses we don't want to impersonate
         _initIgnoreAddresses(srcDeployer, ignoreAddresses);
         _initIgnoreAddresses(dstDeployer, ignoreAddresses);
 
-        srcLzEndpoint.setDestLzEndpoint(address(dstDeployer.hub()), address(dstLzEndpoint));
-        dstLzEndpoint.setDestLzEndpoint(address(srcDeployer.hub()), address(srcLzEndpoint));
+        srcLzEndpoint.setDestLzEndpoint(
+            address(dstDeployer.hub()), address(dstLzEndpoint)
+        );
+        dstLzEndpoint.setDestLzEndpoint(
+            address(srcDeployer.hub()), address(srcLzEndpoint)
+        );
         /// @dev ----- END -------
     }
 
@@ -153,8 +176,16 @@ contract E2ETest is PRBTest {
         IERC20 token = srcDeployer.underlying();
 
         /// @dev you need to do this on both chains
-        srcDeployer.prepareDeposit(dstChainId, address(dstDeployer.hub()), address(dstDeployer.strategy()));
-        dstDeployer.prepareDeposit(srcChainId, address(srcDeployer.hub()), address(srcDeployer.strategy()));
+        srcDeployer.prepareDeposit(
+            dstChainId,
+            address(dstDeployer.hub()),
+            address(dstDeployer.strategy())
+        );
+        dstDeployer.prepareDeposit(
+            srcChainId,
+            address(srcDeployer.hub()),
+            address(srcDeployer.strategy())
+        );
 
         token.transfer(_depositor, token.balanceOf(address(this)));
 
@@ -169,7 +200,9 @@ contract E2ETest is PRBTest {
         return 1e3 * baseUnit;
     }
 
-    function _depositIntoVault(address _depositor, uint256 depositAmount) internal {
+    function _depositIntoVault(address _depositor, uint256 depositAmount)
+        internal
+    {
         Vault vault = srcDeployer.vaultProxy();
 
         vm.expectRevert("_deposit::USER_DEPOSIT_LIMITS_REACHED");
@@ -180,13 +213,18 @@ contract E2ETest is PRBTest {
         vm.stopPrank();
 
         assertEq(vault.balanceOf(_depositor), depositAmount);
-        assertEq(srcDeployer.underlying().balanceOf(address(vault)), depositAmount);
+        assertEq(
+            srcDeployer.underlying().balanceOf(address(vault)), depositAmount
+        );
     }
 
     function _setupStrategy(uint256 _depositAmount) internal {
         vm.prank(address(srcDeployer));
         srcDeployer.depositIntoStrategy(_depositAmount);
-        assertEq(srcDeployer.underlying().balanceOf(address(srcDeployer.strategy())), _depositAmount);
+        assertEq(
+            srcDeployer.underlying().balanceOf(address(srcDeployer.strategy())),
+            _depositAmount
+        );
 
         vm.deal(srcDeployer.strategist(), 100 ether);
     }
@@ -245,7 +283,11 @@ contract E2ETest is PRBTest {
 
         vm.startPrank(srcStrategist);
         srcDeployer.strategy().startRequestToWithdrawUnderlying(
-            _amt, dstDefaultGas, srcDeployer.refundAddress(), dstChainId, address(dstDeployer.vaultProxy())
+            _amt,
+            dstDefaultGas,
+            srcDeployer.refundAddress(),
+            dstChainId,
+            address(dstDeployer.vaultProxy())
         );
         vm.stopPrank();
     }
@@ -258,13 +300,21 @@ contract E2ETest is PRBTest {
         deposit(_depositor, depositAmount);
 
         // asserts
-        assertEq(dstToken.balanceOf(address(dstDeployer.vaultProxy())), depositAmount);
+        assertEq(
+            dstToken.balanceOf(address(dstDeployer.vaultProxy())), depositAmount
+        );
 
-        assertEq(dstDeployer.vaultProxy().balanceOf(address(dstDeployer.hub())), depositAmount);
+        assertEq(
+            dstDeployer.vaultProxy().balanceOf(address(dstDeployer.hub())),
+            depositAmount
+        );
 
         assertEq(srcToken.balanceOf(address(srcDeployer.strategy())), 0);
         assertEq(srcToken.balanceOf(address(srcDeployer.hub())), 0);
-        assertEq(dstDeployer.hub().sharesPerStrategy(srcChainId, address(srcDeployer.strategy())), depositAmount);
+        assertEq(
+            dstDeployer.hub().sharesPerStrategy(srcChainId, address(srcDeployer.strategy())),
+            depositAmount
+        );
         /// @TODO: reporting
     }
 
@@ -293,8 +343,13 @@ contract E2ETest is PRBTest {
 
         assertEq(dstVault.balanceOf(address(dstHub)), 0);
         assertEq(dstVault.balanceOf(address(dstVault)), depositAmount);
-        assertEq(dstHub.exitingSharesPerStrategy(srcChainId, address(srcDeployer.strategy())), depositAmount);
-        assertEq(srcDeployer.strategy().state(), srcDeployer.strategy().WITHDRAWING());
+        assertEq(
+            dstHub.exitingSharesPerStrategy(srcChainId, address(srcDeployer.strategy())),
+            depositAmount
+        );
+        assertEq(
+            srcDeployer.strategy().state(), srcDeployer.strategy().WITHDRAWING()
+        );
     }
 
     function finalizeWithdraw() internal {
@@ -335,9 +390,17 @@ contract E2ETest is PRBTest {
         startWithdraw(depositAmount);
         finalizeWithdraw();
 
-        assertEq(srcDeployer.underlying().balanceOf(address(srcDeployer.hub())), depositAmount);
-        assertEq(dstDeployer.underlying().balanceOf(address(dstDeployer.hub())), 0);
-        assertEq(dstDeployer.underlying().balanceOf(address(dstDeployer.vaultProxy())), 0);
+        assertEq(
+            srcDeployer.underlying().balanceOf(address(srcDeployer.hub())),
+            depositAmount
+        );
+        assertEq(
+            dstDeployer.underlying().balanceOf(address(dstDeployer.hub())), 0
+        );
+        assertEq(
+            dstDeployer.underlying().balanceOf(address(dstDeployer.vaultProxy())),
+            0
+        );
     }
 
     function withdrawToStrategy(uint256 depositAmount) internal {
@@ -346,7 +409,9 @@ contract E2ETest is PRBTest {
         XChainStrategy strategy = srcDeployer.strategy();
 
         vm.startPrank(srcHub.owner());
-        srcHub.approveWithdrawalForStrategy(address(strategy), token, depositAmount);
+        srcHub.approveWithdrawalForStrategy(
+            address(strategy), token, depositAmount
+        );
         vm.stopPrank();
 
         vm.startPrank(srcDeployer.strategist());
@@ -398,7 +463,9 @@ contract E2ETest is PRBTest {
         IERC20 token = srcDeployer.underlying();
 
         vm.startPrank(address(srcDeployer));
-        vault.withdrawFromStrategy(IStrategy(address(srcDeployer.strategy())), depositAmount);
+        vault.withdrawFromStrategy(
+            IStrategy(address(srcDeployer.strategy())), depositAmount
+        );
         vm.stopPrank();
 
         assertEq(token.balanceOf(address(vault)), depositAmount);

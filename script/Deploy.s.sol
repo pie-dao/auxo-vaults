@@ -18,7 +18,8 @@ import {XChainHub} from "@hub/XChainHub.sol";
 import {XChainHubSingle} from "@hub/XChainHubSingle.sol";
 import {Vault} from "@vaults/Vault.sol";
 import {VaultFactory} from "@vaults/factory/VaultFactory.sol";
-import {MultiRolesAuthority} from "@vaults/auth/authorities/MultiRolesAuthority.sol";
+import {MultiRolesAuthority} from
+    "@vaults/auth/authorities/MultiRolesAuthority.sol";
 import {Authority} from "@vaults/auth/Auth.sol";
 
 import {IVault} from "@interfaces/IVault.sol";
@@ -28,11 +29,10 @@ import {IHubPayload} from "@interfaces/IHubPayload.sol";
 
 import "./Deployer.sol";
 import "./Env.s.sol";
-import "./ChainConfig.sol";
+import "../utils/ChainConfig.sol";
 import "./DeployTemplates.sol";
 
 /// @dev Configure here deploy scripts for specific networks
-
 
 contract DeployArbitrumRinkeby is Script, Deploy {
     constructor() Deploy(getChains_test().arbitrum, false) {}
@@ -74,41 +74,7 @@ contract DeployFTMTest is Script, Deploy {
     }
 }
 
-contract DeployArbitrumProduction is Script, Deploy {
-    constructor() Deploy(getChains().arbitrum, false) {}
-
-    function run() public {
-        _runSetup();
-    }
-}
-
-contract DeployOptimismProduction is Script, Deploy {
-    constructor() Deploy(getChains().optimism, false) {}
-
-    function run() public {
-        _runSetup();
-    }
-}
-
-contract DeployPolygonProduction is Script, Deploy {
-    constructor() Deploy(getChains().polygon, false) {}
-
-    function run() public {
-        _runSetup();
-    }
-}
-
-contract DeployPolygonProductionSingle is Script, Deploy {
-    constructor() Deploy(getChains().polygon, true) {}
-
-    function run() public {
-        _runSetup();
-    }
-}
-
-
 contract DepositPrepareOptimismToArbitrumTest is Script, Env {
-    
     Deployer srcDeployer = Deployer(getDeployers_test().optimism);
     address dstHub = 0x36841622AAe2C00c69E33B0B042f7AcF5369aF4d;
     address dstStrategy = 0x7396d9A10e9ef8f26eF3AdD2ee3ee1b6F0d357B2;
@@ -213,7 +179,7 @@ contract DepositPrepareArbitrumToFTMTest is Script, Env {
     }
 }
 
-contract DepositIntoAvaxVaultTest is Script, Deploy, Deposit {
+contract DepositIntoAvaxVaultTest is Script, Deploy, DepositTest {
     constructor() Deploy(getChains_test().avax, false) {
         srcDeployer = Deployer(getDeployers_test().avax);
     }
@@ -227,7 +193,7 @@ contract DepositIntoAvaxVaultTest is Script, Deploy, Deposit {
     }
 }
 
-contract DepositIntoArbitrumVaultTest is Script, Deploy, Deposit {
+contract DepositIntoArbitrumVaultTest is Script, Deploy, DepositTest {
     constructor() Deploy(getChains_test().arbitrum, false) {
         srcDeployer = Deployer(getDeployers_test().arbitrum);
     }
@@ -239,7 +205,7 @@ contract DepositIntoArbitrumVaultTest is Script, Deploy, Deposit {
     }
 }
 
-contract DepositIntoFTMVaultTest is Script, Deploy, Deposit {
+contract DepositIntoFTMVaultTest is Script, Deploy, DepositTest {
     constructor() Deploy(getChains_test().fantom, false) {
         srcDeployer = Deployer(getDeployers_test().fantom);
     }
@@ -442,7 +408,11 @@ contract SetExitingAvaxTest is Script, Env {
     }
 }
 
-contract XChainRequestWithdrawAvaxToFTMTest is Script, Deploy, XChainRequestWithdraw {
+contract XChainRequestWithdrawAvaxToFTMTest is
+    Script,
+    Deploy,
+    XChainRequestWithdraw
+{
     constructor() Deploy(getChains_test().avax, false) {
         srcDeployer = Deployer(getDeployers_test().avax);
         dst = getChains_test().fantom;
@@ -456,7 +426,11 @@ contract XChainRequestWithdrawAvaxToFTMTest is Script, Deploy, XChainRequestWith
     }
 }
 
-contract XChainRequestWithdrawFTMToAvaxTest is Script, Deploy, XChainRequestWithdraw {
+contract XChainRequestWithdrawFTMToAvaxTest is
+    Script,
+    Deploy,
+    XChainRequestWithdraw
+{
     constructor() Deploy(getChains_test().fantom, false) {
         srcDeployer = Deployer(getDeployers_test().fantom);
         dst = getChains_test().avax;
@@ -540,7 +514,7 @@ contract HubWithdrawFTMTest is Script, Deploy {
 
     constructor() Deploy(getChains_test().fantom, false) {
         srcDeployer = Deployer(getDeployers_test().fantom);
-        withdrawQty = 998800360;
+        withdrawQty = 998_800_360;
     }
 
     function run() public {
@@ -550,7 +524,9 @@ contract HubWithdrawFTMTest is Script, Deploy {
 
         IERC20 token = srcDeployer.underlying();
         XChainStrategy strategy = srcDeployer.strategy();
-        srcDeployer.hub().approveWithdrawalForStrategy(address(strategy), token, withdrawQty);
+        srcDeployer.hub().approveWithdrawalForStrategy(
+            address(strategy), token, withdrawQty
+        );
 
         strategy.withdrawFromHub(withdrawQty);
 
@@ -564,7 +540,7 @@ contract StrategyWithdrawFTMTest is Script, Deploy {
 
     constructor() Deploy(getChains_test().fantom, false) {
         srcDeployer = Deployer(getDeployers_test().fantom);
-        withdrawQty = 998800360;
+        withdrawQty = 998_800_360;
     }
 
     function run() public {
@@ -572,7 +548,9 @@ contract StrategyWithdrawFTMTest is Script, Deploy {
 
         vm.startBroadcast(srcGovernor);
 
-        srcDeployer.vaultProxy().withdrawFromStrategy(IStrategy(address(srcDeployer.strategy())), withdrawQty);
+        srcDeployer.vaultProxy().withdrawFromStrategy(
+            IStrategy(address(srcDeployer.strategy())), withdrawQty
+        );
 
         vm.stopBroadcast();
     }

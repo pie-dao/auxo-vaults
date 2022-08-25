@@ -5,12 +5,6 @@
     "prettier/prettier": "error",
     "avoid-throw": false,
     "avoid-suicide": "error",
-    "avoid-sha3": "warn",
-    "reason-string": [
-      "warn", {
-        "maxLength":100
-      }
-    ]    
-  },
-  "plugins": ["prettier"]
+    "avoid-sha3": "warn"
+  }
 }

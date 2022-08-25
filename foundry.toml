@@ -4,4 +4,8 @@ out = 'out'
 libs = ['lib']
 solc_version = "0.8.12"
 
-# See more config options https://github.com/foundry-rs/foundry/tree/master/config
+
+# https://book.getfoundry.sh/reference/config?highlight=fmt#formatter
+[fmt]
+line_length = 80
+number_underscore = "thousands"

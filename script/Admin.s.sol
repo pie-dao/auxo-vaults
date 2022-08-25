@@ -18,7 +18,8 @@ import {XChainHub} from "@hub/XChainHub.sol";
 import {XChainHubSingle} from "@hub/XChainHubSingle.sol";
 import {Vault} from "@vaults/Vault.sol";
 import {VaultFactory} from "@vaults/factory/VaultFactory.sol";
-import {MultiRolesAuthority} from "@vaults/auth/authorities/MultiRolesAuthority.sol";
+import {MultiRolesAuthority} from
+    "@vaults/auth/authorities/MultiRolesAuthority.sol";
 import {Authority} from "@vaults/auth/Auth.sol";
 
 import {IVault} from "@interfaces/IVault.sol";
@@ -32,10 +33,9 @@ import "../utils/ChainConfig.sol";
 import "./DeployTemplates.sol";
 
 contract ResumeDepositArbitrumFork is Script, Env {
-
     address srcStrategy = 0x28b584F071063Fe6eB041c2c7F1ed3ec0886bbea;
-    uint256 amountSent = 999400000;
-    
+    uint256 amountSent = 999_400_000;
+
     function resumeDeposit() public {
         require(amountSent > 0, "set amount");
         require(srcStrategy != address(0), "set strat");
@@ -52,10 +52,12 @@ contract ResumeDepositArbitrumFork is Script, Env {
                     strategy: srcStrategy,
                     amountUnderyling: amountSent
                 })
-            )
+                )
         });
 
-        hub.emergencyReducer(getChains().polygon.id, message, token.balanceOf(address(hub)));
+        hub.emergencyReducer(
+            getChains().polygon.id, message, token.balanceOf(address(hub))
+        );
     }
 
     function run() public {

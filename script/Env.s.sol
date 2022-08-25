@@ -6,13 +6,16 @@ import "@std/Script.sol";
 
 /// @notice parse environment variables into solidity scripts
 abstract contract Env is Script {
-
-    function parseAddr(string memory _a) public pure returns (address _parsedAddress) {
+    function parseAddr(string memory _a)
+        public
+        pure
+        returns (address _parsedAddress)
+    {
         bytes memory tmp = bytes(_a);
         uint160 iaddr = 0;
         uint160 b1;
         uint160 b2;
-        for (uint i = 2; i < 2 + 2 * 20; i += 2) {
+        for (uint256 i = 2; i < 2 + 2 * 20; i += 2) {
             iaddr *= 256;
             b1 = uint160(uint8(tmp[i]));
             b2 = uint160(uint8(tmp[i + 1]));
@@ -38,13 +41,20 @@ abstract contract Env is Script {
     uint256 public constant dstDefaultGas = 200_000;
     // Anvil unlocked account
     // address constant srcGovernor = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266;
-    address public immutable srcGovernor = parseAddr(vm.envString("GOVERNOR_ACCOUNT"));
+    address public immutable srcGovernor =
+        parseAddr(vm.envString("GOVERNOR_ACCOUNT"));
+    address public immutable nonGovernor =
+        parseAddr(vm.envString("NON_GOVERNOR_ACCOUNT"));
+    address public immutable depositor =
+        parseAddr(vm.envString("DEPOSITOR_ACCOUNT"));
 }
 
 /// @notice use this to view env
 contract PrintEnv is Script, Env {
     function run() public view {
         console.log("Governor address", srcGovernor);
+        console.log("Non governor address", nonGovernor);
+        console.log("depositor address", depositor);
         console.log("Default Dest Gas", dstDefaultGas);
     }
 }

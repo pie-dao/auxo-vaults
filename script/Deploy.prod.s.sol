@@ -18,7 +18,8 @@ import {XChainHub} from "@hub/XChainHub.sol";
 import {XChainHubSingle} from "@hub/XChainHubSingle.sol";
 import {Vault} from "@vaults/Vault.sol";
 import {VaultFactory} from "@vaults/factory/VaultFactory.sol";
-import {MultiRolesAuthority} from "@vaults/auth/authorities/MultiRolesAuthority.sol";
+import {MultiRolesAuthority} from
+    "@vaults/auth/authorities/MultiRolesAuthority.sol";
 import {Authority} from "@vaults/auth/Auth.sol";
 
 import {IVault} from "@interfaces/IVault.sol";
@@ -84,7 +85,14 @@ contract DepositPreparePolygonToArbitrumProd is Script, Env {
 
     function run() public {
         vm.startBroadcast(srcGovernor);
-        prepareDeposit(srcDeployer, dstHub, dstStrategy, dstChainId, userDepositLimit, vaultDepositLimit);
+        prepareDeposit(
+            srcDeployer,
+            dstHub,
+            dstStrategy,
+            dstChainId,
+            userDepositLimit,
+            vaultDepositLimit
+        );
         vm.stopBroadcast();
     }
 }
@@ -99,7 +107,14 @@ contract DepositPrepareAritrumToPolygonProd is Script, Env {
 
     function run() public {
         vm.startBroadcast(srcGovernor);
-        prepareDeposit(srcDeployer, dstHub, dstStrategy, dstChainId, userDepositLimit, vaultDepositLimit);
+        prepareDeposit(
+            srcDeployer,
+            dstHub,
+            dstStrategy,
+            dstChainId,
+            userDepositLimit,
+            vaultDepositLimit
+        );
         vm.stopBroadcast();
     }
 }
@@ -110,6 +125,7 @@ contract DepositIntoPolygonVaultProd is Script, Deploy, DepositProd {
         srcDeployer = Deployer(getDeployers().polygon);
         depositAmount = srcDeployer.underlying().balanceOf(depositor);
     }
+
     function run() public {
         vm.startBroadcast(depositor);
         depositToVault();
@@ -117,7 +133,11 @@ contract DepositIntoPolygonVaultProd is Script, Deploy, DepositProd {
     }
 }
 
-contract XChainPrepareDepositArbitrumFromPolygon is Script, Deploy, PrepareXChainDeposit {
+contract XChainPrepareDepositArbitrumFromPolygon is
+    Script,
+    Deploy,
+    PrepareXChainDeposit
+{
     constructor() Deploy(getChains().arbitrum, true) {
         remoteStrategy = 0x28b584F071063Fe6eB041c2c7F1ed3ec0886bbea;
         srcDeployer = Deployer(getDeployers().arbitrum);
@@ -137,26 +157,31 @@ contract DepositIntoXChainStrategyPolygonProd is Script, Deploy {
 
     constructor() Deploy(getChains().polygon, true) {
         srcDeployer = Deployer(getDeployers().polygon);
-        
+
         Vault vault = srcDeployer.vaultProxy();
         token = srcDeployer.underlying();
 
         // deposit 75%
-        uint256 underlyingDeposits = vault.underlying().balanceOf(address(vault));
+        uint256 underlyingDeposits =
+            vault.underlying().balanceOf(address(vault));
         depositAmount = (underlyingDeposits * 3) / 4;
     }
 
     function run() public {
         vm.startBroadcast(srcGovernor);
-        
+
         depositIntoStrategy(srcDeployer, depositAmount);
-        console.log("Balance of vault", token.balanceOf(address(srcDeployer.vaultProxy())));
-        console.log("Balance of strategy", token.balanceOf(address(srcDeployer.strategy())));
-        
+        console.log(
+            "Balance of vault", token.balanceOf(address(srcDeployer.vaultProxy()))
+        );
+        console.log(
+            "Balance of strategy",
+            token.balanceOf(address(srcDeployer.strategy()))
+        );
+
         vm.stopBroadcast();
     }
 }
-
 
 contract XChainDepositPolygonToArbitrumProd is Script, Deploy, XChainDeposit {
     constructor() Deploy(getChains().polygon, true) {
@@ -164,7 +189,9 @@ contract XChainDepositPolygonToArbitrumProd is Script, Deploy, XChainDeposit {
         dstHub = 0x4C88c6Da30B54D5d3B6b33e0837F5719402C45Cb;
         srcDeployer = Deployer(getDeployers().polygon);
         dst = getChains().arbitrum;
-        uint256 strategyHoldings = srcDeployer.underlying().balanceOf(address(srcDeployer.strategy()));
+
+        uint256 strategyHoldings =
+            srcDeployer.underlying().balanceOf(address(srcDeployer.strategy()));
         depositAmount = (strategyHoldings * 2) / 3;
     }
 

@@ -8,6 +8,7 @@ reports/
 env/
 venv/
 node_modules/
+.vscode/
 
 .scrap/
 cache/
