@@ -13,6 +13,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity ^0.8.12;
 
+import "@std/console.sol";
+
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 import {Pausable} from "@oz/security/Pausable.sol";
@@ -301,9 +303,13 @@ abstract contract XChainHubSrc is
         // uint256 currentRound = currentRoundPerStrategy[_dstChainId][_strategy];
 
         bytes memory dstHub = trustedRemoteLookup[_params.dstChainId];
-        uint256 strategyAmount = withdrawnPerRound[_params.vault][
-            _params.currentRound
+
+        uint256 shares = exitingSharesPerStrategy[_params.dstChainId][
+            _params.strategy
         ];
+        uint256 strategyAmount = IVault(_params.vault).calculateUnderlying(
+            shares
+        );
 
         require(
             dstHub.length != 0,
@@ -328,6 +334,9 @@ abstract contract XChainHubSrc is
 
         _approveRouter(_params.vault, strategyAmount);
 
+        withdrawnPerRound[_params.vault][
+            _params.currentRound
+        ] -= strategyAmount;
         currentRoundPerStrategy[_params.dstChainId][_params.strategy] = 0;
         exitingSharesPerStrategy[_params.dstChainId][_params.strategy] = 0;
 

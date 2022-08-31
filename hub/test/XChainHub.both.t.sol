@@ -103,7 +103,6 @@ contract TestXChainHubSrcAndDst is PRBTest, XChainHubEvents {
         // testParams
         uint16 srcPoolId = 1;
         uint16 dstPoolId = 1;
-        address dstHub = address(hubDst);
         address dstVault = address(vault);
         uint256 amount = token.balanceOf(address(strategy));
         uint256 minOut = (amount * 9) / 10;
@@ -119,29 +118,40 @@ contract TestXChainHubSrcAndDst is PRBTest, XChainHubEvents {
 
         vm.expectEmit(false, false, false, true);
         hubSrc.sg_depositToChain(
-            IHubPayload.SgDepositParams(chainIdDst, srcPoolId, dstPoolId, dstVault, amount, minOut, refund, dstGas)
+            IHubPayload.SgDepositParams(
+                chainIdDst,
+                srcPoolId,
+                dstPoolId,
+                dstVault,
+                amount,
+                minOut,
+                refund,
+                dstGas
+            )
         );
 
         vm.stopPrank();
 
         uint256 fees = token.balanceOf(routerSrc.feeCollector());
 
+        uint256 hubBalance = vault.balanceOf(address(hubDst));
         // strategy should have no tokens
         assertEq(token.balanceOf(address(strategy)), 0);
         // hub dest should have auxo tokens
-        assertEq(vault.balanceOf(address(hubDst)), amount - fees);
+        assertEq(hubBalance, vault.calculateShares(amount - fees));
         // vault should have tokens
         assertEq(token.balanceOf(address(vault)), amount - fees);
         // shares per strategy should have updated
-        assertEq(hubDst.sharesPerStrategy(chainIdSrc, address(strategy)), amount - fees);
+        assertEq(
+            hubDst.sharesPerStrategy(chainIdSrc, address(strategy)),
+            vault.calculateShares(amount - fees)
+        );
     }
 
     // function testRequestWithdraw(uint256 amount, uint8 round) public {
     function testRequestWithdraw() public {
         uint256 amount = 1e19;
         uint8 round = 1;
-
-        console.log(address(hubSrc));
 
         hubSrc.setTrustedStrategy(address(strategy), true);
 
@@ -157,20 +167,33 @@ contract TestXChainHubSrcAndDst is PRBTest, XChainHubEvents {
 
         vm.prank(address(strategy));
 
-        hubSrc.lz_requestWithdrawFromChain(chainIdDst, address(vault), amount, refund, dstDefaultGas);
+        hubSrc.lz_requestWithdrawFromChain(
+            chainIdDst,
+            address(vault),
+            amount,
+            refund,
+            dstDefaultGas
+        );
 
         assertEq(token.balanceOf(address(vault)), amount);
         assertEq(vault.balanceOf(address(hubDst)), 0);
         assertEq(vault.balanceOf(address(vault)), amount);
         assertEq(hubDst.sharesPerStrategy(chainIdSrc, address(strategy)), 0);
-        assertEq(hubDst.exitingSharesPerStrategy(chainIdSrc, address(strategy)), amount);
-        assertEq(hubDst.currentRoundPerStrategy(chainIdSrc, address(strategy)), round);
+        assertEq(
+            hubDst.exitingSharesPerStrategy(chainIdSrc, address(strategy)),
+            amount
+        );
+        assertEq(
+            hubDst.currentRoundPerStrategy(chainIdSrc, address(strategy)),
+            round
+        );
     }
 
     function testFinalizeWithdrawal(uint256 _amount, uint8 _fee) public {
         // we mint 1e27 tokens
         vm.assume(_amount <= 1e27);
-        vm.assume(_amount > 0);
+        // small number to account for division
+        vm.assume(_amount > 10);
         vm.assume(_fee < 100);
         uint256 _round = 2;
 
@@ -183,19 +206,40 @@ contract TestXChainHubSrcAndDst is PRBTest, XChainHubEvents {
         hubSrc.setTrustedVault(address(vault), true);
         hubDst.setTrustedVault(address(vault), true);
 
-        hubSrc.setCurrentRoundPerStrategy(chainIdDst, address(strategy), _round);
+        hubSrc.setExitingSharesPerStrategy(
+            chainIdDst,
+            address(strategy),
+            vault.calculateShares(_amount)
+        );
+        hubSrc.setCurrentRoundPerStrategy(
+            chainIdDst,
+            address(strategy),
+            _round
+        );
         hubSrc.setWithdrawnPerRound(address(vault), _round, _amount);
 
         hubSrc.sg_finalizeWithdrawFromChain(
-            IHubPayload.SgFinalizeParams(chainIdDst, address(vault), address(strategy), 0, 1, 1, _round, refund, dstDefaultGas)
+            IHubPayload.SgFinalizeParams(
+                chainIdDst,
+                address(vault),
+                address(strategy),
+                0,
+                1,
+                1,
+                _round,
+                refund,
+                dstDefaultGas
+            )
         );
 
         // ensure the destination is cleared out
-        assertEq(token.balanceOf(address(hubSrc)), 0);
+        uint256 balance = token.balanceOf(address(hubSrc));
+        // we accept a dust particle left in the contract
+        assertAlmostEq(balance, 0, 1);
 
         // dst now has the tokens
         uint256 fees = token.balanceOf(routerSrc.feeCollector());
-        assertEq(token.balanceOf(address(hubDst)), _amount - fees);
+        assertAlmostEq(token.balanceOf(address(hubDst)), _amount - fees, 1);
     }
 
     function testReportUnderlying() public {
@@ -213,8 +257,14 @@ contract TestXChainHubSrcAndDst is PRBTest, XChainHubEvents {
         // report delay is 6 hours
         vm.warp(block.timestamp + 6 hours);
 
-        hubSrc.lz_reportUnderlying(IVault(address(vault)), dstChains, strategies, dstDefaultGas, refund);
+        hubSrc.lz_reportUnderlying(
+            IVault(address(vault)),
+            dstChains,
+            strategies,
+            dstDefaultGas,
+            refund
+        );
 
-        assertEq(stratDst.reported(), (shares * vault.exchangeRate()) / 10 ** 18);
+        assertEq(stratDst.reported(), (shares * vault.exchangeRate()) / 10**18);
     }
 }

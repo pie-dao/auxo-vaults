@@ -20,7 +20,6 @@ import {IStargateRouter} from "@interfaces/IStargateRouter.sol";
 /// @dev Expect this contract to change in future.
 /// @dev ownable is provided by CallFacet
 contract XChainHubStorage {
-
     // --------------------------
     // Single Chain Mappings
     // --------------------------
@@ -34,7 +33,7 @@ contract XChainHubStorage {
     /// @notice Indicates if the hub is gathering exit request for a given vault.
     mapping(address => bool) public exiting;
 
-    /// @notice Indicates withdrawn amount per round for a given vault.
+    /// @notice Indicates withdrawn amount per round (in underlying) for a given vault.
     /// @dev format vaultAddr => round => withdrawn
     mapping(address => mapping(uint256 => uint256)) public withdrawnPerRound;
 
@@ -47,10 +46,12 @@ contract XChainHubStorage {
     mapping(uint16 => mapping(address => uint256)) public sharesPerStrategy;
 
     /// @notice Origin Chain ID => Strategy => CurrentRound (Batch Burn)
-    mapping(uint16 => mapping(address => uint256)) public currentRoundPerStrategy;
+    mapping(uint16 => mapping(address => uint256))
+        public currentRoundPerStrategy;
 
     /// @notice Shares waiting for burn. Origin Chain ID => Strategy => ExitingShares
-    mapping(uint16 => mapping(address => uint256)) public exitingSharesPerStrategy;
+    mapping(uint16 => mapping(address => uint256))
+        public exitingSharesPerStrategy;
 
     /// @notice Latest updated block.timestamp per strategy. Origin Chain ID => Strategy => LatestUpdate
     mapping(uint16 => mapping(address => uint256)) public latestUpdate;

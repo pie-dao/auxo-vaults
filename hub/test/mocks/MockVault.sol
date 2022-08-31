@@ -11,9 +11,13 @@ contract MockVault is ERC20, Pausable {
     using SafeERC20 for ERC20;
 
     ERC20 public underlying;
-    uint256 public baseUnit = 10 ** 18;
+    uint256 public baseUnit = 10**18;
 
-    event EnterBatchBurn(uint256 indexed round, address indexed account, uint256 amount);
+    event EnterBatchBurn(
+        uint256 indexed round,
+        address indexed account,
+        uint256 amount
+    );
 
     event Deposit(address indexed from, address indexed to, uint256 value);
 
@@ -40,18 +44,31 @@ contract MockVault is ERC20, Pausable {
         batchBurnRound = 2;
     }
 
-    function deposit(address to, uint256 underlyingAmount) external virtual returns (uint256) {
-        _deposit(to, (shares = calculateShares(underlyingAmount)), underlyingAmount);
+    function deposit(address to, uint256 underlyingAmount)
+        external
+        virtual
+        returns (uint256)
+    {
+        _deposit(
+            to,
+            (shares = calculateShares(underlyingAmount)),
+            underlyingAmount
+        );
         return 0;
     }
 
     // set batch burn artificially for testing
-    function setBatchBurnForRound(uint256 round, BatchBurn memory batchBurn) external {
+    function setBatchBurnForRound(uint256 round, BatchBurn memory batchBurn)
+        external
+    {
         batchBurns[round] = batchBurn;
     }
 
     // set batch burn receipts artificially for testing
-    function setBatchBurnReceiptsForSender(address _sender, BatchBurnReceipt memory _receipt) external {
+    function setBatchBurnReceiptsForSender(
+        address _sender,
+        BatchBurnReceipt memory _receipt
+    ) external {
         userBatchBurnReceipts[_sender] = _receipt;
     }
 
@@ -60,11 +77,19 @@ contract MockVault is ERC20, Pausable {
         return baseUnit + 1e16;
     }
 
-    function calculateShares(uint256 underlyingAmount) public view returns (uint256) {
-        return underlyingAmount;
+    function calculateShares(uint256 underlyingAmount)
+        public
+        view
+        returns (uint256)
+    {
+        return (underlyingAmount * baseUnit) / exchangeRate();
     }
 
-    function calculateUnderlying(uint256 sharesAmount) public view returns (uint256) {
+    function calculateUnderlying(uint256 sharesAmount)
+        public
+        view
+        returns (uint256)
+    {
         return (sharesAmount * exchangeRate()) / baseUnit;
     }
 
@@ -72,8 +97,13 @@ contract MockVault is ERC20, Pausable {
         batchBurnRound = _round;
     }
 
-    function _deposit(address to, uint256 shares, uint256 underlyingAmount) internal virtual whenNotPaused {
-        uint256 userUnderlying = calculateUnderlying(balanceOf(to)) + underlyingAmount;
+    function _deposit(
+        address to,
+        uint256 shares,
+        uint256 underlyingAmount
+    ) internal virtual whenNotPaused {
+        uint256 userUnderlying = calculateUnderlying(balanceOf(to)) +
+            underlyingAmount;
         uint256 vaultUnderlying = totalUnderlying() + underlyingAmount;
 
         // Determine te equivalent amount of shares and mint them
@@ -83,7 +113,11 @@ contract MockVault is ERC20, Pausable {
 
         // Transfer in underlying tokens from the user.
         // This will revert if the user does not have the amount specified.
-        underlying.safeTransferFrom(msg.sender, address(this), underlyingAmount);
+        underlying.safeTransferFrom(
+            msg.sender,
+            address(this),
+            underlyingAmount
+        );
     }
 
     function totalUnderlying() public view virtual returns (uint256) {
@@ -94,14 +128,18 @@ contract MockVault is ERC20, Pausable {
         BatchBurnReceipt memory receipt = userBatchBurnReceipts[msg.sender];
 
         require(receipt.round != 0, "exitBatchBurn::NO_DEPOSITS");
-        require(receipt.round < batchBurnRound, "exitBatchBurn::ROUND_NOT_EXECUTED");
+        require(
+            receipt.round < batchBurnRound,
+            "exitBatchBurn::ROUND_NOT_EXECUTED"
+        );
 
         userBatchBurnReceipts[msg.sender].round = 0;
         userBatchBurnReceipts[msg.sender].shares = 0;
 
         BatchBurn memory batchBurn = batchBurns[batchBurnRound];
 
-        uint256 underlyingAmount = (receipt.shares * batchBurn.amountPerShare) / 10 ** 18;
+        uint256 underlyingAmount = (receipt.shares * batchBurn.amountPerShare) /
+            10**18;
 
         // batchBurnBalance -= underlyingAmount;
         underlying.transfer(msg.sender, underlyingAmount);
@@ -123,7 +161,10 @@ contract MockVault is ERC20, Pausable {
             //      - second case: revert, user needs to withdraw before requesting
             //                     to take part in another round.
 
-            require(userRound == batchBurnRound_, "enterBatchBurn::DIFFERENT_ROUNDS");
+            require(
+                userRound == batchBurnRound_,
+                "enterBatchBurn::DIFFERENT_ROUNDS"
+            );
             userBatchBurnReceipts[msg.sender].shares += shares;
         }
 

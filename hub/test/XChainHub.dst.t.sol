@@ -217,7 +217,7 @@ contract TestXChainHubDst is PRBTest, XChainHubEvents {
         _deposit(amount);
 
         uint256 shares = hubMockActions.sharesPerStrategy(1, stratAddr);
-        assertEq(shares, amount);
+        assertEq(shares, _vault.calculateShares(amount));
 
         assertEq(_vault.balanceOf(address(hubMockActions)), shares);
         assertEq(token.balanceOf(address(_vault)), amount);
