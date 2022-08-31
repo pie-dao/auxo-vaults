@@ -20,12 +20,6 @@ import {IStargateRouter} from "@interfaces/IStargateRouter.sol";
 /// @dev Expect this contract to change in future.
 /// @dev ownable is provided by CallFacet
 contract XChainHubStorage {
-    // --------------------------
-    // Constants & Immutables
-    // --------------------------
-
-    /// Prevent reporting function called too frequently
-    uint64 public REPORT_DELAY;
 
     // --------------------------
     // Single Chain Mappings
@@ -37,8 +31,7 @@ contract XChainHubStorage {
     /// @notice Trusted strategies on current chain.
     mapping(address => bool) public trustedStrategy;
 
-    /// @notice Indicates if the hub is gathering exit requests
-    ///         for a given vault.
+    /// @notice Indicates if the hub is gathering exit request for a given vault.
     mapping(address => bool) public exiting;
 
     /// @notice Indicates withdrawn amount per round for a given vault.
@@ -65,6 +58,9 @@ contract XChainHubStorage {
     // --------------------------
     // Variables
     // --------------------------
+
+    /// Prevent reporting function called too frequently
+    uint64 public REPORT_DELAY;
 
     /// @notice https://stargateprotocol.gitbook.io/stargate/developers/official-erc20-addresses
     IStargateRouter public stargateRouter;

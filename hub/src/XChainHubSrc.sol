@@ -32,7 +32,12 @@ import {IStargateRouter} from "@interfaces/IStargateRouter.sol";
 /// @title XChainHub Source
 /// @notice Grouping of XChainHub functions on the source chain
 /// @dev source refers to the chain initially sending XChain deposits
-abstract contract XChainHubSrc is Pausable, LayerZeroAdapter, XChainHubStorage, XChainHubEvents {
+abstract contract XChainHubSrc is
+    Pausable,
+    LayerZeroAdapter,
+    XChainHubStorage,
+    XChainHubEvents
+{
     using SafeERC20 for IERC20;
 
     constructor(address _stargateRouter) {
@@ -44,7 +49,11 @@ abstract contract XChainHubSrc is Pausable, LayerZeroAdapter, XChainHubStorage, 
     /// ------------------------
 
     /// @notice restricts external approval calls to the owner
-    function approveWithdrawalForStrategy(address _strategy, IERC20 underlying, uint256 _amount) external onlyOwner {
+    function approveWithdrawalForStrategy(
+        address _strategy,
+        IERC20 underlying,
+        uint256 _amount
+    ) external onlyOwner {
         _approveWithdrawalForStrategy(_strategy, underlying, _amount);
     }
 
@@ -53,10 +62,16 @@ abstract contract XChainHubSrc is Pausable, LayerZeroAdapter, XChainHubStorage, 
     /// @param _strategy the address of the XChainStrategy on this chain
     /// @param underlying the token
     /// @param _amount the quantity to approve
-    function _approveWithdrawalForStrategy(address _strategy, IERC20 underlying, uint256 _amount) internal {
-        require(trustedStrategy[_strategy], "XChainHub::approveWithdrawalForStrategy:UNTRUSTED");
-        /// @dev safe approve is deprecated
-        underlying.safeApprove(_strategy, _amount);
+    function _approveWithdrawalForStrategy(
+        address _strategy,
+        IERC20 underlying,
+        uint256 _amount
+    ) internal {
+        require(
+            trustedStrategy[_strategy],
+            "XChainHub::approveWithdrawalForStrategy:UNTRUSTED"
+        );
+        underlying.safeIncreaseAllowance(_strategy, _amount);
     }
 
     // --------------------------
@@ -79,15 +94,16 @@ abstract contract XChainHubSrc is Pausable, LayerZeroAdapter, XChainHubStorage, 
         address[] memory _strats,
         uint256 _dstGas,
         address payable _refundAddress
-    )
-        external
-        payable
-        onlyOwner
-        whenNotPaused
-    {
+    ) external payable onlyOwner whenNotPaused {
         require(REPORT_DELAY > 0, "XChainHub::reportUnderlying:SET DELAY");
-        require(trustedVault[address(_vault)], "XChainHub::reportUnderlying:UNTRUSTED");
-        require(_dstChains.length == _strats.length, "XChainHub::reportUnderlying:LENGTH MISMATCH");
+        require(
+            trustedVault[address(_vault)],
+            "XChainHub::reportUnderlying:UNTRUSTED"
+        );
+        require(
+            _dstChains.length == _strats.length,
+            "XChainHub::reportUnderlying:LENGTH MISMATCH"
+        );
 
         uint256 amountToReport;
         uint256 exchangeRate = _vault.exchangeRate();
@@ -100,18 +116,24 @@ abstract contract XChainHubSrc is Pausable, LayerZeroAdapter, XChainHubStorage, 
             // require(shares > 0, "XChainHub::reportUnderlying:NO DEPOSITS");
 
             require(
-                block.timestamp >= latestUpdate[_dstChains[i]][_strats[i]] + REPORT_DELAY,
+                block.timestamp >=
+                    latestUpdate[_dstChains[i]][_strats[i]] + REPORT_DELAY,
                 "XChainHub::reportUnderlying:TOO RECENT"
             );
 
             // record the latest update for future reference
             latestUpdate[_dstChains[i]][_strats[i]] = block.timestamp;
 
-            amountToReport = (shares * exchangeRate) / 10 ** _vault.decimals();
+            amountToReport = (shares * exchangeRate) / 10**_vault.decimals();
 
             IHubPayload.Message memory message = IHubPayload.Message({
                 action: REPORT_UNDERLYING_ACTION,
-                payload: abi.encode(IHubPayload.ReportUnderlyingPayload({strategy: _strats[i], amountToReport: amountToReport}))
+                payload: abi.encode(
+                    IHubPayload.ReportUnderlyingPayload({
+                        strategy: _strats[i],
+                        amountToReport: amountToReport
+                    })
+                )
             });
 
             _lzSend(
@@ -133,18 +155,28 @@ abstract contract XChainHubSrc is Pausable, LayerZeroAdapter, XChainHubStorage, 
         IERC20 underlying = strategy.underlying();
 
         underlying.safeTransferFrom(_sender, address(this), _amount);
-        underlying.safeApprove(address(stargateRouter), _amount);
+        underlying.safeIncreaseAllowance(address(stargateRouter), _amount);
     }
 
     /// @dev Only Called by the Cross Chain Strategy
     /// @notice makes a deposit of the underyling token into the vault on a given chain
     /// @param _params a stuct encoding the deposit paramters
-    function sg_depositToChain(IHubPayload.SgDepositParams calldata _params) external payable whenNotPaused {
-        require(trustedStrategy[msg.sender], "XChainHub::depositToChain:UNTRUSTED");
+    function sg_depositToChain(IHubPayload.SgDepositParams calldata _params)
+        external
+        payable
+        whenNotPaused
+    {
+        require(
+            trustedStrategy[msg.sender],
+            "XChainHub::depositToChain:UNTRUSTED"
+        );
 
         bytes memory dstHub = trustedRemoteLookup[_params.dstChainId];
 
-        require(dstHub.length != 0, "XChainHub::finalizeWithdrawFromChain:NO HUB");
+        require(
+            dstHub.length != 0,
+            "XChainHub::finalizeWithdrawFromChain:NO HUB"
+        );
 
         // load some variables into memory
         uint256 amount = _params.amount;
@@ -154,7 +186,13 @@ abstract contract XChainHubSrc is Pausable, LayerZeroAdapter, XChainHubStorage, 
 
         IHubPayload.Message memory message = IHubPayload.Message({
             action: DEPOSIT_ACTION,
-            payload: abi.encode(IHubPayload.DepositPayload({vault: dstVault, strategy: msg.sender, amountUnderyling: amount}))
+            payload: abi.encode(
+                IHubPayload.DepositPayload({
+                    vault: dstVault,
+                    strategy: msg.sender,
+                    amountUnderyling: amount
+                })
+            )
         });
 
         stargateRouter.swap{value: msg.value}(
@@ -172,7 +210,13 @@ abstract contract XChainHubSrc is Pausable, LayerZeroAdapter, XChainHubStorage, 
             dstHub, // This hub must implement sgReceive
             abi.encode(message)
         );
-        emit DepositSent(_params.dstChainId, amount, dstHub, dstVault, msg.sender);
+        emit DepositSent(
+            _params.dstChainId,
+            amount,
+            dstHub,
+            dstVault,
+            msg.sender
+        );
     }
 
     /// @notice Only called by x-chain Strategy
@@ -192,19 +236,25 @@ abstract contract XChainHubSrc is Pausable, LayerZeroAdapter, XChainHubStorage, 
         uint256 _amountVaultShares,
         address payable _refundAddress,
         uint256 _dstGas
-    )
-        external
-        payable
-        whenNotPaused
-    {
-        require(trustedStrategy[msg.sender], "XChainHub::requestWithdrawFromChain:UNTRUSTED");
-        require(_dstVault != address(0x0), "XChainHub::requestWithdrawFromChain:NO DST VAULT");
+    ) external payable whenNotPaused {
+        require(
+            trustedStrategy[msg.sender],
+            "XChainHub::requestWithdrawFromChain:UNTRUSTED"
+        );
+        require(
+            _dstVault != address(0x0),
+            "XChainHub::requestWithdrawFromChain:NO DST VAULT"
+        );
 
         IHubPayload.Message memory message = IHubPayload.Message({
             action: REQUEST_WITHDRAW_ACTION,
             payload: abi.encode(
-                IHubPayload.RequestWithdrawPayload({vault: _dstVault, strategy: msg.sender, amountVaultShares: _amountVaultShares})
-                )
+                IHubPayload.RequestWithdrawPayload({
+                    vault: _dstVault,
+                    strategy: msg.sender,
+                    amountVaultShares: _amountVaultShares
+                })
+            )
         });
 
         _lzSend(
@@ -215,10 +265,19 @@ abstract contract XChainHubSrc is Pausable, LayerZeroAdapter, XChainHubStorage, 
             abi.encodePacked(uint8(1), _dstGas) // version 1 only accepts dstGas
         );
 
-        emit WithdrawRequested(_dstChainId, _amountVaultShares, _dstVault, msg.sender);
+        emit WithdrawRequested(
+            _dstChainId,
+            _amountVaultShares,
+            _dstVault,
+            msg.sender
+        );
     }
 
-    function _getTrustedHub(uint16 _srcChainId) internal view returns (address) {
+    function _getTrustedHub(uint16 _srcChainId)
+        internal
+        view
+        returns (address)
+    {
         address hub;
         bytes memory _h = trustedRemoteLookup[_srcChainId];
         assembly {
@@ -230,37 +289,58 @@ abstract contract XChainHubSrc is Pausable, LayerZeroAdapter, XChainHubStorage, 
     function _approveRouter(address _vault, uint256 _amount) internal {
         IVault vault = IVault(_vault);
         IERC20 underlying = vault.underlying();
-        underlying.safeApprove(address(stargateRouter), _amount);
+        underlying.safeIncreaseAllowance(address(stargateRouter), _amount);
     }
 
     /// @notice sends tokens withdrawn from local vault to a remote hub
     /// @param _params struct encoding arguments
-    function sg_finalizeWithdrawFromChain(IHubPayload.SgFinalizeParams calldata _params)
-        external
-        payable
-        whenNotPaused
-        onlyOwner
-    {
+    function sg_finalizeWithdrawFromChain(
+        IHubPayload.SgFinalizeParams calldata _params
+    ) external payable whenNotPaused onlyOwner {
         /// @dev passing manually at the moment
         // uint256 currentRound = currentRoundPerStrategy[_dstChainId][_strategy];
 
         bytes memory dstHub = trustedRemoteLookup[_params.dstChainId];
-        uint256 strategyAmount = withdrawnPerRound[_params.vault][_params.currentRound];
+        uint256 strategyAmount = withdrawnPerRound[_params.vault][
+            _params.currentRound
+        ];
 
-        require(dstHub.length != 0, "XChainHub::finalizeWithdrawFromChain:NO HUB");
-        require(_params.currentRound > 0, "XChainHub::finalizeWithdrawFromChain:NO ACTIVE ROUND");
-        require(!exiting[_params.vault], "XChainHub::finalizeWithdrawFromChain:EXITING");
-        require(trustedVault[_params.vault], "XChainHub::finalizeWithdrawFromChain:UNTRUSTED VAULT");
-        require(strategyAmount > 0, "XChainHub::finalizeWithdrawFromChain:NO WITHDRAWS");
+        require(
+            dstHub.length != 0,
+            "XChainHub::finalizeWithdrawFromChain:NO HUB"
+        );
+        require(
+            _params.currentRound > 0,
+            "XChainHub::finalizeWithdrawFromChain:NO ACTIVE ROUND"
+        );
+        require(
+            !exiting[_params.vault],
+            "XChainHub::finalizeWithdrawFromChain:EXITING"
+        );
+        require(
+            trustedVault[_params.vault],
+            "XChainHub::finalizeWithdrawFromChain:UNTRUSTED VAULT"
+        );
+        require(
+            strategyAmount > 0,
+            "XChainHub::finalizeWithdrawFromChain:NO WITHDRAWS"
+        );
 
         _approveRouter(_params.vault, strategyAmount);
+
         currentRoundPerStrategy[_params.dstChainId][_params.strategy] = 0;
         exitingSharesPerStrategy[_params.dstChainId][_params.strategy] = 0;
 
         IHubPayload.Message memory message = IHubPayload.Message({
             action: FINALIZE_WITHDRAW_ACTION,
-            payload: abi.encode(IHubPayload.FinalizeWithdrawPayload({vault: _params.vault, strategy: _params.strategy}))
+            payload: abi.encode(
+                IHubPayload.FinalizeWithdrawPayload({
+                    vault: _params.vault,
+                    strategy: _params.strategy
+                })
+            )
         });
+
         stargateRouter.swap{value: msg.value}(
             _params.dstChainId,
             _params.srcPoolId,
@@ -278,7 +358,12 @@ abstract contract XChainHubSrc is Pausable, LayerZeroAdapter, XChainHubStorage, 
         );
 
         emit WithdrawalSent(
-            _params.dstChainId, strategyAmount, dstHub, _params.vault, _params.strategy, _params.currentRound
-            );
+            _params.dstChainId,
+            strategyAmount,
+            dstHub,
+            _params.vault,
+            _params.strategy,
+            _params.currentRound
+        );
     }
 }

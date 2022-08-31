@@ -24,9 +24,9 @@ import {IHubPayload} from "@interfaces/IHubPayload.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 
-/// @title A Cross Chain Strategy enabled to use Stargate Finance
-/// @notice Handles interactions with the Auxo cross chain hub
-/// @dev how to manage the names of this - filename?
+/// @title XChainStrategy
+/// @notice Deposits and withdraws via XChainHub to a remote vault
+/// @dev each XChainStrategy is responsible for one remote chain and one token
 contract XChainStrategy is BaseStrategy, XChainStrategyEvents, CallFacet {
     using SafeERC20 for IERC20;
 
@@ -77,7 +77,7 @@ contract XChainStrategy is BaseStrategy, XChainStrategyEvents, CallFacet {
     uint256 public amountWithdrawn;
 
     /// @notice the XChainHub managing this strategy
-    XChainHub public hub;
+    IXChainHub public hub;
 
     /// @notice the latest amount of underlying tokens reported as being held in the strategy
     uint256 public reportedUnderlying;
@@ -101,7 +101,7 @@ contract XChainStrategy is BaseStrategy, XChainStrategyEvents, CallFacet {
         string memory name_
     ) {
         __initialize(vault_, underlying_, manager_, strategist_, name_);
-        hub = XChainHub(hub_);
+        hub = IXChainHub(hub_);
     }
 
     /// ------------------
@@ -122,7 +122,7 @@ contract XChainStrategy is BaseStrategy, XChainStrategyEvents, CallFacet {
     /// @param _hub the address of the XChainHub contract on this chain
     function setHub(address _hub) external {
         require(msg.sender == manager, "XChainStrategy::setHub:UNAUTHORIZED");
-        hub = XChainHub(_hub);
+        hub = IXChainHub(_hub);
         emit UpdateHub(_hub);
     }
 
@@ -141,18 +141,27 @@ contract XChainStrategy is BaseStrategy, XChainStrategyEvents, CallFacet {
     /// @notice makes a deposit of underlying tokens into a vault on the destination chain
     /// @param params encoded call data in the DepositParams struct, mostly passed straight to the hub
     function depositUnderlying(DepositParams calldata params) external payable {
-        require(msg.sender == manager || msg.sender == strategist, "XChainStrategy::depositUnderlying:UNAUTHORIZED");
+        require(
+            msg.sender == manager || msg.sender == strategist,
+            "XChainStrategy::depositUnderlying:UNAUTHORIZED"
+        );
 
-        require(msg.value > 0 && params.dstGas > 0, "XChainStrategy::depositUnderlying:NO GAS FOR FEES");
+        require(
+            msg.value > 0 && params.dstGas > 0,
+            "XChainStrategy::depositUnderlying:NO GAS FOR FEES"
+        );
 
-        require(state != WITHDRAWING, "XChainStrategy::depositUnderlying:WRONG STATE");
+        require(
+            state != WITHDRAWING,
+            "XChainStrategy::depositUnderlying:WRONG STATE"
+        );
 
         uint256 amount = params.amount;
 
         state = DEPOSITING;
         amountDeposited += amount;
 
-        underlying.safeApprove(address(hub), amount);
+        underlying.safeIncreaseAllowance(address(hub), amount);
 
         /// @dev get the fees before sending
         hub.sg_depositToChain{value: msg.value}(
@@ -168,16 +177,27 @@ contract XChainStrategy is BaseStrategy, XChainStrategyEvents, CallFacet {
             })
         );
 
-        emit DepositXChain(params.dstHub, params.dstVault, params.dstChain, amount);
+        emit DepositXChain(
+            params.dstHub,
+            params.dstVault,
+            params.dstChain,
+            amount
+        );
     }
 
     /// @notice when underlying tokens have been sent to the hub on this chain, retrieve them into the strategy
     /// @param _amount the quantity of native tokens to withdraw from the hub
     /// @dev must approve the strategy for withdrawal on the hub before calling
     function withdrawFromHub(uint256 _amount) external {
-        require(msg.sender == manager || msg.sender == strategist, "XChainStrategy::withdrawFromHub:UNAUTHORIZED");
+        require(
+            msg.sender == manager || msg.sender == strategist,
+            "XChainStrategy::withdrawFromHub:UNAUTHORIZED"
+        );
 
-        require(state == WITHDRAWING, "XChainStrategy::withdrawFromHub:WRONG STATE");
+        require(
+            state == WITHDRAWING,
+            "XChainStrategy::withdrawFromHub:WRONG STATE"
+        );
 
         // we can't subtract deposits because we might erroneously report 0 deposits with leftover yield
         state = DEPOSITED;
@@ -209,29 +229,39 @@ contract XChainStrategy is BaseStrategy, XChainStrategyEvents, CallFacet {
         address payable _refundAddress,
         uint16 _dstChain,
         address _dstVault
-    )
-        external
-        payable
-    {
+    ) external payable {
         require(
             msg.sender == manager || msg.sender == strategist,
             "XChainStrategy::startRequestToWithdrawUnderlying:UNAUTHORIZED"
         );
 
-        require(state == DEPOSITED, "XChainStrategy::startRequestToWithdrawUnderlying:WRONG STATE");
+        require(
+            state == DEPOSITED,
+            "XChainStrategy::startRequestToWithdrawUnderlying:WRONG STATE"
+        );
         state = WITHDRAWING;
 
         hub.lz_requestWithdrawFromChain{value: msg.value}(
-            _dstChain, _dstVault, _amountVaultShares, _refundAddress, _dstGas
+            _dstChain,
+            _dstVault,
+            _amountVaultShares,
+            _refundAddress,
+            _dstGas
         );
         emit WithdrawRequestXChain(_dstChain, _dstVault, _amountVaultShares);
     }
+
+    /// @notice TODO if we request too many shares, withdraw will fail, need to rollback state
+    function reportFailedWithdraw() external {}
 
     /// @notice allows the hub to update the qty of tokens held in the account
     /// @param _reportedUnderlying the new qty of underlying token
     /// @dev the hubSrc calls this method by broadcasting to all dst hubs
     function report(uint256 _reportedUnderlying) external {
-        require(msg.sender == address(hub), "XChainStrategy::report:UNAUTHORIZED");
+        require(
+            msg.sender == address(hub),
+            "XChainStrategy::report:UNAUTHORIZED"
+        );
 
         require(state != NOT_DEPOSITED, "XChainStrategy:report:WRONG STATE");
 
@@ -245,17 +275,25 @@ contract XChainStrategy is BaseStrategy, XChainStrategyEvents, CallFacet {
             state = DEPOSITED;
         }
 
+        /// @dev TODO if a failed withdraw attempt happens, we might need to update
+
         // emit first to keep a record of the old value
         emit ReportXChain(reportedUnderlying, _reportedUnderlying);
-        reportedUnderlying = _reportedUnderlying; 
+        reportedUnderlying = _reportedUnderlying;
     }
 
     /// @notice remove funds from the contract in the event that a revert locks them in
     /// @dev use sweep for non-underlying tokens
     /// @param _amount the quantity of tokens to remove
     function emergencyWithdraw(uint256 _amount) external {
-        require(msg.sender == manager, "XChainStrategy::emergencyWithdraw:UNAUTHORIZED");
+        require(
+            msg.sender == manager,
+            "XChainStrategy::emergencyWithdraw:UNAUTHORIZED"
+        );
         /// @dev - update reporting here
+        /// amountwithdrawn might not be neccessary, this is a **local** withdrawn
+        /// we might want to set deposited -= amount
+        /// ignore the Xchain stuff
         amountWithdrawn += _amount;
         underlying.safeTransfer(msg.sender, _amount);
     }

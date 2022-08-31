@@ -39,7 +39,6 @@ abstract contract LayerZeroApp is Ownable, ILayerZeroReceiver, ILayerZeroUserApp
     }
 
     function lzReceive(
-        // where do you come from? should be 10002
         uint16 srcChainId,
         bytes memory srcAddress,
         uint64 nonce,
