@@ -126,7 +126,7 @@ abstract contract XChainHubDest is
         address, // the underlying contract on this chain
         uint256 amountLD,
         bytes memory _payload
-    ) external override {
+    ) external override whenNotPaused {
         require(
             msg.sender == address(stargateRouter),
             "XChainHub::sgRecieve:NOT STARGATE ROUTER"
@@ -157,7 +157,7 @@ abstract contract XChainHubDest is
         bytes memory, // srcAddress
         uint64, // nonce
         bytes memory _payload
-    ) internal virtual override {
+    ) internal virtual override whenNotPaused {
         if (_payload.length > 0) {
             IHubPayload.Message memory message = abi.decode(
                 _payload,
@@ -215,10 +215,6 @@ abstract contract XChainHubDest is
         require(
             trustedVault[_vault],
             "XChainHub::_depositAction:UNTRUSTED VAULT"
-        );
-        require(
-            trustedStrategy[_strategy],
-            "XChainHub::_depositAction:UNTRUSTED STRATEGY"
         );
         IVault vault = IVault(_vault);
         IERC20 underlying = vault.underlying();
@@ -316,14 +312,29 @@ abstract contract XChainHubDest is
             _payload,
             (IHubPayload.FinalizeWithdrawPayload)
         );
+        _saveWithdrawal(
+            _srcChainId,
+            payload.vault,
+            payload.strategy,
+            _amountReceived
+        );
+    }
 
-        /// @dev TODO: confirm if this provides sufficient accounting for further withdraws
+    /// @notice actions the withdrawal
+    /// @param _vault is the remote vault
+    /// @param _strategy is the strategy on this chain
+    function _saveWithdrawal(
+        uint16 _srcChainId,
+        address _vault,
+        address _strategy,
+        uint256 _amountReceived
+    ) internal virtual {
+        pendingWithdrawalPerStrategy[_strategy] += _amountReceived;
         emit WithdrawalReceived(
             _srcChainId,
-            /// @dev - I think this amount should be stored somewhere
             _amountReceived,
-            payload.vault,
-            payload.strategy
+            _vault,
+            _strategy
         );
     }
 

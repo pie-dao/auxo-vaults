@@ -45,16 +45,19 @@ contract XChainHub is Ownable, XChainHubStorage, XChainHubEvents, XChainHubSrc, 
     }
 
     /// @notice updates a vault on the current chain to be either trusted or untrusted
+    /// @dev do not use this for trusting remote chains
     function setTrustedVault(address vault, bool trusted) external onlyOwner {
         trustedVault[vault] = trusted;
     }
 
     /// @notice updates a strategy on the current chain to be either trusted or untrusted
+    /// @dev do not use this for trusting remote chains
     function setTrustedStrategy(address strategy, bool trusted) external onlyOwner {
         trustedStrategy[strategy] = trusted;
     }
 
     /// @notice indicates whether the vault is in an `exiting` state
+    /// @dev this can potentially be removed
     function setExiting(address vault, bool exit) external onlyOwner {
         exiting[vault] = exit;
     }

@@ -94,7 +94,13 @@ contract TestXChainHubSrc is PRBTest {
         IVault iVault = IVault(address(vault));
         vm.startPrank(_notOwner);
         vm.expectRevert(onlyOwnerErr);
-        hub.lz_reportUnderlying(iVault, dstChains, strats, dstDefaultGas, refund);
+        hub.lz_reportUnderlying(
+            iVault,
+            dstChains,
+            strats,
+            dstDefaultGas,
+            refund
+        );
 
         vm.expectRevert(onlyOwnerErr);
         hub.setTrustedVault(vaultAddr, true);
@@ -109,22 +115,30 @@ contract TestXChainHubSrc is PRBTest {
         hub.emergencyWithdraw(1, address(token));
 
         vm.expectRevert(onlyOwnerErr);
-        hub.emergencyReducer(1, IHubPayload.Message({action: 1, payload: bytes("")}), 1);
+        hub.emergencyReducer(
+            1,
+            IHubPayload.Message({action: 1, payload: bytes("")}),
+            1
+        );
     }
 
     function testFinalizeWithdrawFromVault() public {
         uint256 _round = 2;
-        // setup the token
-        assertEq(token.balanceOf(address(this)), 1e27);
 
         // setup the mock vault and wrap it
         token.transfer(address(vault), 1e26); // 1/2 balance
         assertEq(token.balanceOf(address(vault)), 1e26);
 
-        MockVault.BatchBurn memory batchBurn = MockVault.BatchBurn({totalShares: 100 ether, amountPerShare: 10 ** 18});
+        MockVault.BatchBurn memory batchBurn = MockVault.BatchBurn({
+            totalShares: 100 ether,
+            amountPerShare: 10**18
+        });
 
         // receipts are saved for previous rounds
-        MockVault.BatchBurnReceipt memory receipt = MockVault.BatchBurnReceipt({round: _round - 1, shares: 1e26});
+        MockVault.BatchBurnReceipt memory receipt = MockVault.BatchBurnReceipt({
+            round: _round - 1,
+            shares: 1e26
+        });
 
         _vault.setBatchBurnReceiptsForSender(address(hub), receipt);
         _vault.setBatchBurnRound(_round);
@@ -135,6 +149,40 @@ contract TestXChainHubSrc is PRBTest {
 
         // check the value, corresponds to the mock vault expected outcome
         assertEq(hub.withdrawnPerRound(address(vault), 2), 1e26);
+    }
+
+    function testWithdrawFromHub(uint256 _total, uint256 _withdrawal) public {
+        vm.assume(_total <= token.balanceOf(address(this)));
+        vm.assume(_withdrawal <= _total);
+
+        token.transfer(address(hubMockActions), _total);
+        hubMockActions.setPendingWithdrawalPerStrategy(address(strat), _total);
+
+        vm.expectRevert("XChainHub::withdrawPending:UNTRUSTED");
+        hubMockActions.withdrawFromHub(_total);
+
+        hubMockActions.setTrustedStrategy(address(strat), true);
+
+        vm.startPrank(address(strat));
+
+        vm.expectRevert(
+            "XChainHub::withdrawPending:INSUFFICENT FUNDS FOR WITHDRAWAL"
+        );
+        hubMockActions.withdrawFromHub(_total + 1);
+
+        hubMockActions.withdrawFromHub(_withdrawal);
+
+        vm.stopPrank();
+
+        assertEq(token.balanceOf(address(strat)), _withdrawal);
+        assertEq(
+            token.balanceOf(address(hubMockActions)),
+            _total - _withdrawal
+        );
+        assertEq(
+            hubMockActions.pendingWithdrawalPerStrategy(address(strat)),
+            _total - _withdrawal
+        );
     }
 
     function testEmergencyWithdraw(uint256 _qty) public {

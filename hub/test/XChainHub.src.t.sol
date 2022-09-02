@@ -458,7 +458,7 @@ contract TestXChainHubSrc is PRBTest {
     }
 
     function testFinalizeWithdrawActionReverts(address _untrusted) public {
-        vm.assume(_untrusted != stratAddr);
+        vm.assume(_untrusted != stratAddr && _untrusted != address(this));
         vm.prank(_untrusted);
         expectFinalizeToRevertWith("Ownable: caller is not the owner");
 

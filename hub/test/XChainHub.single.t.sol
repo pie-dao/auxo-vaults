@@ -43,7 +43,11 @@ contract TestXChainHubSrcAndDst is PRBTest, XChainHubEvents {
         hub.setVaultForChain(_attacker, 1);
     }
 
-    function testStrategyRevertsWithPending(uint16 _srcChainId, address _strategy, uint256 _shares) public {
+    function testStrategyRevertsWithPending(
+        uint16 _srcChainId,
+        address _strategy,
+        uint256 _shares
+    ) public {
         vm.assume(_shares > 0);
 
         // check passes first
@@ -61,17 +65,27 @@ contract TestXChainHubSrcAndDst is PRBTest, XChainHubEvents {
         hub.setStrategyForChain(_strategy, _srcChainId);
     }
 
-    function testSettingVaultRevertsWithPendiing(uint16 _chain, uint256 _shares, address _strategy) public {
+    function testSettingVaultRevertsWithPendiing(
+        uint16 _chain,
+        uint256 _shares,
+        address _strategy
+    ) public {
         vm.assume(_shares > 0);
         vm.assume(_strategy != address(0));
 
         hub.setStrategyForChain(_strategy, _chain);
-        vault.setBatchBurnReceiptsForSender(_strategy, MockVault.BatchBurnReceipt({shares: _shares, round: 0}));
+        vault.setBatchBurnReceiptsForSender(
+            _strategy,
+            MockVault.BatchBurnReceipt({shares: _shares, round: 0})
+        );
 
         vm.expectRevert("XChainHub::setVaultForChain:NOT EMPTY");
         hub.setVaultForChain(address(vault), _chain);
 
-        vault.setBatchBurnReceiptsForSender(_strategy, MockVault.BatchBurnReceipt({shares: 0, round: 0}));
+        vault.setBatchBurnReceiptsForSender(
+            _strategy,
+            MockVault.BatchBurnReceipt({shares: 0, round: 0})
+        );
         vault.mint(_strategy, _shares);
 
         vm.expectRevert("XChainHub::setVaultForChain:NOT EMPTY");
@@ -82,27 +96,40 @@ contract TestXChainHubSrcAndDst is PRBTest, XChainHubEvents {
         IHubPayload.DepositPayload memory _payload,
         uint256 _amount,
         uint16 _srcChainId,
-        address _strategy
-    )
-        public
-    {
-        vault.setBatchBurnReceiptsForSender(_strategy, MockVault.BatchBurnReceipt({shares: 0, round: 0}));
+        address _remoteStrategy
+    ) public {
+        vault.setBatchBurnReceiptsForSender(
+            _remoteStrategy,
+            MockVault.BatchBurnReceipt({shares: 0, round: 0})
+        );
 
-        hub.setStrategyForChain(_strategy, _srcChainId);
+        hub.setStrategyForChain(_remoteStrategy, _srcChainId);
         hub.setVaultForChain(address(vault), _srcChainId);
-        hub.setTrustedStrategy(_strategy, true);
         hub.setTrustedVault(address(vault), true);
 
         hub.depositAction(_srcChainId, abi.encode(_payload), _amount);
 
-        // also check strat and vault are now trusted
-        assert(hub.trustedVault(address(vault)));
-        assert(hub.trustedStrategy(_strategy));
-
         assertEq(hub.srcChainId(), _srcChainId);
         assertEq(hub.amountReceived(), _amount);
 
-        assertEq(hub.strategy(), _strategy);
+        assertEq(hub.strategy(), _remoteStrategy);
+        assertEq(hub.vault(), address(vault));
+    }
+
+    function testFinalizeWithdrawAction(
+        IHubPayload.FinalizeWithdrawPayload memory _payload,
+        uint256 _amount,
+        uint16 _srcChainId,
+        address _remoteStrategy
+    ) public {
+        hub.setStrategyForChain(_remoteStrategy, _srcChainId);
+        hub.setVaultForChain(address(vault), _srcChainId);
+
+        hub.finalizeWithdrawAction(_srcChainId, abi.encode(_payload), _amount);
+
+        assertEq(hub.srcChainId(), _srcChainId);
+        assertEq(hub.amountReceived(), _amount);
+        assertEq(hub.strategy(), _remoteStrategy);
         assertEq(hub.vault(), address(vault));
     }
 }

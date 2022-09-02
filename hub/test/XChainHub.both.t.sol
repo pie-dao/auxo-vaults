@@ -240,6 +240,10 @@ contract TestXChainHubSrcAndDst is PRBTest, XChainHubEvents {
         // dst now has the tokens
         uint256 fees = token.balanceOf(routerSrc.feeCollector());
         assertAlmostEq(token.balanceOf(address(hubDst)), _amount - fees, 1);
+        assertEq(
+            hubDst.pendingWithdrawalPerStrategy(address(strategy)),
+            token.balanceOf(address(hubDst))
+        );
     }
 
     function testReportUnderlying() public {

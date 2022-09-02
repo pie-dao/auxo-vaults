@@ -50,30 +50,25 @@ abstract contract XChainHubSrc is
     /// Single Chain Functions
     /// ------------------------
 
-    /// @notice restricts external approval calls to the owner
-    function approveWithdrawalForStrategy(
-        address _strategy,
-        IERC20 underlying,
-        uint256 _amount
-    ) external onlyOwner {
-        _approveWithdrawalForStrategy(_strategy, underlying, _amount);
-    }
-
-    /// @notice approve a strategy to withdraw tokens from the hub
-    /// @dev call before withdrawing from the strategy
-    /// @param _strategy the address of the XChainStrategy on this chain
-    /// @param underlying the token
-    /// @param _amount the quantity to approve
-    function _approveWithdrawalForStrategy(
-        address _strategy,
-        IERC20 underlying,
-        uint256 _amount
-    ) internal {
+    /// @notice called by the strategy to extract funds that have arrived in the hub
+    /// @dev only callable by the strategy
+    /// @param _amount underlying quantity to withdraw from the hub
+    function withdrawFromHub(uint256 _amount) external whenNotPaused {
         require(
-            trustedStrategy[_strategy],
-            "XChainHub::approveWithdrawalForStrategy:UNTRUSTED"
+            trustedStrategy[msg.sender],
+            "XChainHub::withdrawPending:UNTRUSTED"
         );
-        underlying.safeIncreaseAllowance(_strategy, _amount);
+        uint256 maxWithdrawal = pendingWithdrawalPerStrategy[msg.sender];
+        require(
+            _amount <= maxWithdrawal,
+            "XChainHub::withdrawPending:INSUFFICENT FUNDS FOR WITHDRAWAL"
+        );
+
+        pendingWithdrawalPerStrategy[msg.sender] -= _amount;
+
+        IERC20 underlying = IStrategy(msg.sender).underlying();
+        // underlying.safeIncreaseAllowance(msg.sender, _amount);
+        underlying.safeTransfer(msg.sender, _amount);
     }
 
     // --------------------------
@@ -230,7 +225,7 @@ abstract contract XChainHubSrc is
     /// @param _dstChainId the layerZero chain id on destination
     /// @param _dstVault address of the vault on destination
     /// @param _amountVaultShares the number of auxovault shares to burn for underlying
-    /// @param _refundAddress addrss on the source chain to send rebates to
+    /// @param _refundAddress addrss on the this chain to send gas rebates to
     /// @param _dstGas required on dstChain for operations
     function lz_requestWithdrawFromChain(
         uint16 _dstChainId,
@@ -263,7 +258,7 @@ abstract contract XChainHubSrc is
             _dstChainId,
             abi.encode(message),
             _refundAddress,
-            address(0), // the address of the ZRO token holder who would pay for the transaction
+            address(0), // ZRO address (not implemented)
             abi.encodePacked(uint8(1), _dstGas) // version 1 only accepts dstGas
         );
 
@@ -288,6 +283,9 @@ abstract contract XChainHubSrc is
         return hub;
     }
 
+    /// @notice approves the stargate router to transfer underlying tokens from the hub
+    /// @param _vault the vault on this chain
+    /// @param _amount the number of tokens to approve
     function _approveRouter(address _vault, uint256 _amount) internal {
         IVault vault = IVault(_vault);
         IERC20 underlying = vault.underlying();
@@ -303,13 +301,9 @@ abstract contract XChainHubSrc is
         // uint256 currentRound = currentRoundPerStrategy[_dstChainId][_strategy];
 
         bytes memory dstHub = trustedRemoteLookup[_params.dstChainId];
-
         uint256 shares = exitingSharesPerStrategy[_params.dstChainId][
             _params.strategy
         ];
-        uint256 strategyAmount = IVault(_params.vault).calculateUnderlying(
-            shares
-        );
 
         require(
             dstHub.length != 0,
@@ -326,6 +320,11 @@ abstract contract XChainHubSrc is
         require(
             trustedVault[_params.vault],
             "XChainHub::finalizeWithdrawFromChain:UNTRUSTED VAULT"
+        );
+
+        // move external contract calls until after we have vetted the vault
+        uint256 strategyAmount = IVault(_params.vault).calculateUnderlying(
+            shares
         );
         require(
             strategyAmount > 0,

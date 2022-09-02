@@ -15,6 +15,7 @@ import {XChainStrategyEvents} from "@hub/strategy/XChainStrategyEvents.sol";
 
 import {AuxoTest} from "@hub-test/mocks/MockERC20.sol";
 import {MockVault} from "@hub-test/mocks/MockVault.sol";
+import {XChainHubMockActions} from "@hub-test/mocks/MockXChainHub.sol";
 
 import {IStargateRouter} from "@interfaces/IStargateRouter.sol";
 import {IVault} from "@interfaces/IVault.sol";
@@ -33,10 +34,7 @@ contract MockHub {
         uint256 amountVaultShares,
         address payable refundAddress,
         uint256 dstGas
-    )
-        external
-        payable
-    {}
+    ) external payable {}
 
     function sg_finalizeWithdrawFromChain(
         uint16 dstChainId,
@@ -46,10 +44,7 @@ contract MockHub {
         uint16 srcPoolId,
         uint16 dstPoolId,
         uint256 minOutUnderlying
-    )
-        external
-        payable
-    {}
+    ) external payable {}
 }
 
 contract Test is PRBTest, XChainStrategyEvents {
@@ -119,15 +114,23 @@ contract Test is PRBTest, XChainStrategyEvents {
     }
 
     function testRestrictedFunctions(address _attacker) public {
-        vm.assume(_attacker != manager || _attacker != strategist);
+        vm.assume(_attacker != manager && _attacker != strategist);
 
         vm.startPrank(_attacker);
 
         vm.expectRevert("XChainStrategy::withdrawFromHub:UNAUTHORIZED");
         strategy.withdrawFromHub(1);
 
-        vm.expectRevert("XChainStrategy::startRequestToWithdrawUnderlying:UNAUTHORIZED");
-        strategy.startRequestToWithdrawUnderlying(0, 200_000, payable(_attacker), 1, vaultAddr);
+        vm.expectRevert(
+            "XChainStrategy::startRequestToWithdrawUnderlying:UNAUTHORIZED"
+        );
+        strategy.startRequestToWithdrawUnderlying(
+            0,
+            200_000,
+            payable(_attacker),
+            1,
+            vaultAddr
+        );
     }
 
     function testRestrictedFunctionsMgr(address _attacker) public {
@@ -172,7 +175,9 @@ contract Test is PRBTest, XChainStrategyEvents {
         assertEq(address(strategy.vault()), _vault);
     }
 
-    function testDepositUnderlying(IXChainStrategy.DepositParams memory _params) public {
+    function testDepositUnderlying(IXChainStrategy.DepositParams memory _params)
+        public
+    {
         vm.assume(_params.dstGas != 0);
         vm.deal(strategist, 1 ether);
         vm.startPrank(strategist);
@@ -187,7 +192,12 @@ contract Test is PRBTest, XChainStrategyEvents {
         strategy.setState(strategy.NOT_DEPOSITED());
 
         vm.expectEmit(true, true, true, true);
-        emit DepositXChain(_params.dstHub, _params.dstVault, _params.dstChain, _params.amount);
+        emit DepositXChain(
+            _params.dstHub,
+            _params.dstVault,
+            _params.dstChain,
+            _params.amount
+        );
 
         strategy.depositUnderlying{value: 1 ether}(_params);
 
@@ -198,29 +208,34 @@ contract Test is PRBTest, XChainStrategyEvents {
 
     function testWithdrawFromHub(uint256 _amount) public {
         vm.assume(_amount > 0 && _amount <= token.balanceOf(address(this)));
-        XChainHub hubReal = new XChainHub(address(0), address(0));
+        XChainHubMockActions hubMock = new XChainHubMockActions(
+            address(0),
+            address(0)
+        );
 
-        token.transfer(address(hubReal), _amount);
         vm.startPrank(manager);
 
-        strategy.setHub(address(hubReal));
+        strategy.setHub(address(hubMock));
 
         vm.expectRevert("XChainStrategy::withdrawFromHub:WRONG STATE");
         strategy.withdrawFromHub(_amount);
 
         strategy.setState(strategy.WITHDRAWING());
 
-        vm.expectRevert("ERC20: insufficient allowance");
+        vm.expectRevert("XChainHub::withdrawPending:UNTRUSTED");
         strategy.withdrawFromHub(_amount);
 
         vm.stopPrank();
 
-        hubReal.setTrustedStrategy(address(strategy), true);
-        hubReal.approveWithdrawalForStrategy(address(strategy), token, _amount);
+        // prepare state variables for actual deploy
+        hubMock.setTrustedStrategy(address(strategy), true);
+        token.transfer(address(hubMock), _amount);
+        hubMock.setPendingWithdrawalPerStrategy(address(strategy), _amount);
 
         vm.prank(manager);
+
         vm.expectEmit(true, false, false, true);
-        emit WithdrawFromHub(address(hubReal), _amount);
+        emit WithdrawFromHub(address(hubMock), _amount);
         strategy.withdrawFromHub(_amount);
 
         assert(strategy.state() == strategy.DEPOSITED());
@@ -229,15 +244,29 @@ contract Test is PRBTest, XChainStrategyEvents {
 
     function testWithdrawUnderlying(uint256 _amt) public {
         vm.startPrank(strategist);
-        vm.expectRevert("XChainStrategy::startRequestToWithdrawUnderlying:WRONG STATE");
-        strategy.startRequestToWithdrawUnderlying(0, 200_000, payable(address(0)), 1, vaultAddr);
+        vm.expectRevert(
+            "XChainStrategy::startRequestToWithdrawUnderlying:WRONG STATE"
+        );
+        strategy.startRequestToWithdrawUnderlying(
+            0,
+            200_000,
+            payable(address(0)),
+            1,
+            vaultAddr
+        );
 
         strategy.setState(strategy.DEPOSITED());
 
         vm.expectEmit(true, true, false, true);
         emit WithdrawRequestXChain(1, address(vault), _amt);
 
-        strategy.startRequestToWithdrawUnderlying(_amt, 200_000, payable(address(0)), 1, vaultAddr);
+        strategy.startRequestToWithdrawUnderlying(
+            _amt,
+            200_000,
+            payable(address(0)),
+            1,
+            vaultAddr
+        );
         assert(strategy.state() == strategy.WITHDRAWING());
     }
 

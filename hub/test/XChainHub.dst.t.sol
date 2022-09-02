@@ -177,23 +177,6 @@ contract TestXChainHubDst is PRBTest, XChainHubEvents {
         hubMockActions.depositAction(1, payload, 0);
     }
 
-    function testDepositActionRevertsWithUntrustedStrategy() public {
-        token.transfer(address(hubMockActions), token.balanceOf(address(this)));
-        hubMockActions.setTrustedVault(address(_vault), true);
-        uint256 balance = token.balanceOf(address(this));
-
-        bytes memory payload = abi.encode(
-            IHubPayload.DepositPayload({
-                vault: address(_vault),
-                strategy: stratAddr,
-                amountUnderyling: balance
-            })
-        );
-
-        vm.expectRevert(bytes("XChainHub::_depositAction:UNTRUSTED STRATEGY"));
-        hubMockActions.depositAction(1, payload, 0);
-    }
-
     function _deposit(uint256 amount) public {
         token.transfer(address(hubMockActions), token.balanceOf(address(this)));
         hubMockActions.setTrustedVault(address(_vault), true);
@@ -333,22 +316,24 @@ contract TestXChainHubDst is PRBTest, XChainHubEvents {
         assertEq(_vault.balanceOf(address(_vault)), _amount);
     }
 
-    function testFinalizeWithdrawActionLogsTheCorrectEvent() public {
-        uint256 amount = 1e21;
-        uint16 srcChainId = 123;
-
+    function testFinalizeWithdrawAction(address _strategy, uint256 _amount)
+        public
+    {
+        uint16 srcChainId = 53;
         IHubPayload.FinalizeWithdrawPayload memory payload = IHubPayload
-            .FinalizeWithdrawPayload({vault: vaultAddr, strategy: stratAddr});
+            .FinalizeWithdrawPayload({vault: vaultAddr, strategy: _strategy});
 
         // match non indexed payloads only
-        hubMockActions = new XChainHubMockActions(stargate, lz);
-
         vm.expectEmit(false, false, false, true);
-        emit WithdrawalReceived(srcChainId, amount, vaultAddr, stratAddr);
+        emit WithdrawalReceived(srcChainId, _amount, vaultAddr, _strategy);
         hubMockActions.finalizeWithdrawAction(
             srcChainId,
             abi.encode(payload),
-            amount
+            _amount
+        );
+        assertEq(
+            hubMockActions.pendingWithdrawalPerStrategy(_strategy),
+            _amount
         );
     }
 

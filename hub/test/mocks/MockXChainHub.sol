@@ -14,24 +14,42 @@ contract XChainHubMockReducer is XChainHub {
     uint8 public lastCall;
     uint256 public amountCalled;
 
-    constructor(address _stargateEndpoint, address _lzEndpoint) XChainHub(_stargateEndpoint, _lzEndpoint) {}
+    constructor(address _stargateEndpoint, address _lzEndpoint)
+        XChainHub(_stargateEndpoint, _lzEndpoint)
+    {}
 
     /// @dev default arg
-    function makeMessage(uint8 _action) external pure returns (IHubPayload.Message memory) {
+    function makeMessage(uint8 _action)
+        external
+        pure
+        returns (IHubPayload.Message memory)
+    {
         return IHubPayload.Message({action: _action, payload: bytes("")});
     }
 
     /// @dev overload
-    function makeMessage(uint8 _action, bytes memory _payload) external pure returns (IHubPayload.Message memory) {
+    function makeMessage(uint8 _action, bytes memory _payload)
+        external
+        pure
+        returns (IHubPayload.Message memory)
+    {
         return IHubPayload.Message({action: _action, payload: _payload});
     }
 
     /// @notice grant access to the internal reducer function
-    function reducer(uint16 _srcChainId, IHubPayload.Message memory _message, uint256 _amount) external {
+    function reducer(
+        uint16 _srcChainId,
+        IHubPayload.Message memory _message,
+        uint256 _amount
+    ) external {
         super._reducer(_srcChainId, _message, _amount);
     }
 
-    function _sg_depositAction(uint16, bytes memory, uint256 _amount) internal override {
+    function _sg_depositAction(
+        uint16,
+        bytes memory,
+        uint256 _amount
+    ) internal override {
         amountCalled = _amount;
         lastCall = DEPOSIT_ACTION;
     }
@@ -41,12 +59,19 @@ contract XChainHubMockReducer is XChainHub {
         lastCall = REQUEST_WITHDRAW_ACTION;
     }
 
-    function _sg_finalizeWithdrawAction(uint16, bytes memory, uint256 _amount) internal override {
+    function _sg_finalizeWithdrawAction(
+        uint16,
+        bytes memory,
+        uint256 _amount
+    ) internal override {
         amountCalled = _amount;
         lastCall = FINALIZE_WITHDRAW_ACTION;
     }
 
-    function _lz_reportUnderlyingAction(uint16, bytes memory) internal override {
+    function _lz_reportUnderlyingAction(uint16, bytes memory)
+        internal
+        override
+    {
         amountCalled = 0;
         lastCall = REPORT_UNDERLYING_ACTION;
     }
@@ -58,10 +83,14 @@ contract XChainHubMockReducer is XChainHub {
         uint256 amountVaultShares,
         uint256 dstGas,
         address payable refundAddress
-    )
-        external
-    {
-        this.lz_requestWithdrawFromChain(dstChainId, dstVault, amountVaultShares, refundAddress, dstGas);
+    ) external {
+        this.lz_requestWithdrawFromChain(
+            dstChainId,
+            dstVault,
+            amountVaultShares,
+            refundAddress,
+            dstGas
+        );
     }
 }
 
@@ -75,7 +104,9 @@ contract XChainHubMockLzSend is XChainHub {
     address[] public zroPaymentAddresses;
     bytes[] public adapterParams;
 
-    constructor(address _stargateEndpoint, address _lzEndpoint) XChainHub(_stargateEndpoint, _lzEndpoint) {}
+    constructor(address _stargateEndpoint, address _lzEndpoint)
+        XChainHub(_stargateEndpoint, _lzEndpoint)
+    {}
 
     /// @notice intercept the layerZero send and log the outgoing request
     function _lzSend(
@@ -84,13 +115,13 @@ contract XChainHubMockLzSend is XChainHub {
         address payable _refundAddress,
         address _zroPaymentAddress,
         bytes memory _adapterParams
-    )
-        internal
-        override
-    {
+    ) internal override {
         bytes memory trustedRemote = trustedRemoteLookup[_dstChainId];
 
-        require(trustedRemote.length != 0, "LayerZeroApp: destination chain is not a trusted source");
+        require(
+            trustedRemote.length != 0,
+            "LayerZeroApp: destination chain is not a trusted source"
+        );
 
         if (payloads.length == 0) {
             payloads = [_payload];
@@ -125,33 +156,61 @@ contract XChainHubMockActions is XChainHub {
     address[] public zroPaymentAddresses;
     bytes[] public adapterParams;
 
-    constructor(address _stargateEndpoint, address _lzEndpoint) XChainHub(_stargateEndpoint, _lzEndpoint) {}
+    constructor(address _stargateEndpoint, address _lzEndpoint)
+        XChainHub(_stargateEndpoint, _lzEndpoint)
+    {}
 
-    function depositAction(uint16 _srcChainId, bytes memory _payload, uint256 _amount) external {
+    function depositAction(
+        uint16 _srcChainId,
+        bytes memory _payload,
+        uint256 _amount
+    ) external {
         return _sg_depositAction(_srcChainId, _payload, _amount);
     }
 
-    function requestWithdrawAction(uint16 _srcChainId, bytes memory _payload) external {
+    function requestWithdrawAction(uint16 _srcChainId, bytes memory _payload)
+        external
+    {
         _lz_requestWithdrawAction(_srcChainId, _payload);
     }
 
-    function finalizeWithdrawAction(uint16 _srcChainId, bytes memory _payload, uint256 _amount) external {
+    function finalizeWithdrawAction(
+        uint16 _srcChainId,
+        bytes memory _payload,
+        uint256 _amount
+    ) external {
         _sg_finalizeWithdrawAction(_srcChainId, _payload, _amount);
     }
 
-    function setCurrentRoundPerStrategy(uint16 _srcChainId, address _strategy, uint256 _round) external {
+    function setCurrentRoundPerStrategy(
+        uint16 _srcChainId,
+        address _strategy,
+        uint256 _round
+    ) external {
         currentRoundPerStrategy[_srcChainId][_strategy] = _round;
     }
 
-    function setSharesPerStrategy(uint16 _srcChainId, address _strategy, uint256 _shares) external {
+    function setSharesPerStrategy(
+        uint16 _srcChainId,
+        address _strategy,
+        uint256 _shares
+    ) external {
         sharesPerStrategy[_srcChainId][_strategy] = _shares;
     }
 
-    function setExitingSharesPerStrategy(uint16 _srcChainId, address _strategy, uint256 _shares) external {
+    function setExitingSharesPerStrategy(
+        uint16 _srcChainId,
+        address _strategy,
+        uint256 _shares
+    ) external {
         exitingSharesPerStrategy[_srcChainId][_strategy] = _shares;
     }
 
-    function setWithdrawnPerRound(address _vault, uint256 currentRound, uint256 _amount) external {
+    function setWithdrawnPerRound(
+        address _vault,
+        uint256 currentRound,
+        uint256 _amount
+    ) external {
         withdrawnPerRound[_vault][currentRound] = _amount;
     }
 
@@ -159,8 +218,18 @@ contract XChainHubMockActions is XChainHub {
         _lz_reportUnderlyingAction(1, _payload);
     }
 
-    function setLatestReport(uint16 chainId, address strategy, uint256 timestamp) external {
-        latestUpdate[chainId][strategy] = timestamp;
+    function setLatestReport(
+        uint16 _chainId,
+        address _strategy,
+        uint256 _timestamp
+    ) external {
+        latestUpdate[_chainId][_strategy] = _timestamp;
+    }
+
+    function setPendingWithdrawalPerStrategy(address _strategy, uint256 _amount)
+        external
+    {
+        pendingWithdrawalPerStrategy[_strategy] = _amount;
     }
 
     /// @notice intercept the layerZero send and log the outgoing request
@@ -170,13 +239,13 @@ contract XChainHubMockActions is XChainHub {
         address payable _refundAddress,
         address _zroPaymentAddress,
         bytes memory _adapterParams
-    )
-        internal
-        override
-    {
+    ) internal override {
         bytes memory trustedRemote = trustedRemoteLookup[_dstChainId];
 
-        require(trustedRemote.length != 0, "LayerZeroApp: destination chain is not a trusted source");
+        require(
+            trustedRemote.length != 0,
+            "LayerZeroApp: destination chain is not a trusted source"
+        );
 
         if (payloads.length == 0) {
             payloads = [_payload];
@@ -207,35 +276,63 @@ contract XChainHubMockActions is XChainHub {
 /// @dev grant access to internal functions - no lzero
 /// @dev can we use composition here?
 contract XChainHubMockActionsNoLz is XChainHub {
-    constructor(address _stargateEndpoint, address _lzEndpoint, address _refundRecipient)
-        XChainHub(_stargateEndpoint, _lzEndpoint)
-    {}
+    constructor(
+        address _stargateEndpoint,
+        address _lzEndpoint,
+        address _refundRecipient
+    ) XChainHub(_stargateEndpoint, _lzEndpoint) {}
 
-    function depositAction(uint16 _srcChainId, bytes memory _payload, uint256 _amount) external {
+    function depositAction(
+        uint16 _srcChainId,
+        bytes memory _payload,
+        uint256 _amount
+    ) external {
         return _sg_depositAction(_srcChainId, _payload, _amount);
     }
 
-    function requestWithdrawAction(uint16 _srcChainId, bytes memory _payload) external {
+    function requestWithdrawAction(uint16 _srcChainId, bytes memory _payload)
+        external
+    {
         _lz_requestWithdrawAction(_srcChainId, _payload);
     }
 
-    function finalizeWithdrawAction(uint16 _srcChainId, bytes memory _payload) external {
-        _sg_finalizeWithdrawAction(_srcChainId, _payload, 0);
+    function finalizeWithdrawAction(
+        uint16 _srcChainId,
+        bytes memory _payload,
+        uint256 _amount
+    ) external {
+        _sg_finalizeWithdrawAction(_srcChainId, _payload, _amount);
     }
 
-    function setCurrentRoundPerStrategy(uint16 _srcChainId, address _strategy, uint256 _round) external {
+    function setCurrentRoundPerStrategy(
+        uint16 _srcChainId,
+        address _strategy,
+        uint256 _round
+    ) external {
         currentRoundPerStrategy[_srcChainId][_strategy] = _round;
     }
 
-    function setWithdrawnPerRound(address _vault, uint256 currentRound, uint256 _amount) external {
+    function setWithdrawnPerRound(
+        address _vault,
+        uint256 currentRound,
+        uint256 _amount
+    ) external {
         withdrawnPerRound[_vault][currentRound] = _amount;
     }
 
-    function setSharesPerStrategy(uint16 _srcChainId, address _strategy, uint256 _shares) external {
+    function setSharesPerStrategy(
+        uint16 _srcChainId,
+        address _strategy,
+        uint256 _shares
+    ) external {
         sharesPerStrategy[_srcChainId][_strategy] = _shares;
     }
 
-    function setExitingSharesPerStrategy(uint16 _srcChainId, address _strategy, uint256 _shares) external {
+    function setExitingSharesPerStrategy(
+        uint16 _srcChainId,
+        address _strategy,
+        uint256 _shares
+    ) external {
         exitingSharesPerStrategy[_srcChainId][_strategy] = _shares;
     }
 
@@ -243,7 +340,11 @@ contract XChainHubMockActionsNoLz is XChainHub {
         _lz_reportUnderlyingAction(1, _payload);
     }
 
-    function setLatestReport(uint16 chainId, address strategy, uint256 timestamp) external {
+    function setLatestReport(
+        uint16 chainId,
+        address strategy,
+        uint256 timestamp
+    ) external {
         latestUpdate[chainId][strategy] = timestamp;
     }
 }
@@ -255,27 +356,63 @@ contract MockXChainHubSingle is XChainHubSingle {
     address public strategy;
     address public vault;
 
-    constructor(address _stargateEndpoint, address _lzEndpoint) XChainHubSingle(_stargateEndpoint, _lzEndpoint) {}
+    constructor(address _stargateEndpoint, address _lzEndpoint)
+        XChainHubSingle(_stargateEndpoint, _lzEndpoint)
+    {}
 
-    function depositAction(uint16 _srcChainId, bytes memory _payload, uint256 _amount) external {
+    function depositAction(
+        uint16 _srcChainId,
+        bytes memory _payload,
+        uint256 _amount
+    ) external {
         return _sg_depositAction(_srcChainId, _payload, _amount);
     }
 
-    function _makeDeposit(uint16 _srcChainId, uint256 _amountReceived, address _strategy, address _vault)
-        internal
-        override
-    {
+    function finalizeWithdrawAction(
+        uint16 _srcChainId,
+        bytes memory _payload,
+        uint256 _amount
+    ) external {
+        _sg_finalizeWithdrawAction(_srcChainId, _payload, _amount);
+    }
+
+    function _saveWithdrawal(
+        uint16 _srcChainId,
+        address _vault,
+        address _strategy,
+        uint256 _amountReceived
+    ) internal override {
         srcChainId = _srcChainId;
         amountReceived = _amountReceived;
         strategy = _strategy;
         vault = _vault;
     }
 
-    function setExitingSharesPerStrategy(uint16 _srcChainId, address _strategy, uint256 _shares) external {
+    function _makeDeposit(
+        uint16 _srcChainId,
+        uint256 _amountReceived,
+        address _strategy,
+        address _vault
+    ) internal override {
+        srcChainId = _srcChainId;
+        amountReceived = _amountReceived;
+        strategy = _strategy;
+        vault = _vault;
+    }
+
+    function setExitingSharesPerStrategy(
+        uint16 _srcChainId,
+        address _strategy,
+        uint256 _shares
+    ) external {
         exitingSharesPerStrategy[_srcChainId][_strategy] = _shares;
     }
 
-    function setSharesPerStrategy(uint16 _srcChainId, address _strategy, uint256 _shares) external {
+    function setSharesPerStrategy(
+        uint16 _srcChainId,
+        address _strategy,
+        uint256 _shares
+    ) external {
         sharesPerStrategy[_srcChainId][_strategy] = _shares;
     }
 }

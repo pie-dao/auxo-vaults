@@ -20,14 +20,10 @@ import {IStargateRouter} from "@interfaces/IStargateRouter.sol";
 /// @dev Expect this contract to change in future.
 /// @dev ownable is provided by CallFacet
 contract XChainHubStorage {
-    // --------------------------
-    // Single Chain Mappings
-    // --------------------------
-
-    /// @notice Trusted vaults on current chain.
+    /// @notice Trusted vaults - use only to trust vaults on chains which funds are recevied
     mapping(address => bool) public trustedVault;
 
-    /// @notice Trusted strategies on current chain.
+    /// @notice Trusted strategies - use only to trust strategies on chain from which funds are sent
     mapping(address => bool) public trustedStrategy;
 
     /// @notice Indicates if the hub is gathering exit request for a given vault.
@@ -36,6 +32,11 @@ contract XChainHubStorage {
     /// @notice Indicates withdrawn amount per round (in underlying) for a given vault.
     /// @dev format vaultAddr => round => withdrawn
     mapping(address => mapping(uint256 => uint256)) public withdrawnPerRound;
+
+    /// @notice underlying tokens sitting in the hub, sent back from remote chain
+    ///         waiting to be withdrawn to a strategy on this chain
+    /// @dev strategy on this chain => qty underlying
+    mapping(address => uint256) public pendingWithdrawalPerStrategy;
 
     // --------------------------
     // Cross Chain Mappings
