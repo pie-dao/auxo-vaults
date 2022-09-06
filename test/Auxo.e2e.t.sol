@@ -408,12 +408,6 @@ contract E2ETest is PRBTest {
         IERC20 token = srcDeployer.underlying();
         XChainStrategy strategy = srcDeployer.strategy();
 
-        vm.startPrank(srcHub.owner());
-        srcHub.approveWithdrawalForStrategy(
-            address(strategy), token, depositAmount
-        );
-        vm.stopPrank();
-
         vm.startPrank(srcDeployer.strategist());
         strategy.withdrawFromHub(depositAmount);
         vm.stopPrank();

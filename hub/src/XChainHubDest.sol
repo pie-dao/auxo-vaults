@@ -263,6 +263,8 @@ abstract contract XChainHubDest is
         );
 
         IVault vault = IVault(_vault);
+        // check the strategy is trusted
+
         address strategy = decoded.strategy;
         uint256 amountVaultShares = decoded.amountVaultShares;
 
@@ -329,6 +331,7 @@ abstract contract XChainHubDest is
         address _strategy,
         uint256 _amountReceived
     ) internal virtual {
+        require(trustedStrategy[_strategy], "XChainHub::_saveWithdrawal:UNTRUSTED");
         pendingWithdrawalPerStrategy[_strategy] += _amountReceived;
         emit WithdrawalReceived(
             _srcChainId,

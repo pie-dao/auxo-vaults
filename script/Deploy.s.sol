@@ -522,12 +522,7 @@ contract HubWithdrawFTMTest is Script, Deploy {
 
         vm.startBroadcast(srcGovernor);
 
-        IERC20 token = srcDeployer.underlying();
         XChainStrategy strategy = srcDeployer.strategy();
-        srcDeployer.hub().approveWithdrawalForStrategy(
-            address(strategy), token, withdrawQty
-        );
-
         strategy.withdrawFromHub(withdrawQty);
 
         vm.stopBroadcast();

@@ -35,6 +35,12 @@ contract XChainHubSingle is XChainHub {
     /// @notice emitted when the designated vault changes
     event SetVaultForChain(address vault, uint16 chain);
 
+    /// @notice emitted when the local XChainStrategy is updated
+    event SetLocalStrategy(address strategy);
+
+    /// @notice the XChainStrategy on this chain that will use the Hub
+    address public localStrategy;
+
     /// @notice permits one and only one strategy to make deposits on each chain
     /// @dev this is due to issues with reporting and trusted payloads
     mapping(uint16 => address) public strategyForChain;
@@ -50,6 +56,14 @@ contract XChainHubSingle is XChainHub {
         XChainHub(_stargateEndpoint, _lzEndpoint)
     {}
 
+    /// @notice sets a XChainStrategy on the current chain that will be the sole recipient of incoming funds
+    /// @param _newStrategy the address of the XChainStrategy on this chain
+    function setLocalStrategy(address _newStrategy) external onlyOwner {
+        require(trustedStrategy[_newStrategy], "XChainHubSingle::setLocalStrategy:UNTRUSTED");
+        localStrategy = _newStrategy;
+        emit SetLocalStrategy(_newStrategy);
+    }
+
     /// @notice external setter callable by the owner
     function setStrategyForChain(address _strategy, uint16 _chain)
         external
@@ -59,7 +73,7 @@ contract XChainHubSingle is XChainHub {
     }
 
     /// @notice sets designated remote strategy for a given chain
-    /// @dev remember to set the new strategy as trusted
+    /// @dev in the case of a withdrawal, must be the XChainStrategy on this chain
     /// @param _strategy the address of the XChainStrategy on the remote chain
     /// @param _remoteChainId the layerZero chain id on which the vault resides
     function _setStrategyForChain(address _strategy, uint16 _remoteChainId)
@@ -135,7 +149,7 @@ contract XChainHubSingle is XChainHub {
         _saveWithdrawal(
             _srcChainId,
             vaultForChain[_srcChainId],
-            strategyForChain[_srcChainId],
+            localStrategy,
             _amountReceived
         );
     }

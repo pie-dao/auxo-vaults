@@ -134,6 +134,11 @@ contract XChainStrategy is BaseStrategy, XChainStrategyEvents, CallFacet {
         emit UpdateVault(_vault);
     }
 
+    function setXChainDepositState() external  {
+        // OWNER
+        // change the state to whatever
+    }
+
     /// ------------------
     /// Cross Chain Functions
     /// ------------------

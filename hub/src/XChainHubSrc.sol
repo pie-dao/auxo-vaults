@@ -326,6 +326,9 @@ abstract contract XChainHubSrc is
         uint256 strategyAmount = IVault(_params.vault).calculateUnderlying(
             shares
         );
+
+        // here we copld check strategy in the vault
+        // IVault(_params.vault)
         require(
             strategyAmount > 0,
             "XChainHub::finalizeWithdrawFromChain:NO WITHDRAWS"
@@ -336,6 +339,7 @@ abstract contract XChainHubSrc is
         withdrawnPerRound[_params.vault][
             _params.currentRound
         ] -= strategyAmount;
+        // if we check dont need to reindex
         currentRoundPerStrategy[_params.dstChainId][_params.strategy] = 0;
         exitingSharesPerStrategy[_params.dstChainId][_params.strategy] = 0;
 

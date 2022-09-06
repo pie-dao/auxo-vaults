@@ -55,31 +55,46 @@ contract E2ETestSingle is PRBTest {
 
     bool constant deploySingleHub = true;
 
+    /// In the case of the single chain we need to whitelist the strategies as follows:
+    /// on the receiving chain:
+    ///     set addre
     function setSingle(Deployer _srcDeployer, Deployer _dstDeployer) public {
         XChainHubSingle hubSingleSrc =
             XChainHubSingle(address(_srcDeployer.hub()));
         XChainHubSingle hubSingleDst =
             XChainHubSingle(address(_dstDeployer.hub()));
 
-        hubSingleSrc.setStrategyForChain(
-            address(_dstDeployer.strategy()), dstChainId
-        );
-        hubSingleSrc.setTrustedStrategy(address(_dstDeployer.strategy()), true);
+        vm.startPrank(address(_dstDeployer));
 
+        // set the remote strategy on the source chain
         hubSingleDst.setStrategyForChain(
             address(_srcDeployer.strategy()), srcChainId
         );
-        hubSingleDst.setTrustedStrategy(address(_srcDeployer.strategy()), true);
-
-        hubSingleSrc.setVaultForChain(
-            address(_srcDeployer.vaultProxy()), dstChainId
-        );
-        hubSingleSrc.setTrustedVault(address(_srcDeployer.vaultProxy()), true);
 
         hubSingleDst.setVaultForChain(
             address(_dstDeployer.vaultProxy()), srcChainId
         );
+
         hubSingleDst.setTrustedVault(address(_dstDeployer.vaultProxy()), true);
+        hubSingleDst.setTrustedStrategy(address(dstDeployer.strategy()), true);
+        hubSingleDst.setLocalStrategy(address(_dstDeployer.strategy()));
+
+        vm.stopPrank();
+
+        vm.startPrank(address(_srcDeployer));
+
+        hubSingleSrc.setVaultForChain(
+            address(_srcDeployer.vaultProxy()), dstChainId
+        );
+
+        // set the remote strategy on the destination chain
+        hubSingleSrc.setStrategyForChain(
+            address(_dstDeployer.strategy()), dstChainId
+        );
+        hubSingleSrc.setTrustedVault(address(_srcDeployer.vaultProxy()), true);
+        hubSingleSrc.setTrustedStrategy(address(srcDeployer.strategy()), true);
+        hubSingleSrc.setLocalStrategy(address(_srcDeployer.strategy()));
+        vm.stopPrank();
     }
 
     function setUp() public {
@@ -136,24 +151,21 @@ contract E2ETestSingle is PRBTest {
         vm.startPrank(address(dstDeployer));
 
         deployVaultHubStrat(dstDeployer, deploySingleHub);
-
         vm.stopPrank();
 
         /// setup the single config
-        vm.startPrank(address(dstDeployer));
 
-        XChainHubSingle hubSingleDst =
-            XChainHubSingle(address(dstDeployer.hub()));
-        hubSingleDst.setStrategyForChain(
-            address(srcDeployer.strategy()), srcChainId
-        );
-        hubSingleDst.setTrustedStrategy(address(srcDeployer.strategy()), true);
-        hubSingleDst.setVaultForChain(
-            address(dstDeployer.vaultProxy()), srcChainId
-        );
-        hubSingleDst.setTrustedVault(address(dstDeployer.vaultProxy()), true);
-
-        vm.stopPrank();
+        // XChainHubSingle hubSingleDst =
+        //     XChainHubSingle(address(dstDeployer.hub()));
+        // hubSingleDst.setStrategyForChain(
+        //     address(srcDeployer.strategy()), srcChainId
+        // );
+        // hubSingleDst.setTrustedStrategy(address(srcDeployer.strategy()), true);
+        // hubSingleDst.setVaultForChain(
+        //     address(dstDeployer.vaultProxy()), srcChainId
+        // );
+        // hubSingleDst.setTrustedVault(address(dstDeployer.vaultProxy()), true);
+        setSingle(srcDeployer, dstDeployer);
 
         /// @dev ----- TEST ONLY -------
         connectRouters(
@@ -456,16 +468,7 @@ contract E2ETestSingle is PRBTest {
     }
 
     function withdrawToStrategy(uint256 depositAmount) internal {
-        XChainHub srcHub = srcDeployer.hub();
-        IERC20 token = srcDeployer.underlying();
         XChainStrategy strategy = srcDeployer.strategy();
-
-        vm.startPrank(srcHub.owner());
-        srcHub.approveWithdrawalForStrategy(
-            address(strategy), token, depositAmount
-        );
-        vm.stopPrank();
-
         vm.startPrank(srcDeployer.strategist());
         strategy.withdrawFromHub(depositAmount);
         vm.stopPrank();
