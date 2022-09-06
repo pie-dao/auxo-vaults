@@ -182,54 +182,8 @@ contract XChainHubMockActions is XChainHub {
         _sg_finalizeWithdrawAction(_srcChainId, _payload, _amount);
     }
 
-    function setCurrentRoundPerStrategy(
-        uint16 _srcChainId,
-        address _strategy,
-        uint256 _round
-    ) external {
-        currentRoundPerStrategy[_srcChainId][_strategy] = _round;
-    }
-
-    function setSharesPerStrategy(
-        uint16 _srcChainId,
-        address _strategy,
-        uint256 _shares
-    ) external {
-        sharesPerStrategy[_srcChainId][_strategy] = _shares;
-    }
-
-    function setExitingSharesPerStrategy(
-        uint16 _srcChainId,
-        address _strategy,
-        uint256 _shares
-    ) external {
-        exitingSharesPerStrategy[_srcChainId][_strategy] = _shares;
-    }
-
-    function setWithdrawnPerRound(
-        address _vault,
-        uint256 currentRound,
-        uint256 _amount
-    ) external {
-        withdrawnPerRound[_vault][currentRound] = _amount;
-    }
-
     function reportUnderlyingAction(bytes memory _payload) external {
         _lz_reportUnderlyingAction(1, _payload);
-    }
-
-    function setLatestReport(
-        uint16 _chainId,
-        address _strategy,
-        uint256 _timestamp
-    ) external {
-        latestUpdate[_chainId][_strategy] = _timestamp;
-    }
-
-    function setPendingWithdrawalPerStrategy(address _strategy, uint256 _amount)
-        external
-    {
-        pendingWithdrawalPerStrategy[_strategy] = _amount;
     }
 
     /// @notice intercept the layerZero send and log the outgoing request
@@ -304,38 +258,6 @@ contract XChainHubMockActionsNoLz is XChainHub {
         _sg_finalizeWithdrawAction(_srcChainId, _payload, _amount);
     }
 
-    function setCurrentRoundPerStrategy(
-        uint16 _srcChainId,
-        address _strategy,
-        uint256 _round
-    ) external {
-        currentRoundPerStrategy[_srcChainId][_strategy] = _round;
-    }
-
-    function setWithdrawnPerRound(
-        address _vault,
-        uint256 currentRound,
-        uint256 _amount
-    ) external {
-        withdrawnPerRound[_vault][currentRound] = _amount;
-    }
-
-    function setSharesPerStrategy(
-        uint16 _srcChainId,
-        address _strategy,
-        uint256 _shares
-    ) external {
-        sharesPerStrategy[_srcChainId][_strategy] = _shares;
-    }
-
-    function setExitingSharesPerStrategy(
-        uint16 _srcChainId,
-        address _strategy,
-        uint256 _shares
-    ) external {
-        exitingSharesPerStrategy[_srcChainId][_strategy] = _shares;
-    }
-
     function reportUnderlyingAction(bytes memory _payload) external {
         _lz_reportUnderlyingAction(1, _payload);
     }
@@ -398,21 +320,5 @@ contract MockXChainHubSingle is XChainHubSingle {
         amountReceived = _amountReceived;
         strategy = _strategy;
         vault = _vault;
-    }
-
-    function setExitingSharesPerStrategy(
-        uint16 _srcChainId,
-        address _strategy,
-        uint256 _shares
-    ) external {
-        exitingSharesPerStrategy[_srcChainId][_strategy] = _shares;
-    }
-
-    function setSharesPerStrategy(
-        uint16 _srcChainId,
-        address _strategy,
-        uint256 _shares
-    ) external {
-        sharesPerStrategy[_srcChainId][_strategy] = _shares;
     }
 }

@@ -380,7 +380,7 @@ contract TestXChainHubSrc is PRBTest {
 
         _hub.setTrustedVault(address(vault), true);
         _hub.setSharesPerStrategy(dstChains[0], strategies[0], shares);
-        _hub.setLatestReport(dstChains[0], strategies[0], block.timestamp);
+        _hub.setLatestUpdate(dstChains[0], strategies[0], block.timestamp);
 
         // report delay is 6 hours
         vm.warp(block.timestamp + 6 hours);

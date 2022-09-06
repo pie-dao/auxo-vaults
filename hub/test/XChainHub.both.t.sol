@@ -203,6 +203,7 @@ contract TestXChainHubSrcAndDst is PRBTest, XChainHubEvents {
 
         // set trusted
         hubSrc.setTrustedStrategy(address(strategy), true);
+        hubDst.setTrustedStrategy(address(strategy), true);
         hubSrc.setTrustedVault(address(vault), true);
         hubDst.setTrustedVault(address(vault), true);
 

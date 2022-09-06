@@ -331,7 +331,10 @@ abstract contract XChainHubDest is
         address _strategy,
         uint256 _amountReceived
     ) internal virtual {
-        require(trustedStrategy[_strategy], "XChainHub::_saveWithdrawal:UNTRUSTED");
+        require(
+            trustedStrategy[_strategy],
+            "XChainHub::_saveWithdrawal:UNTRUSTED STRATEGY"
+        );
         pendingWithdrawalPerStrategy[_strategy] += _amountReceived;
         emit WithdrawalReceived(
             _srcChainId,

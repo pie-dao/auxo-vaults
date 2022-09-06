@@ -37,6 +37,7 @@ contract TestXChainHubSrc is PRBTest {
     address[] public strategies;
     uint16[] public dstChains;
     uint256 public dstDefaultGas = 200_000;
+
     // random addr
     address private stratAddr = 0x4A1c900Ee1042dC2BA405821F0ea13CfBADCAb7B;
 
@@ -86,9 +87,8 @@ contract TestXChainHubSrc is PRBTest {
     function testOnlyOwner(address _notOwner) public {
         vm.assume(_notOwner != hub.owner());
         bytes memory onlyOwnerErr = bytes("Ownable: caller is not the owner");
-        uint16[] memory dstChains = new uint16[](1);
         address[] memory strats = new address[](1);
-        dstChains[0] = 1;
+        dstChains.push(1);
         strats[0] = stratAddr;
 
         IVault iVault = IVault(address(vault));
@@ -104,6 +104,24 @@ contract TestXChainHubSrc is PRBTest {
 
         vm.expectRevert(onlyOwnerErr);
         hub.setTrustedVault(vaultAddr, true);
+
+        vm.expectRevert(onlyOwnerErr);
+        hub.setCurrentRoundPerStrategy(1, stratAddr, 1);
+
+        vm.expectRevert(onlyOwnerErr);
+        hub.setSharesPerStrategy(1, stratAddr, 1);
+
+        vm.expectRevert(onlyOwnerErr);
+        hub.setExitingSharesPerStrategy(1, stratAddr, 1);
+
+        vm.expectRevert(onlyOwnerErr);
+        hub.setPendingWithdrawalPerStrategy(stratAddr, 1);
+
+        vm.expectRevert(onlyOwnerErr);
+        hub.setWithdrawnPerRound(address(iVault), 1, 1);
+
+        vm.expectRevert(onlyOwnerErr);
+        hub.setLatestUpdate(1, stratAddr, 1);
 
         vm.expectRevert(onlyOwnerErr);
         hub.setExiting(vaultAddr, true);

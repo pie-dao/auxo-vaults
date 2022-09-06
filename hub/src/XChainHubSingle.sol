@@ -59,7 +59,10 @@ contract XChainHubSingle is XChainHub {
     /// @notice when withdrawing back to the original chain, funds will be accessible to this strategy only
     /// @param _newStrategy the address of the XChainStrategy on this chain
     function setLocalStrategy(address _newStrategy) external onlyOwner {
-        require(trustedStrategy[_newStrategy], "XChainHubSingle::setLocalStrategy:UNTRUSTED");
+        require(
+            trustedStrategy[_newStrategy],
+            "XChainHubSingle::setLocalStrategy:UNTRUSTED"
+        );
         localStrategy = _newStrategy;
         emit SetLocalStrategy(_newStrategy);
     }
@@ -104,9 +107,15 @@ contract XChainHubSingle is XChainHub {
     /// @param _remoteChainId the layerZero chain id where deposits will originate
     function _setVaultForChain(address _vault, uint16 _remoteChainId) internal {
         address strategy = strategyForChain[_remoteChainId];
-        
-        require(trustedVault[_vault], "XChainHub::setVaultForChain:UNTRUSTED");
-        require(strategy != address(0), "XChainHub::setVaultForChain:SET STRATEGY");
+
+        require(
+            trustedVault[_vault],
+            "XChainHub::setVaultForChain:UNTRUSTED VAULT"
+        );
+        require(
+            strategy != address(0),
+            "XChainHub::setVaultForChain:SET STRATEGY"
+        );
 
         IVault vault = IVault(_vault);
         IVault.BatchBurnReceipt memory receipt = vault.userBatchBurnReceipts(

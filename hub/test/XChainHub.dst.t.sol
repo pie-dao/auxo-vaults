@@ -323,6 +323,8 @@ contract TestXChainHubDst is PRBTest, XChainHubEvents {
         IHubPayload.FinalizeWithdrawPayload memory payload = IHubPayload
             .FinalizeWithdrawPayload({vault: vaultAddr, strategy: _strategy});
 
+        hubMockActions.setTrustedStrategy(_strategy, true);
+
         // match non indexed payloads only
         vm.expectEmit(false, false, false, true);
         emit WithdrawalReceived(srcChainId, _amount, vaultAddr, _strategy);

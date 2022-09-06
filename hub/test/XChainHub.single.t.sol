@@ -65,7 +65,7 @@ contract TestXChainHubSrcAndDst is PRBTest, XChainHubEvents {
         hub.setStrategyForChain(_strategy, _srcChainId);
     }
 
-    function testSettingVaultRevertsWithPendiing(
+    function testSettingVaultReverts(
         uint16 _chain,
         uint256 _shares,
         address _strategy
@@ -73,11 +73,20 @@ contract TestXChainHubSrcAndDst is PRBTest, XChainHubEvents {
         vm.assume(_shares > 0);
         vm.assume(_strategy != address(0));
 
-        hub.setStrategyForChain(_strategy, _chain);
         vault.setBatchBurnReceiptsForSender(
             _strategy,
             MockVault.BatchBurnReceipt({shares: _shares, round: 0})
         );
+
+        vm.expectRevert("XChainHub::setVaultForChain:UNTRUSTED VAULT");
+        hub.setVaultForChain(address(vault), _chain);
+
+        hub.setTrustedVault(address(vault), true);
+
+        vm.expectRevert("XChainHub::setVaultForChain:SET STRATEGY");
+        hub.setVaultForChain(address(vault), _chain);
+
+        hub.setStrategyForChain(_strategy, _chain);
 
         vm.expectRevert("XChainHub::setVaultForChain:NOT EMPTY");
         hub.setVaultForChain(address(vault), _chain);
@@ -98,14 +107,16 @@ contract TestXChainHubSrcAndDst is PRBTest, XChainHubEvents {
         uint16 _srcChainId,
         address _remoteStrategy
     ) public {
+        vm.assume(_remoteStrategy != address(0));
+
         vault.setBatchBurnReceiptsForSender(
             _remoteStrategy,
             MockVault.BatchBurnReceipt({shares: 0, round: 0})
         );
 
         hub.setStrategyForChain(_remoteStrategy, _srcChainId);
-        hub.setVaultForChain(address(vault), _srcChainId);
         hub.setTrustedVault(address(vault), true);
+        hub.setVaultForChain(address(vault), _srcChainId);
 
         hub.depositAction(_srcChainId, abi.encode(_payload), _amount);
 
@@ -120,16 +131,23 @@ contract TestXChainHubSrcAndDst is PRBTest, XChainHubEvents {
         IHubPayload.FinalizeWithdrawPayload memory _payload,
         uint256 _amount,
         uint16 _srcChainId,
+        address _localStrategy,
         address _remoteStrategy
     ) public {
+        vm.assume(_remoteStrategy != address(0));
+
+        hub.setTrustedStrategy(_localStrategy, true);
+        hub.setLocalStrategy(_localStrategy);
+
         hub.setStrategyForChain(_remoteStrategy, _srcChainId);
+        hub.setTrustedVault(address(vault), true);
         hub.setVaultForChain(address(vault), _srcChainId);
 
         hub.finalizeWithdrawAction(_srcChainId, abi.encode(_payload), _amount);
 
         assertEq(hub.srcChainId(), _srcChainId);
         assertEq(hub.amountReceived(), _amount);
-        assertEq(hub.strategy(), _remoteStrategy);
+        assertEq(hub.strategy(), _localStrategy);
         assertEq(hub.vault(), address(vault));
     }
 }
