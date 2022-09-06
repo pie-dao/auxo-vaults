@@ -55,45 +55,38 @@ contract E2ETestSingle is PRBTest {
 
     bool constant deploySingleHub = true;
 
-    /// In the case of the single chain we need to whitelist the strategies as follows:
-    /// on the receiving chain:
-    ///     set addre
-    function setSingle(Deployer _srcDeployer, Deployer _dstDeployer) public {
-        XChainHubSingle hubSingleSrc =
-            XChainHubSingle(address(_srcDeployer.hub()));
-        XChainHubSingle hubSingleDst =
-            XChainHubSingle(address(_dstDeployer.hub()));
 
+    /// @notice there is additional config required to whitelist the single instance of the hub
+    /// @param _srcDeployer registry for all contracts on chain A
+    /// @param _dstDeployer registry for all contracts on chain B
+    /// @param _srcChainId chain id for Chain A
+    function setSingle(Deployer _srcDeployer, Deployer _dstDeployer, uint16 _srcChainId) public {
+        XChainHubSingle hubSingleDst = XChainHubSingle(address(_dstDeployer.hub()));
         vm.startPrank(address(_dstDeployer));
 
-        // set the remote strategy on the source chain
+        // for chain B, we assume all inbound requests from Chain ID use the same remote strategy A
         hubSingleDst.setStrategyForChain(
-            address(_srcDeployer.strategy()), srcChainId
+            address(_srcDeployer.strategy()), _srcChainId
         );
 
-        hubSingleDst.setVaultForChain(
-            address(_dstDeployer.vaultProxy()), srcChainId
-        );
-
+        // for chain B, we need to trust an actual vault on the same chain
         hubSingleDst.setTrustedVault(address(_dstDeployer.vaultProxy()), true);
-        hubSingleDst.setTrustedStrategy(address(dstDeployer.strategy()), true);
+        
+        // for chain B, we also need to route any requests from Chain A to the above trusted vault    
+        hubSingleDst.setVaultForChain(
+            address(_dstDeployer.vaultProxy()), _srcChainId
+        );
+
+        // for chain B, set a trusted strategy on the current chain that will interact with Hub B        
+        hubSingleDst.setTrustedStrategy(address(_dstDeployer.strategy()), true);
+
+        // set this as the 'local' strategy, which will be called when finalizing the withdraw.
+        // If sending funds from A -> B initially, we need to set this on chain A to withdraw funds back from B -> A
+        // therefore, run this function twice:
+        // once for deployer(A, B), chain A
+        // once for deployer(B, A), chain B
         hubSingleDst.setLocalStrategy(address(_dstDeployer.strategy()));
 
-        vm.stopPrank();
-
-        vm.startPrank(address(_srcDeployer));
-
-        hubSingleSrc.setVaultForChain(
-            address(_srcDeployer.vaultProxy()), dstChainId
-        );
-
-        // set the remote strategy on the destination chain
-        hubSingleSrc.setStrategyForChain(
-            address(_dstDeployer.strategy()), dstChainId
-        );
-        hubSingleSrc.setTrustedVault(address(_srcDeployer.vaultProxy()), true);
-        hubSingleSrc.setTrustedStrategy(address(srcDeployer.strategy()), true);
-        hubSingleSrc.setLocalStrategy(address(_srcDeployer.strategy()));
         vm.stopPrank();
     }
 
@@ -149,23 +142,12 @@ contract E2ETestSingle is PRBTest {
         vm.stopPrank();
 
         vm.startPrank(address(dstDeployer));
-
         deployVaultHubStrat(dstDeployer, deploySingleHub);
         vm.stopPrank();
 
-        /// setup the single config
+        setSingle(srcDeployer, dstDeployer, srcChainId);
+        setSingle(dstDeployer, srcDeployer, dstChainId);
 
-        // XChainHubSingle hubSingleDst =
-        //     XChainHubSingle(address(dstDeployer.hub()));
-        // hubSingleDst.setStrategyForChain(
-        //     address(srcDeployer.strategy()), srcChainId
-        // );
-        // hubSingleDst.setTrustedStrategy(address(srcDeployer.strategy()), true);
-        // hubSingleDst.setVaultForChain(
-        //     address(dstDeployer.vaultProxy()), srcChainId
-        // );
-        // hubSingleDst.setTrustedVault(address(dstDeployer.vaultProxy()), true);
-        setSingle(srcDeployer, dstDeployer);
 
         /// @dev ----- TEST ONLY -------
         connectRouters(
@@ -183,7 +165,7 @@ contract E2ETestSingle is PRBTest {
             address(dstToken)
         );
 
-        // a set of addresses we don't want to impersonate
+        // a set of addresses we don't want to impersonate in fuzz testing
         _initIgnoreAddresses(srcDeployer, ignoreAddresses);
         _initIgnoreAddresses(dstDeployer, ignoreAddresses);
 

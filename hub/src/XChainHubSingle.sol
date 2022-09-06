@@ -56,7 +56,7 @@ contract XChainHubSingle is XChainHub {
         XChainHub(_stargateEndpoint, _lzEndpoint)
     {}
 
-    /// @notice sets a XChainStrategy on the current chain that will be the sole recipient of incoming funds
+    /// @notice when withdrawing back to the original chain, funds will be accessible to this strategy only
     /// @param _newStrategy the address of the XChainStrategy on this chain
     function setLocalStrategy(address _newStrategy) external onlyOwner {
         require(trustedStrategy[_newStrategy], "XChainHubSingle::setLocalStrategy:UNTRUSTED");
@@ -73,7 +73,6 @@ contract XChainHubSingle is XChainHub {
     }
 
     /// @notice sets designated remote strategy for a given chain
-    /// @dev in the case of a withdrawal, must be the XChainStrategy on this chain
     /// @param _strategy the address of the XChainStrategy on the remote chain
     /// @param _remoteChainId the layerZero chain id on which the vault resides
     function _setStrategyForChain(address _strategy, uint16 _remoteChainId)
@@ -100,13 +99,14 @@ contract XChainHubSingle is XChainHub {
     }
 
     /// @notice sets designated vault (on this chain) for a given chain
-    /// @dev remember to set the new vault as trusted
+    /// @dev must set the strategy for the chain first
     /// @param _vault the address of the vault on the this chain
     /// @param _remoteChainId the layerZero chain id where deposits will originate
-    /// @dev TODO see how this impacts reporting
-    /// ==> reporting is fine, but we already have trustedVault. We need to see if we make any remote vault checks
     function _setVaultForChain(address _vault, uint16 _remoteChainId) internal {
         address strategy = strategyForChain[_remoteChainId];
+        
+        require(trustedVault[_vault], "XChainHub::setVaultForChain:UNTRUSTED");
+        require(strategy != address(0), "XChainHub::setVaultForChain:SET STRATEGY");
 
         IVault vault = IVault(_vault);
         IVault.BatchBurnReceipt memory receipt = vault.userBatchBurnReceipts(
