@@ -112,7 +112,7 @@ abstract contract DepositProd is Script, Deploy {
     }
 }
 
-/// @dev this must be run for single hubs along with preparing the dst vault
+/// @dev this must be run for both single hubs along with preparing the dst vault
 abstract contract PrepareXChainDeposit is Script, Deploy {
     ChainConfig public remote;
     address public remoteStrategy;
@@ -123,11 +123,16 @@ abstract contract PrepareXChainDeposit is Script, Deploy {
         XChainHubSingle hub = XChainHubSingle(address(srcDeployer.hub()));
         Vault vault = srcDeployer.vaultProxy();
 
+        // set the remote strategy for this hub
         hub.setStrategyForChain(remoteStrategy, remote.id);
-        hub.setTrustedStrategy(remoteStrategy, true);
-
-        hub.setVaultForChain(address(vault), remote.id);
+        
+        // ensure the vault is trusted and set the local vault to be used for the remote chain
         hub.setTrustedVault(address(vault), true);
+        hub.setVaultForChain(address(vault), remote.id);
+        
+        // set the local strategy on this chain
+        hub.setTrustedStrategy(address(srcDeployer.strategy()), true);
+        hub.setLocalStrategy(address(srcDeployer.strategy()));
     }
 }
 
