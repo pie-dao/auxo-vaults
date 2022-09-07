@@ -20,24 +20,3 @@ contract MockStrat {
         reported = amount;
     }
 }
-
-contract MockXChainStrategy is XChainStrategy {
-    constructor(
-        address hub_,
-        IVault vault_,
-        IERC20 underlying_,
-        address manager_,
-        address strategist_,
-        string memory name_
-    )
-        XChainStrategy(hub_, vault_, underlying_, manager_, strategist_, name_)
-    {}
-
-    function setState(uint8 newState) external {
-        state = newState;
-    }
-
-    function setReportedUnderlying(uint256 reported) external {
-        reportedUnderlying = reported;
-    }
-}

@@ -7,8 +7,7 @@ import "@oz/token/ERC20/ERC20.sol";
 import "@std/console.sol";
 import {PRBTest} from "@prb/test/PRBTest.sol";
 
-import {XChainStrategy as IXChainStrategy} from "@hub/strategy/XChainStrategy.sol";
-import {MockXChainStrategy as XChainStrategy} from "@hub-test/mocks/MockStrategy.sol";
+import {XChainStrategy} from "@hub/strategy/XChainStrategy.sol";
 
 import {XChainHub} from "@hub/XChainHub.sol";
 import {XChainStrategyEvents} from "@hub/strategy/XChainStrategyEvents.sol";
@@ -52,6 +51,7 @@ contract Test is PRBTest, XChainStrategyEvents {
     XChainStrategy strategy;
     ERC20 token;
     IVault vault;
+    uint16 chainId = 0;
 
     XChainStrategy.DepositParams params;
 
@@ -69,13 +69,13 @@ contract Test is PRBTest, XChainStrategyEvents {
             token,
             manager,
             strategist,
-            "TEST"
+            "TEST",
+            chainId
         );
 
-        params = IXChainStrategy.DepositParams({
+        params = XChainStrategy.DepositParams({
             amount: 0,
             minAmount: 0,
-            dstChain: 0,
             srcPoolId: 0,
             dstPoolId: 0,
             dstHub: address(0),
@@ -87,11 +87,11 @@ contract Test is PRBTest, XChainStrategyEvents {
 
     function testInitialization() public {
         assertEq(strategy.estimatedUnderlying(), 0);
-        assertEq(strategy.state(), strategy.NOT_DEPOSITED());
-        assertEq(strategy.amountDeposited(), 0);
-        assertEq(strategy.amountWithdrawn(), 0);
+        assertEq(strategy.xChainState(), strategy.NOT_DEPOSITED());
+        assertEq(strategy.xChainDeposited(), 0);
+        assertEq(strategy.xChainWithdrawn(), 0);
         assertEq(address(strategy.hub()), address(hub));
-        assertEq(strategy.reportedUnderlying(), 0);
+        assertEq(strategy.xChainReported(), 0);
     }
 
     function testEstimatedUnderlying(uint256 _amount, uint256 _send) public {
@@ -105,12 +105,15 @@ contract Test is PRBTest, XChainStrategyEvents {
         // removing tokens without changing state
         vm.prank(address(strategy));
         token.transfer(address(this), _send);
-        strategy.setReportedUnderlying(_send);
+
+        vm.startPrank(strategy.manager());
+        strategy.setXChainReported(_send);
         assertEq(strategy.estimatedUnderlying(), _amount - _send);
 
         // now change the state
-        strategy.setState(strategy.DEPOSITED());
+        strategy.setXChainState(strategy.DEPOSITED());
         assertEq(strategy.estimatedUnderlying(), _amount);
+        vm.stopPrank();
     }
 
     function testRestrictedFunctions(address _attacker) public {
@@ -128,24 +131,44 @@ contract Test is PRBTest, XChainStrategyEvents {
             0,
             200_000,
             payable(_attacker),
-            1,
             vaultAddr
         );
-    }
-
-    function testRestrictedFunctionsMgr(address _attacker) public {
-        vm.assume(_attacker != manager);
-
-        vm.startPrank(_attacker);
 
         vm.expectRevert("XChainStrategy::depositUnderlying:UNAUTHORIZED");
         strategy.depositUnderlying(params);
 
-        vm.expectRevert("XChainStrategy::setHub:UNAUTHORIZED");
-        strategy.setHub(_attacker);
+        vm.stopPrank();
+    }
 
-        vm.expectRevert("XChainStrategy::setVault:UNAUTHORIZED");
-        strategy.setVault(_attacker);
+    function testRestrictedFunctionsMgr(address _attacker) public {
+        bytes memory errMgr = bytes("XChainStrategy::ONLY MANAGER");
+
+        vm.assume(_attacker != manager);
+
+        vm.startPrank(_attacker);
+
+        vm.expectRevert(errMgr);
+        strategy.setHub(address(0));
+
+        vm.expectRevert(errMgr);
+        strategy.setVault(address(0));
+
+        vm.expectRevert(errMgr);
+        strategy.setDestinationChain(0);
+
+        vm.expectRevert(errMgr);
+        strategy.setXChainState(0);
+
+        vm.expectRevert(errMgr);
+        strategy.setXChainDeposited(0);
+
+        vm.expectRevert(errMgr);
+        strategy.setXChainWithdrawn(0);
+
+        vm.expectRevert(errMgr);
+        strategy.setXChainReported(0);
+
+        vm.stopPrank();
     }
 
     function testRestrictedFunctionsHub(address _attacker) public {
@@ -175,34 +198,40 @@ contract Test is PRBTest, XChainStrategyEvents {
         assertEq(address(strategy.vault()), _vault);
     }
 
-    function testDepositUnderlying(IXChainStrategy.DepositParams memory _params)
+    function testDepositUnderlying(XChainStrategy.DepositParams memory _params)
         public
     {
         vm.assume(_params.dstGas != 0);
         vm.deal(strategist, 1 ether);
-        vm.startPrank(strategist);
 
+        vm.prank(strategist);
         vm.expectRevert("XChainStrategy::depositUnderlying:NO GAS FOR FEES");
         strategy.depositUnderlying(_params);
 
-        strategy.setState(strategy.WITHDRAWING());
+        uint8 withdrawing = strategy.WITHDRAWING();
+        vm.prank(manager);
+        strategy.setXChainState(withdrawing);
+
+        vm.prank(strategist);
         vm.expectRevert("XChainStrategy::depositUnderlying:WRONG STATE");
         strategy.depositUnderlying{value: 1 ether}(_params);
 
-        strategy.setState(strategy.NOT_DEPOSITED());
+        uint8 nd = strategy.NOT_DEPOSITED();
+        vm.prank(manager);
+        strategy.setXChainState(nd);
 
+        vm.prank(strategist);
         vm.expectEmit(true, true, true, true);
         emit DepositXChain(
             _params.dstHub,
             _params.dstVault,
-            _params.dstChain,
+            chainId,
             _params.amount
         );
-
         strategy.depositUnderlying{value: 1 ether}(_params);
 
-        assert(_params.amount == strategy.amountDeposited());
-        assert(strategy.state() == strategy.DEPOSITING());
+        assert(_params.amount == strategy.xChainDeposited());
+        assert(strategy.xChainState() == strategy.DEPOSITING());
         assertEq(token.allowance(strategist, address(hub)), params.amount);
     }
 
@@ -214,13 +243,12 @@ contract Test is PRBTest, XChainStrategyEvents {
         );
 
         vm.startPrank(manager);
-
         strategy.setHub(address(hubMock));
 
         vm.expectRevert("XChainStrategy::withdrawFromHub:WRONG STATE");
         strategy.withdrawFromHub(_amount);
 
-        strategy.setState(strategy.WITHDRAWING());
+        strategy.setXChainState(strategy.WITHDRAWING());
 
         vm.expectRevert("XChainHub::withdrawPending:UNTRUSTED");
         strategy.withdrawFromHub(_amount);
@@ -238,12 +266,12 @@ contract Test is PRBTest, XChainStrategyEvents {
         emit WithdrawFromHub(address(hubMock), _amount);
         strategy.withdrawFromHub(_amount);
 
-        assert(strategy.state() == strategy.DEPOSITED());
-        assert(strategy.amountWithdrawn() == _amount);
+        assert(strategy.xChainState() == strategy.DEPOSITED());
+        assert(strategy.xChainWithdrawn() == _amount);
     }
 
     function testWithdrawUnderlying(uint256 _amt) public {
-        vm.startPrank(strategist);
+        vm.prank(strategist);
         vm.expectRevert(
             "XChainStrategy::startRequestToWithdrawUnderlying:WRONG STATE"
         );
@@ -251,64 +279,75 @@ contract Test is PRBTest, XChainStrategyEvents {
             0,
             200_000,
             payable(address(0)),
-            1,
             vaultAddr
         );
 
-        strategy.setState(strategy.DEPOSITED());
+        uint8 deposited = strategy.DEPOSITED();
+        vm.prank(manager);
+        strategy.setXChainState(deposited);
 
+        vm.prank(strategist);
         vm.expectEmit(true, true, false, true);
-        emit WithdrawRequestXChain(1, address(vault), _amt);
-
+        emit WithdrawRequestXChain(chainId, address(vault), _amt);
         strategy.startRequestToWithdrawUnderlying(
             _amt,
             200_000,
             payable(address(0)),
-            1,
             vaultAddr
         );
-        assert(strategy.state() == strategy.WITHDRAWING());
+        assert(strategy.xChainState() == strategy.WITHDRAWING());
     }
 
     function testReport(uint256 _amt, uint256 _amtPrev) public {
         vm.assume(_amt > 0);
-        vm.startPrank(address(hub));
-        strategy.setReportedUnderlying(_amtPrev);
+
+        vm.prank(manager);
+        strategy.setXChainReported(_amtPrev);
 
         vm.expectRevert("XChainStrategy:report:WRONG STATE");
+        vm.prank(address(hub));
         strategy.report(_amt);
 
+        // multiple calls require either start/stop prank or using a local variable
+        uint8 depositing = strategy.DEPOSITING();
+        vm.prank(manager);
+        strategy.setXChainState(depositing);
+
+        vm.prank(address(hub));
         vm.expectEmit(false, false, false, true);
         emit ReportXChain(_amtPrev, _amt);
-
-        strategy.setState(strategy.DEPOSITING());
         strategy.report(_amt);
 
-        assertEq(strategy.reportedUnderlying(), _amt);
-        assertEq(strategy.state(), strategy.DEPOSITED());
+        assertEq(strategy.xChainReported(), _amt);
+        assertEq(strategy.xChainState(), strategy.DEPOSITED());
 
-        strategy.setState(strategy.DEPOSITED());
+        uint8 deposited = strategy.DEPOSITED();
+        vm.prank(manager);
+        strategy.setXChainState(deposited);
+
+        vm.prank(address(hub));
         strategy.report(_amt);
-        assertEq(strategy.state(), strategy.DEPOSITED());
+        assertEq(strategy.xChainState(), strategy.DEPOSITED());
 
-        strategy.setState(strategy.WITHDRAWING());
-        assertEq(strategy.state(), strategy.WITHDRAWING());
+        uint8 withdrawing = strategy.WITHDRAWING();
+        vm.prank(manager);
+        strategy.setXChainState(withdrawing);
+        assertEq(strategy.xChainState(), strategy.WITHDRAWING());
     }
 
     function testReportReset() public {
-        vm.startPrank(address(hub));
+        vm.startPrank(strategy.manager());
+        strategy.setXChainReported(234e15);
+        strategy.setXChainState(strategy.DEPOSITED());
+        vm.stopPrank();
 
-        strategy.setReportedUnderlying(234e15);
-
-        strategy.setState(strategy.DEPOSITED());
-
+        vm.prank(address(hub));
         vm.expectEmit(false, false, false, true);
         emit ReportXChain(234e15, 0);
-
         strategy.report(0);
 
-        assertEq(strategy.amountDeposited(), 0);
-        assertEq(strategy.reportedUnderlying(), 0);
-        assertEq(strategy.state(), strategy.NOT_DEPOSITED());
+        assertEq(strategy.xChainDeposited(), 0);
+        assertEq(strategy.xChainReported(), 0);
+        assertEq(strategy.xChainState(), strategy.NOT_DEPOSITED());
     }
 }
