@@ -82,7 +82,7 @@ contract XChainStrategy is BaseStrategy, XChainStrategyEvents, CallFacet {
     uint256 public xChainReported;
 
     /// @notice strategies are responsible for a single chain, so we save the chain Id here
-    uint16 remoteChainId;
+    uint16 public destinationChainId;
 
     /// ------------------
     /// Constructor
@@ -105,7 +105,7 @@ contract XChainStrategy is BaseStrategy, XChainStrategyEvents, CallFacet {
     ) {
         __initialize(vault_, underlying_, manager_, strategist_, name_);
         hub = XChainHub(hub_);
-        remoteChainId = chainId_;
+        destinationChainId = chainId_;
     }
 
     /// ------------------
@@ -144,8 +144,8 @@ contract XChainStrategy is BaseStrategy, XChainStrategyEvents, CallFacet {
 
     /// @notice changes the strategy to use a new layerZero destination chain
     /// @param _dstChainId layerZero chain Id of the remote chain
-    function setDestinationChain(uint16 _dstChainId) external onlyManager {
-        remoteChainId = _dstChainId;
+    function setDestinationChainId(uint16 _dstChainId) external onlyManager {
+        destinationChainId = _dstChainId;
         emit UpdateChainId(_dstChainId);
     }
 
@@ -209,7 +209,7 @@ contract XChainStrategy is BaseStrategy, XChainStrategyEvents, CallFacet {
         /// @dev get the fees before sending
         hub.sg_depositToChain{value: msg.value}(
             IHubPayload.SgDepositParams({
-                dstChainId: remoteChainId,
+                dstChainId: destinationChainId,
                 srcPoolId: params.srcPoolId,
                 dstPoolId: params.dstPoolId,
                 dstVault: params.dstVault,
@@ -223,7 +223,7 @@ contract XChainStrategy is BaseStrategy, XChainStrategyEvents, CallFacet {
         emit DepositXChain(
             params.dstHub,
             params.dstVault,
-            remoteChainId,
+            destinationChainId,
             amount
         );
     }
@@ -282,14 +282,14 @@ contract XChainStrategy is BaseStrategy, XChainStrategyEvents, CallFacet {
         xChainState = WITHDRAWING;
 
         hub.lz_requestWithdrawFromChain{value: msg.value}(
-            remoteChainId,
+            destinationChainId,
             _dstVault,
             _amountVaultShares,
             _refundAddress,
             _dstGas
         );
         emit WithdrawRequestXChain(
-            remoteChainId,
+            destinationChainId,
             _dstVault,
             _amountVaultShares
         );

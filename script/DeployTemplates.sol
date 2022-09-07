@@ -44,7 +44,7 @@ contract Deploy is Script, Env {
     Deployer public srcDeployer;
     VaultFactory public srcFactory;
     bool public single;
-
+    
     /// @dev you might need to update these addresses
     // Anvil unlocked account
     address public srcStrategist = 0xeB959af810FEC83dE7021A77906ab3d9fDe567B1;
@@ -73,7 +73,8 @@ contract Deploy is Script, Env {
             srcStrategist
         );
 
-        deployVaultHubStrat(srcDeployer, single);
+        // initially deploy with a chainId of zero, this can be updated later
+        deployVaultHubStrat(srcDeployer, single, 0);
         vm.stopBroadcast();
     }
 }
@@ -125,6 +126,9 @@ abstract contract PrepareXChainDeposit is Script, Deploy {
 
         // set the remote strategy for this hub
         hub.setStrategyForChain(remoteStrategy, remote.id);
+
+        // update the strategy chain Id
+        srcDeployer.strategy().setDestinationChainId(remote.id);
         
         // ensure the vault is trusted and set the local vault to be used for the remote chain
         hub.setTrustedVault(address(vault), true);
@@ -144,6 +148,7 @@ abstract contract XChainDeposit is Script, Deploy {
     uint256 depositAmount;
 
     function deposit() public {
+        require(srcDeployer.strategy().destinationChainId() != 0, "INIT DESTINATION CHAIN");
         require(dstVault != address(0), "INIT VAULT");
         require(dstHub != address(0), "INIT HUB");
         require(depositAmount != 0, "INIT DEPOSIT AMOUNT");
@@ -185,7 +190,6 @@ abstract contract XChainDeposit is Script, Deploy {
             XChainStrategy.DepositParams({
                 amount: depositAmount,
                 minAmount: min,
-                dstChain: dst.id,
                 srcPoolId: network.usdc.poolId,
                 dstPoolId: dst.usdc.poolId,
                 dstHub: dstHub,
@@ -282,12 +286,15 @@ abstract contract XChainRequestWithdraw is Script, Deploy {
             "XChainWithdrawalRequest::LayerZeroFeeEstimate:", feeEstimate
         );
 
+        // added here as an explicit reminer that we request to withdraw shares
+        // not underlying tokens, this happens to work in the case of an initial deposit
+        // because the ER == 1
+        uint exchangeRate = 1;
+
         strategy.startRequestToWithdrawUnderlying{value: feeEstimate}(
-            // This is vault shares - should it be?
-            strategy.reportedUnderlying(),
+            strategy.xChainReported() * exchangeRate,
             dstDefaultGas,
             payable(srcDeployer.refundAddress()),
-            dst.id,
             dstVault
         );
     }

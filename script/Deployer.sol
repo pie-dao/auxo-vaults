@@ -130,10 +130,10 @@ function deployAuthAndDeployerNoOwnershipTransfer(
     return deployer;
 }
 
-function deployVaultHubStrat(Deployer _deployer, bool _single) {
+function deployVaultHubStrat(Deployer _deployer, bool _single, uint16 _dstChainId) {
     deployVault(_deployer);
     deployXChainHub(_deployer, _single);
-    deployXChainStrategy(_deployer, "TEST");
+    deployXChainStrategy(_deployer, "TEST", _dstChainId);
 }
 
 /// @notice deploys components before
@@ -231,7 +231,7 @@ function deployXChainHub(Deployer _deployer, bool _single) {
     _deployer.setXChainHub(hub);
 }
 
-function deployXChainStrategy(Deployer _deployer, string memory _name) {
+function deployXChainStrategy(Deployer _deployer, string memory _name, uint16 _dstChainId) {
     require(address(_deployer.hub()) != address(0), "Not set hub");
     require(address(_deployer.vaultProxy()) != address(0), "Not set VaultProxy");
     require(address(_deployer.underlying()) != address(0), "Not set Underlying");
@@ -243,7 +243,8 @@ function deployXChainStrategy(Deployer _deployer, string memory _name) {
         _deployer.underlying(),
         _deployer.governor(),
         _deployer.strategist(),
-        _name
+        _name,
+        _dstChainId
     );
     _deployer.setXChainStrategy(strategy);
 }

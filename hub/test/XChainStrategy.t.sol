@@ -154,7 +154,7 @@ contract Test is PRBTest, XChainStrategyEvents {
         strategy.setVault(address(0));
 
         vm.expectRevert(errMgr);
-        strategy.setDestinationChain(0);
+        strategy.setDestinationChainId(0);
 
         vm.expectRevert(errMgr);
         strategy.setXChainState(0);

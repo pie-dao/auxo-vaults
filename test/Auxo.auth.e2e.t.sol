@@ -73,7 +73,8 @@ contract E2EAuthTest is PRBTest {
         vm.stopPrank();
 
         vm.startPrank(address(deployer));
-        deployVaultHubStrat(deployer, deploySingle);
+        // we only have one chain in this example so we set chainId as 0
+        deployVaultHubStrat(deployer, deploySingle, 0);
         deployer.vaultFactory().transferOwnership(governor);
         deployer.auth().setOwner(governor);
         vm.stopPrank();

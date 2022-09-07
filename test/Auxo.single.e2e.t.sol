@@ -117,7 +117,7 @@ contract E2ETestSingle is PRBTest {
 
         vm.startPrank(address(srcDeployer));
 
-        deployVaultHubStrat(srcDeployer, deploySingleHub);
+        deployVaultHubStrat(srcDeployer, deploySingleHub, dstChainId);
 
         vm.stopPrank();
 
@@ -142,7 +142,7 @@ contract E2ETestSingle is PRBTest {
         vm.stopPrank();
 
         vm.startPrank(address(dstDeployer));
-        deployVaultHubStrat(dstDeployer, deploySingleHub);
+        deployVaultHubStrat(dstDeployer, deploySingleHub, srcChainId);
         vm.stopPrank();
 
         setSingle(srcDeployer, dstDeployer, srcChainId);
@@ -285,7 +285,6 @@ contract E2ETestSingle is PRBTest {
             XChainStrategy.DepositParams({
                 amount: _depositAmount,
                 minAmount: (_depositAmount * 9) / 10,
-                dstChain: dstChainId,
                 srcPoolId: 1,
                 dstPoolId: 1,
                 dstHub: address(dstDeployer.hub()),
@@ -331,7 +330,6 @@ contract E2ETestSingle is PRBTest {
             _amt,
             dstDefaultGas,
             srcDeployer.refundAddress(),
-            dstChainId,
             address(dstDeployer.vaultProxy())
         );
         vm.stopPrank();
@@ -371,9 +369,9 @@ contract E2ETestSingle is PRBTest {
         deposit(_depositor, depositAmount);
         waitAndReport(block.timestamp + 6 hours);
         XChainStrategy strategy = srcDeployer.strategy();
-        assertEq(strategy.state(), strategy.DEPOSITED());
-        assertEq(strategy.amountDeposited(), depositAmount);
-        assertEq(strategy.reportedUnderlying(), depositAmount);
+        assertEq(strategy.xChainState(), strategy.DEPOSITED());
+        assertEq(strategy.xChainDeposited(), depositAmount);
+        assertEq(strategy.xChainReported(), depositAmount);
     }
 
     function testStartWithdraw(address _depositor) public {
@@ -394,7 +392,7 @@ contract E2ETestSingle is PRBTest {
             depositAmount
         );
         assertEq(
-            srcDeployer.strategy().state(), srcDeployer.strategy().WITHDRAWING()
+            srcDeployer.strategy().xChainState(), srcDeployer.strategy().WITHDRAWING()
         );
     }
 
@@ -471,17 +469,18 @@ contract E2ETestSingle is PRBTest {
 
         withdrawToStrategy(depositAmount);
 
-        assertEq(strategy.state(), strategy.DEPOSITED());
-        assertEq(strategy.amountWithdrawn(), depositAmount);
-        assertEq(strategy.amountDeposited(), depositAmount);
+        assertEq(strategy.xChainState(), strategy.DEPOSITED());
+        assertEq(strategy.xChainDeposited(), depositAmount);
+        assertEq(strategy.xChainWithdrawn(), depositAmount);
+
         assertEq(token.balanceOf(address(strategy)), depositAmount);
         assertEq(token.balanceOf(address(srcHub)), 0);
 
         waitAndReport(block.timestamp + 12 hours);
 
-        assertEq(strategy.state(), strategy.NOT_DEPOSITED());
-        assertEq(strategy.amountDeposited(), 0);
-        assertEq(strategy.reportedUnderlying(), 0);
+        assertEq(strategy.xChainState(), strategy.NOT_DEPOSITED());
+        assertEq(strategy.xChainDeposited(), 0);
+        assertEq(strategy.xChainReported(), 0);
     }
 
     function testWithdrawToOGVault(address _depositor) public {

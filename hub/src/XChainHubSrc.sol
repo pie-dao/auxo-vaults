@@ -170,7 +170,7 @@ abstract contract XChainHubSrc is
 
         require(
             dstHub.length != 0,
-            "XChainHub::finalizeWithdrawFromChain:NO HUB"
+            "XChainHub::depositToChain:NO HUB"
         );
 
         // load some variables into memory
