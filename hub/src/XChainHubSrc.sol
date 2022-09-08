@@ -322,7 +322,6 @@ abstract contract XChainHubSrc is
         );
 
         // here we copld check strategy in the vault
-        // IVault(_params.vault)
         require(
             strategyAmount > 0,
             "XChainHub::finalizeWithdrawFromChain:NO WITHDRAWS"
