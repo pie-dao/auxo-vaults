@@ -1,0 +1,17 @@
+[profile.default]
+src = 'src'
+out = 'out'
+libs = ['lib']
+solc_version = "0.8.12"
+
+# Ignoring warnings that clutter test suite
+# For CI into production this line should be removed 
+# 2519: shadowed declarations
+# 5667: unused function parameter
+# 2072: unused local variable
+# 2018: state mutability 
+# 1878: SPDX License warnings
+# 3420: Pragma warnings
+ignored_error_codes = [2519,5667,2072,2018,1878,3420]
+
+# See more config options https://github.com/foundry-rs/foundry/tree/master/config

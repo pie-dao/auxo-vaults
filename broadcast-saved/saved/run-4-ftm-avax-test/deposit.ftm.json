@@ -1,0 +1,47 @@
+{
+    "transactions": [
+      {
+        "hash": "0xfd541fcb8c1fce4a95b9dc2dacd0fca519654dce8deb2c7d3069d257da08fee0",
+        "transactionType": "CALL",
+        "contractName": null,
+        "contractAddress": "0x076488d244a73da4fa843f5a8cd91f655ca81a1e",
+        "function": null,
+        "arguments": null,
+        "transaction": {
+          "type": "0x00",
+          "from": "0x63bce354dba7d6270cb34daa46b869892abb3a79",
+          "to": "0x076488d244a73da4fa843f5a8cd91f655ca81a1e",
+          "gas": "0x1098c",
+          "value": "0x0",
+          "data": "0x095ea7b300000000000000000000000052964dc1ba705c0107e7df4f5dce0ac103e3413fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "nonce": "0xd6"
+        }
+      },
+      {
+        "hash": "0x267cbc6c49face22ff23737cc6b81f26598a7588839f8b22d86c1031e1372198",
+        "transactionType": "CALL",
+        "contractName": null,
+        "contractAddress": "0x52964dc1ba705c0107e7df4f5dce0ac103e3413f",
+        "function": null,
+        "arguments": null,
+        "transaction": {
+          "type": "0x00",
+          "from": "0x63bce354dba7d6270cb34daa46b869892abb3a79",
+          "to": "0x52964dc1ba705c0107e7df4f5dce0ac103e3413f",
+          "gas": "0x36007",
+          "value": "0x0",
+          "data": "0x47e7ef2400000000000000000000000063bce354dba7d6270cb34daa46b869892abb3a79000000000000000000000000000000000000000000000000000000003b9aca00",
+          "nonce": "0xd7"
+        }
+      }
+    ],
+    "receipts": [],
+    "libraries": [],
+    "pending": [
+      "0xfd541fcb8c1fce4a95b9dc2dacd0fca519654dce8deb2c7d3069d257da08fee0",
+      "0x267cbc6c49face22ff23737cc6b81f26598a7588839f8b22d86c1031e1372198"
+    ],
+    "path": "broadcast/Deploy.s.sol/4002/run-latest.json",
+    "returns": {},
+    "timestamp": 1660549314
+  }

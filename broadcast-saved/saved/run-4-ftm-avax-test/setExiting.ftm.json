@@ -1,0 +1,44 @@
+{
+    "transactions": [
+      {
+        "hash": "0x39764684ca45d15b308a0d59ccc95dacdc3a25fa31dfc7e8bb71478ca0245224",
+        "transactionType": "CALL",
+        "contractName": null,
+        "contractAddress": "0x73b1be21f10da53a61d2bb51f9edb5bfa2144e5f",
+        "function": null,
+        "arguments": null,
+        "transaction": {
+          "type": "0x00",
+          "from": "0x63bce354dba7d6270cb34daa46b869892abb3a79",
+          "to": "0x73b1be21f10da53a61d2bb51f9edb5bfa2144e5f",
+          "gas": "0xfaa6",
+          "value": "0x0",
+          "data": "0xa651cdd400000000000000000000000052964dc1ba705c0107e7df4f5dce0ac103e3413f0000000000000000000000000000000000000000000000000000000000000001",
+          "nonce": "0xdb"
+        }
+      }
+    ],
+    "receipts": [
+      {
+        "transactionHash": "0x39764684ca45d15b308a0d59ccc95dacdc3a25fa31dfc7e8bb71478ca0245224",
+        "transactionIndex": "0x0",
+        "blockHash": "0x00002ac100002b2440e9142eaa3f7972d305502f3b7ef7deb0713eaa97378813",
+        "blockNumber": "0x99e0ac",
+        "from": "0x63bce354dba7d6270cb34daa46b869892abb3a79",
+        "to": "0x73b1be21f10da53a61d2bb51f9edb5bfa2144e5f",
+        "cumulativeGasUsed": "0xbc63",
+        "gasUsed": "0xbc63",
+        "contractAddress": null,
+        "logs": [],
+        "status": "0x1",
+        "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+        "type": "0x0",
+        "effectiveGasPrice": "0x3d186180"
+      }
+    ],
+    "libraries": [],
+    "pending": [],
+    "path": "broadcast/Deploy.s.sol/4002/run-latest.json",
+    "returns": {},
+    "timestamp": 1660551955
+  }

@@ -8,4 +8,15 @@ reports/
 env/
 venv/
 node_modules/
-remappings.txt
+.vscode/
+
+.scrap/
+cache/
+out/
+node_modules/
+.ignore.*
+.env
+broadcast/
+/broadcast/
+soljson-*
+bin/

@@ -1,0 +1,16 @@
+@oz/=lib/openzeppelin-contracts/contracts/
+openzeppelin/=lib/openzeppelin-contracts/contracts/
+@oz-upgradeable/=lib/openzeppelin-contracts-upgradeable.git/contracts/
+@openzeppelin/contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable/contracts/
+@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/
+
+@interfaces/=src/interfaces/
+@vault-interfaces/=src/vaults/interfaces/
+
+@std/=lib/forge-std/src
+
+@hub/=src/
+@hub-test/=test/
+
+@mocks/=test/mocks/
+@prb/test/=lib/prb-test/src/
