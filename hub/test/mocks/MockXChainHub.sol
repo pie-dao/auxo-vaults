@@ -186,6 +186,15 @@ contract XChainHubMockActions is XChainHub {
         _lz_reportUnderlyingAction(1, _payload);
     }
 
+    function lzReceiveOverride(
+        uint16 srcChainId,
+        bytes memory srcAddress,
+        uint64 nonce,
+        bytes memory payload
+    ) external {
+        _lzReceive(srcChainId, srcAddress, nonce, payload);
+    }
+
     /// @notice intercept the layerZero send and log the outgoing request
     function _lzSend(
         uint16 _dstChainId,

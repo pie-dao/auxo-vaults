@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.12;
 
-pragma abicoder v2;
-
 import {PRBTest} from "@prb/test/PRBTest.sol";
 import "@oz/token/ERC20/ERC20.sol";
 
@@ -124,6 +122,9 @@ contract TestXChainHubSrc is PRBTest {
         hub.setLatestUpdate(1, stratAddr, 1);
 
         vm.expectRevert(onlyOwnerErr);
+        hub.setTrustedRemote(1, abi.encodePacked(stratAddr));
+
+        vm.expectRevert(onlyOwnerErr);
         hub.setExiting(vaultAddr, true);
 
         vm.expectRevert(onlyOwnerErr);
@@ -138,6 +139,23 @@ contract TestXChainHubSrc is PRBTest {
             IHubPayload.Message({action: 1, payload: bytes("")}),
             1
         );
+
+        address[] memory addrs = new address[](1);
+        bytes[] memory data = new bytes[](1);
+        uint256[] memory values = new uint256[](1);
+
+        addrs[0] = address(0);
+        data[0] = bytes("");
+        values[0] = 0;
+
+        vm.expectRevert(onlyOwnerErr);
+        hub.call(addrs, data, values);
+
+        vm.expectRevert(onlyOwnerErr);
+        hub.callNoValue(addrs, data);
+
+        vm.expectRevert(onlyOwnerErr);
+        hub.singleCall(address(0), bytes(""), 0);
     }
 
     function testFinalizeWithdrawFromVault() public {

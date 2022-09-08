@@ -19,9 +19,10 @@ import {IStrategy} from "@interfaces/IStrategy.sol";
 /// @title The set of interfaces for the various encoded payloads transferred across chains
 /// @dev assistance to the programmer for ensuring consistent serialisation and deserialisation across functions
 interface IHubPayload {
-    /// @notice Message struct
-    /// @param action is the number of the action above
-    /// @param payload is the encoded data to be sent with the message
+
+    /// @notice generic container for cross chain messages
+    /// @param action numerical identifier used to determine what function to call on receipt of message
+    /// @param payload encoded data to be sent with the message
     struct Message {
         uint8 action;
         bytes payload;
@@ -60,14 +61,14 @@ interface IHubPayload {
     }
 
     /// @notice arguments for the sg_depositToChain funtion
-    /// @param _dstChainId the layerZero chain id
-    /// @param _srcPoolId https://stargateprotocol.gitbook.io/stargate/developers/pool-ids
-    /// @param _dstPoolId https://stargateprotocol.gitbook.io/stargate/developers/pool-ids
-    /// @param _dstVault address of the vault on the destination chain
-    /// @param _amount is the amount to deposit in underlying tokens
-    /// @param _minOut min quantity to receive back out from swap
-    /// @param _refundAddress if native for fees is too high, refund to this addr on current chain
-    /// @param _dstGas gas to be sent with the request, for use on the dst chain.
+    /// @param dstChainId the layerZero chain id
+    /// @param srcPoolId https://stargateprotocol.gitbook.io/stargate/developers/pool-ids
+    /// @param dstPoolId https://stargateprotocol.gitbook.io/stargate/developers/pool-ids
+    /// @param dstVault address of the vault on the destination chain
+    /// @param amount is the amount to deposit in underlying tokens
+    /// @param minOut min quantity to receive back out from swap
+    /// @param refundAddress if native for fees is too high, refund to this addr on current chain
+    /// @param dstGas gas to be sent with the request, for use on the dst chain.
     /// @dev destination gas is non-refundable
     struct SgDepositParams {
         uint16 dstChainId;
@@ -78,18 +79,19 @@ interface IHubPayload {
         uint256 minOut;
         address payable refundAddress;
         uint256 dstGas;
-    }    
+    }
 
     /// @notice arguments for sg_finalizeWithdrawFromChain function
-    /// @param _dstChainId layerZero ChainId to send tokens
-    /// @param _vault the vault on this chain to validate the withdrawal against
-    /// @param _strategy the XChainStrategy that initially deposited the tokens
-    /// @param _minOutUnderlying minimum amount of underlying to receive after cross chain swap
-    /// @param _srcPoolId stargatePoolId this chain
-    /// @param _dstPoolId stargatePoolId target chain
-    /// @param _dstGas gas to be sent with the request, for use on the dst chain.
+    /// @param dstChainId layerZero ChainId to send tokens
+    /// @param vault the vault on this chain to validate the withdrawal against
+    /// @param strategy the XChainStrategy that initially deposited the tokens
+    /// @param minOutUnderlying minimum amount of underlying to receive after cross chain swap
+    /// @param srcPoolId https://stargateprotocol.gitbook.io/stargate/developers/pool-ids
+    /// @param dstPoolId https://stargateprotocol.gitbook.io/stargate/developers/pool-ids
+    /// @param currentRound vault batch burn round when the withdraw took place
+    /// @param refundAddress if native for fees is too high, refund to this addr on current chain
+    /// @param dstGas gas to be sent with the request, for use on the dst chain.
     /// @dev destination gas is non-refundable
-    /// @param _refundAddress if native for fees is too high, refund to this addr on current chain
     struct SgFinalizeParams {
         uint16 dstChainId;
         address vault;
@@ -100,5 +102,5 @@ interface IHubPayload {
         uint256 currentRound;
         address payable refundAddress;
         uint256 dstGas;
-    }    
+    }
 }

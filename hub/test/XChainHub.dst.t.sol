@@ -122,7 +122,9 @@ contract TestXChainHubDst is PRBTest, XChainHubEvents {
     function testLayerZeroCannotBeCalledByExternal(address _caller) public {
         vm.assume(_caller != address(hub));
         vm.prank(_caller);
-        vm.expectRevert(bytes("LayerZeroApp: caller must be address(this)"));
+        vm.expectRevert(
+            bytes("LayerZeroApp::nonblockingLzReceive:UNAUTHORIZED")
+        );
         hub.nonblockingLzReceive(1, abi.encodePacked(vaultAddr), 1, bytes(""));
     }
 

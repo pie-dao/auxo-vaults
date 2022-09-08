@@ -64,10 +64,7 @@ interface IVault is IERC20 {
     function batchBurnRound() external view returns (uint256);
 
     /// @notice Maps user's address to withdrawal request.
-    function userBatchBurnReceipts(address account)
-        external
-        view
-        returns (BatchBurnReceipt memory);
+    function userBatchBurnReceipts(address account) external view returns (BatchBurnReceipt memory);
 
     /// @notice Maps social burning events rounds to batched burn details.
     function batchBurns(uint256 round) external view returns (BatchBurn memory);
@@ -93,9 +90,7 @@ interface IVault is IERC20 {
     /// @param to The address to receive shares corresponding to the deposit.
     /// @param underlyingAmount The amount of the underlying token to deposit.
     /// @return shares The amount of shares minted using `underlyingAmount`.
-    function deposit(address to, uint256 underlyingAmount)
-        external
-        returns (uint256);
+    function deposit(address to, uint256 underlyingAmount) external returns (uint256);
 
     /// @notice Deposit a specific amount of underlying tokens.
     /// @dev User needs to approve `underlyingAmount` of underlying tokens to spend.
@@ -111,17 +106,11 @@ interface IVault is IERC20 {
 
     /// @notice Calculates the amount of Vault's shares for a given amount of underlying tokens.
     /// @param underlyingAmount The underlying token's amount.
-    function calculateShares(uint256 underlyingAmount)
-        external
-        view
-        returns (uint256);
+    function calculateShares(uint256 underlyingAmount) external view returns (uint256);
 
     /// @notice Calculates the amount of underlying tokens corresponding to a given amount of Vault's shares.
     /// @param sharesAmount The shares amount.
-    function calculateUnderlying(uint256 sharesAmount)
-        external
-        view
-        returns (uint256);
+    function calculateUnderlying(uint256 sharesAmount) external view returns (uint256);
 
     /// @notice Returns the amount of underlying tokens a share can be redeemed for.
     /// @return The amount of underlying tokens a share can be redeemed for.

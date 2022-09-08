@@ -27,7 +27,7 @@ import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 /// @title XChainStrategy
 /// @notice Deposits and withdraws via XChainHub to a remote vault
 /// @dev each XChainStrategy is responsible for one remote chain and one token
-contract XChainStrategy is BaseStrategy, XChainStrategyEvents, CallFacet {
+contract XChainStrategy is BaseStrategy, XChainStrategyEvents {
     using SafeERC20 for IERC20;
 
     /// ------------------

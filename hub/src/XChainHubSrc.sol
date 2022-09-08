@@ -25,7 +25,6 @@ import {XChainHubStorage} from "@hub/XChainHubStorage.sol";
 import {XChainHubEvents} from "@hub/XChainHubEvents.sol";
 
 import {LayerZeroApp} from "@hub/LayerZeroApp.sol";
-import {LayerZeroAdapter} from "@hub/LayerZeroAdapter.sol";
 import {IStargateReceiver} from "@interfaces/IStargateReceiver.sol";
 import {IStargateRouter} from "@interfaces/IStargateRouter.sol";
 
@@ -34,7 +33,7 @@ import {IStargateRouter} from "@interfaces/IStargateRouter.sol";
 /// @dev source refers to the chain initially sending XChain deposits
 abstract contract XChainHubSrc is
     Pausable,
-    LayerZeroAdapter,
+    LayerZeroApp,
     XChainHubStorage,
     XChainHubEvents
 {
@@ -168,10 +167,7 @@ abstract contract XChainHubSrc is
 
         bytes memory dstHub = trustedRemoteLookup[_params.dstChainId];
 
-        require(
-            dstHub.length != 0,
-            "XChainHub::depositToChain:NO HUB"
-        );
+        require(dstHub.length != 0, "XChainHub::depositToChain:NO HUB");
 
         // load some variables into memory
         uint256 amount = _params.amount;

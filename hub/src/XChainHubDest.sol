@@ -13,9 +13,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity ^0.8.12;
 
-import {IERC20} from "@oz/token/ERC20/IERC20.sol";
-import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
-
 import {Ownable} from "@oz/access/Ownable.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
@@ -29,7 +26,6 @@ import {XChainHubStorage} from "@hub/XChainHubStorage.sol";
 import {XChainHubEvents} from "@hub/XChainHubEvents.sol";
 
 import {LayerZeroApp} from "@hub/LayerZeroApp.sol";
-import {LayerZeroAdapter} from "@hub/LayerZeroAdapter.sol";
 import {IStargateReceiver} from "@interfaces/IStargateReceiver.sol";
 import {IStargateRouter} from "@interfaces/IStargateRouter.sol";
 
@@ -38,7 +34,7 @@ import {IStargateRouter} from "@interfaces/IStargateRouter.sol";
 /// @dev destination refers to the chain in which XChain deposits are initially received
 abstract contract XChainHubDest is
     Pausable,
-    LayerZeroAdapter,
+    LayerZeroApp,
     IStargateReceiver,
     XChainHubStorage,
     XChainHubEvents
@@ -50,7 +46,7 @@ abstract contract XChainHubDest is
     /// --------------------------
 
     /// @param _lzEndpoint address of the layerZero endpoint contract on the src chain
-    constructor(address _lzEndpoint) LayerZeroAdapter(_lzEndpoint) {}
+    constructor(address _lzEndpoint) LayerZeroApp(_lzEndpoint) {}
 
     /// --------------------------
     /// Single Chain Functions
