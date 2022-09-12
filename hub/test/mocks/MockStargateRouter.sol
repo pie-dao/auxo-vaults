@@ -219,7 +219,11 @@ contract StargateRouterMock is IStargateRouter {
         payable
     {}
 
-    function instantRedeemLocal(uint16 _srcPoolId, uint256 _amountLP, address _to) external returns (uint256) {
+    function instantRedeemLocal(
+        uint16, 
+        uint256, 
+        address
+        ) external returns (uint256) {
         return 0;
     }
 
@@ -242,11 +246,11 @@ contract StargateRouterMock is IStargateRouter {
     {}
 
     function quoteLayerZeroFee(
-        uint16 _dstChainId,
-        uint8 _functionType,
-        bytes calldata _toAddress,
-        bytes calldata _transferAndCallPayload,
-        lzTxObj memory _lzTxParams
+        uint16 ,
+        uint8 ,
+        bytes calldata ,
+        bytes calldata ,
+        lzTxObj memory
     )
         external
         view
@@ -313,18 +317,22 @@ contract MockRouterPayloadCapture is IStargateRouter {
         payable
     {}
 
-    function instantRedeemLocal(uint16 _srcPoolId, uint256 _amountLP, address _to) external returns (uint256) {
+    function instantRedeemLocal(
+        uint16 , 
+        uint256 , 
+        address 
+        ) external returns (uint256) {
         return 0;
     }
 
     function redeemLocal(
-        uint16 _dstChainId,
-        uint256 _srcPoolId,
-        uint256 _dstPoolId,
-        address payable _refundAddress,
-        uint256 _amountLP,
-        bytes calldata _to,
-        lzTxObj memory _lzTxParams
+        uint16,
+        uint256,
+        uint256,
+        address payable,
+        uint256,
+        bytes calldata,
+        lzTxObj memory
     )
         external
         payable
@@ -336,11 +344,11 @@ contract MockRouterPayloadCapture is IStargateRouter {
     {}
 
     function quoteLayerZeroFee(
-        uint16 _dstChainId,
-        uint8 _functionType,
-        bytes calldata _toAddress,
-        bytes calldata _transferAndCallPayload,
-        lzTxObj memory _lzTxParams
+        uint16 ,
+        uint8 ,
+        bytes calldata,
+        bytes calldata,
+        lzTxObj memory
     )
         external
         view
