@@ -128,6 +128,7 @@ abstract contract DepositTest is Script, Deploy {
             IMintable(address(srcToken)).mint(msg.sender, baseUnit * 1e6);
         }
         srcToken.approve(address(vault), type(uint256).max);
+        if (vault.paused()) vault.triggerPause();
         vault.deposit(srcGovernor, 1e3 * baseUnit);
     }
 }
@@ -336,16 +337,18 @@ abstract contract XChainRequestWithdraw is Script, Deploy {
 
 abstract contract XChainFinalize is Script, Deploy {
     ChainConfig dst;
-    address dstStrategy;
-    address dstHub;
 
     function _finalize() internal {
-        require(dstStrategy != address(0), "INIT Strat");
-        require(dstHub != address(0), "INIT Hub");
 
         Vault vault = srcDeployer.vaultProxy();
         uint256 amt = 999 * (10 ** vault.underlying().decimals());
         uint256 min = (amt * 99) / 100;
+
+        XChainHubSingle srcHub = srcDeployer.hub(); 
+        bytes memory dstHub = srcHub.trustedRemoteLookup(dst.id);
+        address dstStrategy = srcHub.strategyForChain(dst.id);
+
+        require(dstStrategy != address(0) && dstHub.length != 0, "Missing destination data");
 
         IHubPayload.Message memory message = IHubPayload.Message({
             action: srcDeployer.hub().FINALIZE_WITHDRAW_ACTION(),
@@ -370,7 +373,7 @@ abstract contract XChainFinalize is Script, Deploy {
         );
         console.log("Fee Estimate", feeEstimate);
 
-        srcDeployer.hub().sg_finalizeWithdrawFromChain{value: feeEstimate}(
+        srcHub.sg_finalizeWithdrawFromChain{value: feeEstimate}(
             IHubPayload.SgFinalizeParams({
                 dstChainId: dst.id,
                 vault: address(vault),
@@ -385,3 +388,41 @@ abstract contract XChainFinalize is Script, Deploy {
         );
     }
 }
+
+/// @dev if redeploying hub on multiple chains you need to update remotes
+/// @dev this assumes state variables are correct in the previous deploy
+///      if, say you forgot to update state variables previously, this will fail
+abstract contract RedeployXChainHub is Script, Setup {
+    ChainConfig dstChain;
+
+    function redeploy() internal {
+        uint16 dstChainId = dstChain.id;
+
+        require(dstChainId != 0, "SET DST CHAIN ID");
+
+        XChainHubSingle oldHub = srcDeployer.hub();
+
+        updateWithNewHub(srcDeployer, dstChainId);
+
+        updateStrategyWithNewHub(srcDeployer);
+
+        XChainHubSingle newHub = srcDeployer.hub();
+        newHub.setVaultForChain(address(srcDeployer.vaultProxy()), dstChainId);
+
+        transferVaultTokensToNewHub(srcDeployer, oldHub, newHub);
+
+        // update the balances
+        uint16[] memory chains = new uint16[](1);
+        chains[0] = dstChainId;
+
+        for (uint256 i; i < chains.length; i++) {
+            uint16 chain = chains[i];
+            address strat = newHub.strategyForChain(chain);
+            uint256 shares = oldHub.sharesPerStrategy(chain, strat);
+            require(shares != 0, "RedeployXChainHub::ZERO SHARES");
+            newHub.setSharesPerStrategy(chain, strat, shares);
+        }
+    }
+}
+
+

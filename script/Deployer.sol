@@ -278,6 +278,56 @@ function deployXChainHub(Deployer _deployer) {
     _deployer.setXChainHub(hub);
 }
 
+function updateWithNewHub(Deployer _deployer, uint16 _remoteChainId) {
+    XChainHubSingle oldHub = _deployer.hub();
+
+    // deploy a new hub with the existing instance
+    // update the deployer
+    deployXChainHub(_deployer);
+    XChainHubSingle hub = _deployer.hub();
+
+    // set trusted vault
+    hub.setTrustedVault(address(_deployer.vaultProxy()), true);
+
+    // set trusted strategy
+    XChainStrategy strategy = _deployer.strategy();
+    hub.setTrustedStrategy(address(strategy), true);
+
+    // set local strategy
+    hub.setLocalStrategy(address(strategy));
+
+    // migrate the strategy for chain
+    address remoteStrategy = oldHub.strategyForChain(_remoteChainId);
+    hub.setStrategyForChain(remoteStrategy, _remoteChainId);
+
+    // Set the trusted remote (hub )
+    bytes memory trustedHub = oldHub.trustedRemoteLookup(_remoteChainId);
+    hub.setTrustedRemote(_remoteChainId, trustedHub);
+
+    // now update the strategy as the manager then you can set the vault for the chain
+}
+
+function updateStrategyWithNewHub(Deployer _deployer) {
+    // update the XChainStrategy
+    XChainStrategy strategy = _deployer.strategy();
+    strategy.setHub(address(_deployer.hub()));
+}
+
+function transferVaultTokensToNewHub(
+    Deployer _deployer,
+    XChainHub _oldHub,
+    XChainHub _newHub
+) {
+    Vault vault = _deployer.vaultProxy();
+    uint256 oldHubVaultBalance = vault.balanceOf(address(_oldHub));
+    bytes memory callData = abi.encodeWithSignature(
+        "transfer(address,uint256)",
+        address(_newHub),
+        oldHubVaultBalance
+    );
+    _oldHub.singleCall(address(vault), callData, 0);
+}
+
 function deployXChainStrategy(
     Deployer _deployer,
     string memory _name,
@@ -559,7 +609,8 @@ contract Deployer is DeployerState {
         // unpause the vault
         if (vaultProxy.paused()) vaultProxy.triggerPause();
         (, uint256 baseUnit) = getUnits();
-        vaultProxy.setDepositLimits(5000 * baseUnit, 10_000 * baseUnit);
+
+        vaultProxy.setDepositLimits(20_000 * baseUnit, 100_000 * baseUnit);
         vaultProxy.trustStrategy(IStrategy(address(strategy)));
     }
 
@@ -643,9 +694,9 @@ function getUnits(Deployer _d) view returns (uint8, uint256) {
 /// @dev overloaded below
 function _prepareVault(Deployer _d) {
     // unpause the vault
-    _d.vaultProxy().triggerPause();
+    if (_d.vaultProxy().paused()) _d.vaultProxy().triggerPause();
     (, uint256 baseUnit) = getUnits(_d);
-    _d.vaultProxy().setDepositLimits(1000 * baseUnit, 2000 * baseUnit);
+    _d.vaultProxy().setDepositLimits(10_000 * baseUnit, 20_000 * baseUnit);
     _d.vaultProxy().trustStrategy(IStrategy(address(_d.strategy())));
 }
 
@@ -660,7 +711,7 @@ function _prepareVault(
         "PrepareVault::USER DEPOSIT LIMITS TOO HIGH"
     );
     // unpause the vault
-    _d.vaultProxy().triggerPause();
+    if (_d.vaultProxy().paused()) _d.vaultProxy().triggerPause();
     _d.vaultProxy().setDepositLimits(_userDepositLimits, _vaultDepositLimits);
     _d.vaultProxy().trustStrategy(IStrategy(address(_d.strategy())));
 }

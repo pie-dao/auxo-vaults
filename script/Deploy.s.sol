@@ -75,7 +75,7 @@ contract DeployFTMTest is Script, Deploy {
 
 contract DeployAvaxFujiExistingVault is Script, DeployWithExistingVault {
     address private constant OLD_DEPLOYER_ADDR =
-        0xE6489A6a6D85e5BCC2CE0f64BF76cA073892E344;
+        0x4212E32ca187C758AbE233705568CED9c72dc032;
 
     constructor() Setup(getChains_test().avax) {
         oldDeployer = Deployer(OLD_DEPLOYER_ADDR);
@@ -88,9 +88,9 @@ contract DeployAvaxFujiExistingVault is Script, DeployWithExistingVault {
 
 contract DeployArbitrumRinkebyExistingVault is Script, DeployWithExistingVault {
     address private constant OLD_DEPLOYER_ADDR =
-        0xE6489A6a6D85e5BCC2CE0f64BF76cA073892E344;
+        0x61Aa05946908b4a21081970101C5655704944314;
 
-    constructor() Setup(getChains_test().avax) {
+    constructor() Setup(getChains_test().arbitrum) {
         oldDeployer = Deployer(OLD_DEPLOYER_ADDR);
     }
 
@@ -128,7 +128,7 @@ contract DepositPrepareArbitrumToOptimismTest is Script, Env {
 
 contract DepositPrepareArbitrumToAvaxTest is Script, Env {
     Deployer srcDeployer = Deployer(getDeployers_test().arbitrum);
-    address dstHub = 0x51873f9B28702509392054776bCa7685b4D2777D;
+    address dstHub = 0xc1d3dcB4C63Cfa7CB0b963158fFF4fFBD18f65cb;
     uint16 dstChainId = getChains_test().avax.id;
 
     function run() public {
@@ -140,7 +140,7 @@ contract DepositPrepareArbitrumToAvaxTest is Script, Env {
 
 contract DepositPrepareAvaxToArbitrumTest is Script, Env {
     Deployer srcDeployer = Deployer(getDeployers_test().avax);
-    address dstHub = 0xBb6e537776b22ADbC31497434c8Bf62410125af6;
+    address dstHub = 0x5f76938097f0Bf57Ad710298f615ee4b21dFf6C3;
     uint16 dstChainId = getChains_test().arbitrum.id;
 
     function run() public {
@@ -242,7 +242,7 @@ contract XChainPrepareDepositAvaxToArbitrumTest is
     PrepareXChainDeposit
 {
     constructor() Setup(getChains_test().avax) {
-        remoteStrategy = 0x75F156824604b546603DaCAF75B8c7EE2401d5C7;
+        remoteStrategy = 0x7Db1e5c85ABe18EDb2ab20029315b36Efb65A625;
         srcDeployer = Deployer(getDeployers_test().avax);
         remote = getChains_test().arbitrum;
     }
@@ -260,7 +260,7 @@ contract XChainPrepareDepositArbitrumToAvaxTest is
     PrepareXChainDeposit
 {
     constructor() Setup(getChains_test().arbitrum) {
-        remoteStrategy = 0xb9FC768Cf44C073Ec70409AA36295CAe561f7Ce7;
+        remoteStrategy = 0xb7570aAA69f54Fa45489Cf4C11ABa71929e03bb2;
         srcDeployer = Deployer(getDeployers_test().arbitrum);
         remote = getChains_test().avax;
     }
@@ -294,7 +294,7 @@ contract DepositIntoXChainStrategyAvaxTest is Script, Deploy {
 contract XChainDepositAvaxToArbitrumTest is Script, Deploy, XChainDeposit {
     constructor() Setup(getChains_test().avax) {
         dstVault = 0xB0484ffe522Cf46d5862cc863cAf72792c43DF32;
-        dstHub = 0xBb6e537776b22ADbC31497434c8Bf62410125af6;
+        dstHub = 0x5f76938097f0Bf57Ad710298f615ee4b21dFf6C3;
         srcDeployer = Deployer(getDeployers_test().avax);
         dst = getChains_test().arbitrum;
         depositAmount = 1_000_000_000;
@@ -420,6 +420,24 @@ contract XChainReportFTMToAvaxTest is Script, Deploy, XChainReport {
     }
 }
 
+contract XChainReportArbitrumToAvaxTest is Script, Deploy, XChainReport {
+    constructor() Setup(getChains_test().arbitrum) {
+        srcDeployer = Deployer(getDeployers_test().arbitrum);
+
+        dst = getChains_test().avax;
+        dstStrategy = 0xb7570aAA69f54Fa45489Cf4C11ABa71929e03bb2;
+
+        chainsToReport.push(dst.id);
+        strategiesToReport.push(dstStrategy);
+    }
+
+    function run() public {
+        vm.startBroadcast(srcGovernor);
+        _report();
+        vm.stopBroadcast();
+    }
+}
+
 contract XChainReportAvaxToFTMTest is Script, Deploy, XChainReport {
     constructor() Setup(getChains_test().avax) {
         srcDeployer = Deployer(getDeployers_test().avax);
@@ -483,9 +501,45 @@ contract SetExitingAvaxTest is Script, Env {
     }
 }
 
+contract XChainRequestWithdrawArbitrumToAvaxTest is
+    Script,
+    Setup,
+    XChainRequestWithdraw
+{
+    constructor() Setup(getChains_test().arbitrum) {
+        srcDeployer = Deployer(getDeployers_test().arbitrum);
+        dst = getChains_test().avax;
+        dstVault = address(0);
+    }
+
+    function run() public {
+        vm.startBroadcast(srcGovernor);
+        _request();
+        vm.stopBroadcast();
+    }
+}
+
+contract XChainRequestWithdrawAvaxToArbitrumTest is
+    Script,
+    Setup,
+    XChainRequestWithdraw
+{
+    constructor() Setup(getChains_test().avax) {
+        srcDeployer = Deployer(getDeployers_test().avax);
+        dst = getChains_test().arbitrum;
+        dstVault = 0xB0484ffe522Cf46d5862cc863cAf72792c43DF32;
+    }
+
+    function run() public {
+        vm.startBroadcast(srcGovernor);
+        _request();
+        vm.stopBroadcast();
+    }
+}
+
 contract XChainRequestWithdrawAvaxToFTMTest is
     Script,
-    Deploy,
+    Setup,
     XChainRequestWithdraw
 {
     constructor() Setup(getChains_test().avax) {
@@ -503,7 +557,7 @@ contract XChainRequestWithdrawAvaxToFTMTest is
 
 contract XChainRequestWithdrawFTMToAvaxTest is
     Script,
-    Deploy,
+    Setup,
     XChainRequestWithdraw
 {
     constructor() Setup(getChains_test().fantom) {
@@ -535,6 +589,22 @@ contract ExitVaultAvaxTest is Script, Env {
     }
 }
 
+contract ExitVaultArbitrumTest is Script, Env {
+    function run() public {
+        vm.startBroadcast(srcGovernor);
+
+        Deployer srcDeployer = Deployer(getDeployers_test().arbitrum);
+
+        Vault vault = srcDeployer.vaultProxy();
+        XChainHub hub = srcDeployer.hub();
+        vault.execBatchBurn();
+        hub.withdrawFromVault(IVault(address(vault)));
+        srcDeployer.hub().setExiting(address(vault), false);
+
+        vm.stopBroadcast();
+    }
+}
+
 contract ExitVaultFTMTest is Script, Env {
     function run() public {
         vm.startBroadcast(srcGovernor);
@@ -551,12 +621,10 @@ contract ExitVaultFTMTest is Script, Env {
     }
 }
 
-contract XChainFinalizeWithdrawAvaxToFTMTest is Script, Deploy, XChainFinalize {
+contract XChainFinalizeWithdrawAvaxToFTMTest is Script, Setup, XChainFinalize {
     constructor() Setup(getChains_test().avax) {
         srcDeployer = Deployer(getDeployers_test().avax);
         dst = getChains_test().fantom;
-        dstStrategy = 0x65992b6Ac4e1d81a57fC5c590b8F60c95723460d;
-        dstHub = 0x73B1Be21F10dA53a61D2BB51F9edb5bfa2144e5f;
     }
 
     /// @dev in production we wont have 1 account doing all this
@@ -567,12 +635,28 @@ contract XChainFinalizeWithdrawAvaxToFTMTest is Script, Deploy, XChainFinalize {
     }
 }
 
-contract XChainFinalizeWithdrawFTMToAvaxTest is Script, Deploy, XChainFinalize {
+contract XChainFinalizeWithdrawArbitrumToAvaxTest is
+    Script,
+    Setup,
+    XChainFinalize
+{
+    constructor() Setup(getChains_test().arbitrum) {
+        srcDeployer = Deployer(getDeployers_test().arbitrum);
+        dst = getChains_test().avax;
+    }
+
+    /// @dev in production we wont have 1 account doing all this
+    function run() public {
+        vm.startBroadcast(srcGovernor);
+        _finalize();
+        vm.stopBroadcast();
+    }
+}
+
+contract XChainFinalizeWithdrawFTMToAvaxTest is Script, Setup, XChainFinalize {
     constructor() Setup(getChains_test().fantom) {
         srcDeployer = Deployer(getDeployers_test().fantom);
         dst = getChains_test().avax;
-        dstStrategy = 0x00F7E1970dec852190882ef758c6DBfE91084eF7;
-        dstHub = 0xA340852CE199c0AcD58f21CBf300A3F44595907e;
     }
 
     /// @dev in production we wont have 1 account doing all this
@@ -589,6 +673,27 @@ contract HubWithdrawFTMTest is Script, Deploy {
 
     constructor() Setup(getChains_test().fantom) {
         srcDeployer = Deployer(getDeployers_test().fantom);
+        withdrawQty = 998_800_360;
+    }
+
+    function run() public {
+        require(withdrawQty > 0, "SET WITHDRAW");
+
+        vm.startBroadcast(srcGovernor);
+
+        XChainStrategy strategy = srcDeployer.strategy();
+        strategy.withdrawFromHub(withdrawQty);
+
+        vm.stopBroadcast();
+    }
+}
+
+contract HubWithdrawAvaxTest is Script, Deploy {
+    // atm you get this from event logs
+    uint256 withdrawQty;
+
+    constructor() Setup(getChains_test().avax) {
+        srcDeployer = Deployer(getDeployers_test().avax);
         withdrawQty = 998_800_360;
     }
 
@@ -623,6 +728,74 @@ contract StrategyWithdrawFTMTest is Script, Deploy {
             withdrawQty
         );
 
+        vm.stopBroadcast();
+    }
+}
+
+/// @dev Redeploy requires updating remotes
+contract RedeployXChainHubArbitrumTest is Script, Setup, RedeployXChainHub {
+    constructor() Setup(getChains_test().arbitrum) {
+        srcDeployer = Deployer(getDeployers_test().arbitrum);
+        dstChain = getChains_test().avax;
+    }
+
+    function run() public {
+        vm.startBroadcast(srcGovernor);
+        redeploy();
+        vm.stopBroadcast();
+    }
+}
+
+/// @dev Redeploy requires updating remotes
+contract UpdateHubAvaxToArbitrumTest is Script, Setup {
+    ChainConfig dstChain;
+    address dstHub = 0x5D74741412eC6B585340Eef281C8b712FA5D4cbb;
+
+    constructor() Setup(getChains_test().avax) {
+        srcDeployer = Deployer(getDeployers_test().avax);
+        dstChain = getChains_test().arbitrum;
+    }
+
+    function run() public {
+        vm.startBroadcast(srcGovernor);
+        srcDeployer.hub().setTrustedRemote(
+            dstChain.id,
+            abi.encodePacked(dstHub)
+        );
+        vm.stopBroadcast();
+    }
+}
+
+/// @dev Redeploy requires updating remotes
+contract RedeployXChainHubAvaxTest is Script, Setup, RedeployXChainHub {
+    constructor() Setup(getChains_test().avax) {
+        srcDeployer = Deployer(getDeployers_test().avax);
+        dstChain = getChains_test().arbitrum;
+    }
+
+    function run() public {
+        vm.startBroadcast(srcGovernor);
+        redeploy();
+        vm.stopBroadcast();
+    }
+}
+
+/// @dev Redeploy requires updating remotes
+contract UpdateHubArbitrumToAvaxTest is Script, Setup {
+    ChainConfig dstChain;
+    address dstHub = 0x8B5CD25f504ae0cB0b698516AAF8da31e77bf7f9;
+
+    constructor() Setup(getChains_test().arbitrum) {
+        srcDeployer = Deployer(getDeployers_test().arbitrum);
+        dstChain = getChains_test().avax;
+    }
+
+    function run() public {
+        vm.startBroadcast(srcGovernor);
+        srcDeployer.hub().setTrustedRemote(
+            dstChain.id,
+            abi.encodePacked(dstHub)
+        );
         vm.stopBroadcast();
     }
 }
