@@ -35,6 +35,7 @@ import {XChainHubEvents} from "@hub/XChainHubEvents.sol";
 ///      it is advisable you have a base understanding of the concept before changing import ordering.
 contract XChainHub is
     Ownable,
+    CallFacet,
     XChainHubStorage,
     XChainHubEvents,
     XChainHubSrc,

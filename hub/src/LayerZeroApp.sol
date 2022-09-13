@@ -10,7 +10,11 @@ import {ILayerZeroUserApplicationConfig} from "@interfaces/ILayerZeroUserApplica
 /// @title LayerZeroApp
 /// @notice A generic app template that uses LayerZero.
 /// @dev this contract is in large part provided by the layer zero team
-abstract contract LayerZeroApp is Ownable, ILayerZeroReceiver, ILayerZeroUserApplicationConfig {
+abstract contract LayerZeroApp is
+    Ownable,
+    ILayerZeroReceiver,
+    ILayerZeroUserApplicationConfig
+{
     /// @notice The LayerZero endpoint for the current chain.
     ILayerZeroEndpoint public immutable layerZeroEndpoint;
 
@@ -18,7 +22,8 @@ abstract contract LayerZeroApp is Ownable, ILayerZeroReceiver, ILayerZeroUserApp
     mapping(uint16 => bytes) public trustedRemoteLookup;
 
     /// @notice Failed messages.
-    mapping(uint16 => mapping(bytes => mapping(uint64 => bytes32))) public failedMessages;
+    mapping(uint16 => mapping(bytes => mapping(uint64 => bytes32)))
+        public failedMessages;
 
     /// @notice Event emitted when a new remote trusted is added.
     /// @param srcChainId Source chain id.
@@ -30,7 +35,12 @@ abstract contract LayerZeroApp is Ownable, ILayerZeroReceiver, ILayerZeroUserApp
     /// @param srcAddress Source address.
     /// @param nonce Message nonce.
     /// @param payload Message payload.
-    event MessageFailed(uint16 srcChainId, bytes srcAddress, uint64 nonce, bytes payload);
+    event MessageFailed(
+        uint16 srcChainId,
+        bytes srcAddress,
+        uint64 nonce,
+        bytes payload
+    );
 
     /// @notice Initialize contract.
     /// @param endpoint The LayerZero endpoint.
@@ -43,18 +53,18 @@ abstract contract LayerZeroApp is Ownable, ILayerZeroReceiver, ILayerZeroUserApp
         bytes memory srcAddress,
         uint64 nonce,
         bytes memory payload
-    )
-        public
-        virtual
-        override
-    {
-        require(msg.sender == address(layerZeroEndpoint), "LayerZeroApp: caller is not the endpoint");
+    ) public virtual override {
+        require(
+            msg.sender == address(layerZeroEndpoint),
+            "LayerZeroApp::lzReceive:UNAUTHORISED"
+        );
 
         bytes memory trustedRemote = trustedRemoteLookup[srcChainId];
 
         require(
-            srcAddress.length == trustedRemote.length && keccak256(srcAddress) == keccak256(trustedRemote),
-            "LayerZeroApp: invalid remote source"
+            srcAddress.length == trustedRemote.length &&
+                keccak256(srcAddress) == keccak256(trustedRemote),
+            "LayerZeroApp::lzReceive:INVALID REMOTE"
         );
 
         _lzReceive(srcChainId, srcAddress, nonce, payload);
@@ -62,46 +72,71 @@ abstract contract LayerZeroApp is Ownable, ILayerZeroReceiver, ILayerZeroUserApp
 
     /// @dev - interesting function here, pass control flow to attacker
     /// even if the payload is fixed.
-    function retryMessage(uint16 srcChainId, bytes memory srcAddress, uint64 nonce, bytes memory payload)
-        public
-        payable
-        virtual
-    {
+    function retryMessage(
+        uint16 srcChainId,
+        bytes memory srcAddress,
+        uint64 nonce,
+        bytes memory payload
+    ) public payable virtual {
         bytes32 payloadHash = failedMessages[srcChainId][srcAddress][nonce];
 
-        require(payloadHash != bytes32(0), "NonblockingLzApp: no stored message");
+        require(
+            payloadHash != bytes32(0),
+            "LayerZeroApp::retryMessage:NOT FOUND"
+        );
 
-        require(keccak256(payload) == payloadHash, "NonblockingLzApp: invalid payload");
+        require(
+            keccak256(payload) == payloadHash,
+            "LayerZeroApp::retryMessage:HASH INCORRECT"
+        );
 
         failedMessages[srcChainId][srcAddress][nonce] = bytes32(0);
 
         _nonblockingLzReceive(srcChainId, srcAddress, nonce, payload);
     }
 
-    function _lzReceive(uint16 _srcChainId, bytes memory _srcAddress, uint64 _nonce, bytes memory _payload)
-        internal
-        virtual
-    {
+    function _lzReceive(
+        uint16 _srcChainId,
+        bytes memory _srcAddress,
+        uint64 _nonce,
+        bytes memory _payload
+    ) internal virtual {
         // try-catch all errors/exceptions
-        try this.nonblockingLzReceive(_srcChainId, _srcAddress, _nonce, _payload) {}
-        catch {
-            failedMessages[_srcChainId][_srcAddress][_nonce] = keccak256(_payload);
+        try
+            this.nonblockingLzReceive(
+                _srcChainId,
+                _srcAddress,
+                _nonce,
+                _payload
+            )
+        {} catch {
+            failedMessages[_srcChainId][_srcAddress][_nonce] = keccak256(
+                _payload
+            );
             emit MessageFailed(_srcChainId, _srcAddress, _nonce, _payload);
         }
     }
 
-    function nonblockingLzReceive(uint16 srcChainId, bytes memory srcAddress, uint64 nonce, bytes memory payload)
-        public
-        virtual
-    {
-        require(msg.sender == address(this), "LayerZeroApp: caller must be address(this)");
+    function nonblockingLzReceive(
+        uint16 srcChainId,
+        bytes memory srcAddress,
+        uint64 nonce,
+        bytes memory payload
+    ) public virtual {
+        require(
+            msg.sender == address(this),
+            "LayerZeroApp::nonblockingLzReceive:UNAUTHORIZED"
+        );
 
         _nonblockingLzReceive(srcChainId, srcAddress, nonce, payload);
     }
 
-    function _nonblockingLzReceive(uint16 _srcChainId, bytes memory _srcAddress, uint64 _nonce, bytes memory _payload)
-        internal
-        virtual;
+    function _nonblockingLzReceive(
+        uint16 _srcChainId,
+        bytes memory _srcAddress,
+        uint64 _nonce,
+        bytes memory _payload
+    ) internal virtual;
 
     /// @notice send a LayerZero message to the specified address at a LayerZero endpoint.
     /// @param _dstChainId - the destination chain identifier
@@ -115,16 +150,16 @@ abstract contract LayerZeroApp is Ownable, ILayerZeroReceiver, ILayerZeroUserApp
         address payable _refundAddress,
         address _zroPaymentAddress,
         bytes memory _adapterParams
-    )
-        internal
-        virtual
-    {
+    ) internal virtual {
         // dst chain comes from the array
         // when it arrives
         bytes memory trustedRemote = trustedRemoteLookup[_dstChainId];
 
         // this is all good
-        require(trustedRemote.length != 0, "LayerZeroApp: destination chain is not a trusted source");
+        require(
+            trustedRemote.length != 0,
+            "LayerZeroApp::lzSend:UNTRUSTED DESTINATION"
+        );
 
         layerZeroEndpoint.send{value: msg.value}(
             _dstChainId, // this is okay
@@ -137,15 +172,26 @@ abstract contract LayerZeroApp is Ownable, ILayerZeroReceiver, ILayerZeroUserApp
         );
     }
 
-    function getConfig(uint16 version, uint16 chainId, uint256 configType) external view returns (bytes memory) {
-        return layerZeroEndpoint.getConfig(version, chainId, address(this), configType);
+    function getConfig(
+        uint16 version,
+        uint16 chainId,
+        uint256 configType
+    ) external view returns (bytes memory) {
+        return
+            layerZeroEndpoint.getConfig(
+                version,
+                chainId,
+                address(this),
+                configType
+            );
     }
 
-    function setConfig(uint16 version, uint16 chainId, uint256 configType, bytes calldata config)
-        external
-        override
-        onlyOwner
-    {
+    function setConfig(
+        uint16 version,
+        uint16 chainId,
+        uint256 configType,
+        bytes calldata config
+    ) external override onlyOwner {
         layerZeroEndpoint.setConfig(version, chainId, configType, config);
     }
 
@@ -157,16 +203,27 @@ abstract contract LayerZeroApp is Ownable, ILayerZeroReceiver, ILayerZeroUserApp
         layerZeroEndpoint.setReceiveVersion(version);
     }
 
-    function forceResumeReceive(uint16 srcChainId, bytes calldata srcAddress) external override onlyOwner {
+    function forceResumeReceive(uint16 srcChainId, bytes calldata srcAddress)
+        external
+        override
+        onlyOwner
+    {
         layerZeroEndpoint.forceResumeReceive(srcChainId, srcAddress);
     }
 
-    function setTrustedRemote(uint16 srcChainId, bytes calldata srcAddress) external onlyOwner {
+    function setTrustedRemote(uint16 srcChainId, bytes calldata srcAddress)
+        external
+        onlyOwner
+    {
         trustedRemoteLookup[srcChainId] = srcAddress;
         emit SetTrustedRemote(srcChainId, srcAddress);
     }
 
-    function isTrustedRemote(uint16 srcChainId, bytes calldata srcAddress) external view returns (bool) {
+    function isTrustedRemote(uint16 srcChainId, bytes calldata srcAddress)
+        external
+        view
+        returns (bool)
+    {
         bytes memory trustedSource = trustedRemoteLookup[srcChainId];
         return keccak256(trustedSource) == keccak256(srcAddress);
     }

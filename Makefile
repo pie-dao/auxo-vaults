@@ -15,13 +15,12 @@ tests :; cp hub/src/interfaces/* interfaces && forge test
 
 # Stage 1: Deploy components (Testnets)
 
-deploy-arbitrum-test :; forge script script/Deploy.s.sol:DeployArbitrumRinkeby \
+deploy-arbitrum-test :; forge script DeployArbitrumRinkeby \
 	--private-key ${GOVERNOR_PRIVATE_KEY} \
 	--etherscan-api-key ${ARBITRUM_KEY} \
 	--rpc-url https://arbitrum-rinkeby.infura.io/v3/${INFURA_API_KEY} \
 	--broadcast \
 	--verify \
-	--resume \
 	-vvvv
 
 deploy-polygon-test :; forge script script/Deploy.s.sol:DeployPolygonMumbai \
@@ -46,8 +45,24 @@ deploy-avax-test :; forge script script/Deploy.s.sol:DeployAvaxFuji \
 	--rpc-url https://api.avax-test.network/ext/bc/C/rpc \
 	--broadcast \
 	--verify \
-	--resume \
 	-vvvv	
+	
+
+deploy-avax-test-existing-vault :; forge script DeployAvaxFujiExistingVault \
+	--private-key ${GOVERNOR_PRIVATE_KEY} \
+	--etherscan-api-key ${AVAXSCAN_KEY} \
+	--rpc-url https://api.avax-test.network/ext/bc/C/rpc \
+	--broadcast \
+	--verify \
+	-vvvv	
+
+deploy-arbitrum-test-existing-vault :; forge script DeployArbitrumRinkebyExistingVault \
+	--private-key ${GOVERNOR_PRIVATE_KEY} \
+	--etherscan-api-key ${ARBITRUM_KEY} \
+	--rpc-url https://arbitrum-rinkeby.infura.io/v3/${INFURA_API_KEY} \
+	--broadcast \
+	--verify \
+	-vvvv
 
 
 deploy-ftm-test :; forge script script/Deploy.s.sol:DeployFTMTest \
@@ -60,27 +75,23 @@ deploy-ftm-test :; forge script script/Deploy.s.sol:DeployFTMTest \
 
 # Stage 2: Prepare components by setting up neccessary permissions
 
-prepare-deposit-arbitrum-avax-test :; forge script script/Deploy.s.sol:DepositPrepareArbitrumToAvaxTest \
+prepare-deposit-arbitrum-avax-test :; forge script DepositPrepareArbitrumToAvaxTest \
 	--private-key ${GOVERNOR_PRIVATE_KEY} \
 	--etherscan-api-key ${ARBITRUM_KEY} \
 	--rpc-url https://arbitrum-rinkeby.infura.io/v3/${INFURA_API_KEY} \
-	--verify \
 	--broadcast \
 	-vvvv
 
-prepare-deposit-arbitrum-ftm-test :; forge script script/Deploy.s.sol:DepositPrepareArbitrumToFTMTest \
+prepare-deposit-arbitrum-ftm-test :; forge script DepositPrepareArbitrumToFTMTest \
 	--private-key ${GOVERNOR_PRIVATE_KEY} \
 	--etherscan-api-key ${ARBITRUM_KEY} \
 	--rpc-url https://arbitrum-rinkeby.infura.io/v3/${INFURA_API_KEY} \
-	--verify \
-	--broadcast \
 	-vvvv
 
-prepare-deposit-avax-arbitrum-test :; forge script script/Deploy.s.sol:DepositPrepareAvaxToArbitrumTest \
+prepare-deposit-avax-arbitrum-test :; forge script DepositPrepareAvaxToArbitrumTest \
 	--private-key ${GOVERNOR_PRIVATE_KEY} \
 	--etherscan-api-key ${AVAXSCAN_KEY} \
 	--rpc-url https://api.avax-test.network/ext/bc/C/rpc \
-	--verify \
 	--broadcast \
 	-vvvv
 
@@ -110,15 +121,14 @@ prepare-deposit-ftm-avax-test :; forge script script/Deploy.s.sol:DepositPrepare
 	-vvvv
 
 # Stage 3: Make a deposit into the source chain vault
-# Note: Arbitrum testnets appear to fail with OOG error unless you 'skip simulation'
-
-deposit-avax-vault-test :; forge script script/Deploy.s.sol:DepositIntoAvaxVaultTest \
+deposit-avax-vault-test :; forge script DepositIntoAvaxVaultTest \
 	--private-key ${GOVERNOR_PRIVATE_KEY} \
 	--rpc-url https://api.avax-test.network/ext/bc/C/rpc \
 	--broadcast \
 	-vvvv
 
-deposit-arbitrum-vault-test :; forge script script/Deploy.s.sol:DepositIntoArbitrumVaultTest \
+# Note: Arbitrum testnets appear to fail with OOG error unless you 'skip simulation'
+deposit-arbitrum-vault-test :; forge script DepositIntoArbitrumVaultTest \
 	--private-key ${GOVERNOR_PRIVATE_KEY} \
 	--rpc-url https://arbitrum-rinkeby.infura.io/v3/${INFURA_API_KEY} \
 	--broadcast \
@@ -133,46 +143,35 @@ deposit-ftm-vault-test :; forge script script/Deploy.s.sol:DepositIntoFTMVaultTe
 	-vvvv 
 
 
-# Stage 4: Execute the XChain Deposit from the XChainStrategy
+# Stage 4.1: Prepare the XChain Deposit from the XChainStrategy
 # Note: Arbitrum testnets appear to fail with OOG error unless you 'skip simulation'
-
-xchain-deposit-avax-arbitrum-test :; forge script script/Deploy.s.sol:XChainDepositAvaxToArbitrumTest \
+xchain-deposit-prepare-avax-arbitrum-test :; forge script XChainPrepareDepositAvaxToArbitrumTest \
 	--private-key ${GOVERNOR_PRIVATE_KEY} \
 	--rpc-url https://api.avax-test.network/ext/bc/C/rpc \
 	--broadcast \
 	-vvvv 
 
-xchain-deposit-avax-ftm-test :; forge script script/Deploy.s.sol:XChainDepositAvaxToFTMTest \
+xchain-deposit-prepare-arbitrum-avax-test :; forge script XChainPrepareDepositArbitrumToAvaxTest \
+	--private-key ${GOVERNOR_PRIVATE_KEY} \
+	--rpc-url https://arbitrum-rinkeby.infura.io/v3/${INFURA_API_KEY} \
+	--skip-simulation \
+	--broadcast \
+	-vvvv 
+
+# Stage 4.2 Deposit into the XChainStrategy 
+xchain-deposit-strategy-avax-test :; forge script DepositIntoXChainStrategyAvaxTest \
 	--private-key ${GOVERNOR_PRIVATE_KEY} \
 	--rpc-url https://api.avax-test.network/ext/bc/C/rpc \
 	--broadcast \
 	-vvvv 
 
-xchain-deposit-arbitrum-avax-test :; forge script script/Deploy.s.sol:XChainDepositArbitrumToAvaxTest \
+# Stage 4.3 Depositinto the vault
+xchain-deposit-avax-arbitrum-test :; forge script XChainDepositAvaxToArbitrumTest \
 	--private-key ${GOVERNOR_PRIVATE_KEY} \
-	--rpc-url https://arbitrum-rinkeby.infura.io/v3/${INFURA_API_KEY} \
+	--rpc-url https://api.avax-test.network/ext/bc/C/rpc \
 	--broadcast \
-	--skip-simulation \
 	-vvvv 
 
-xchain-deposit-arbitrum-ftm-test :; forge script script/Deploy.s.sol:XChainDepositArbitrumToFTMTest \
-	--private-key ${GOVERNOR_PRIVATE_KEY} \
-	--rpc-url https://arbitrum-rinkeby.infura.io/v3/${INFURA_API_KEY} \
-	--broadcast \
-	--skip-simulation \
-	-vvvv 
-
-xchain-deposit-ftm-arbitrum-test :; forge script script/Deploy.s.sol:XChainDepositFTMToArbitrumTest \
-	--private-key ${GOVERNOR_PRIVATE_KEY} \
-	--broadcast \
-	--rpc-url https://rpc.testnet.fantom.network/ \
-	-vvvv 
-
-xchain-deposit-ftm-avax-test :; forge script script/Deploy.s.sol:XChainDepositFTMToAvaxTest \
-	--private-key ${GOVERNOR_PRIVATE_KEY} \
-	--rpc-url https://rpc.testnet.fantom.network/ \
-	--broadcast \
-	-vvvv 
 
 # Stage 5: Update remote hubs with strategy report
 xchain-report-avax-ftm-test :; forge script script/Deploy.s.sol:XChainReportAvaxToFTMTest \
@@ -186,6 +185,12 @@ xchain-report-arbitrum-ftm-test :; forge script script/Deploy.s.sol:XChainReport
 	--rpc-url https://arbitrum-rinkeby.infura.io/v3/${INFURA_API_KEY} \
 	--broadcast \
 	-vvvv 
+
+xchain-report-arbitrum-avax-test :; forge script XChainReportArbitrumToAvaxTest \
+	--private-key ${GOVERNOR_PRIVATE_KEY} \
+	--rpc-url https://arbitrum-rinkeby.infura.io/v3/${INFURA_API_KEY} \
+	--broadcast \
+	-vvvv 	
 
 xchain-report-ftm-arbitrum-test :; forge script script/Deploy.s.sol:XChainReportFTMToArbitrumTest \
 	--private-key ${GOVERNOR_PRIVATE_KEY} \
@@ -201,10 +206,10 @@ xchain-report-ftm-avax-test :; forge script script/Deploy.s.sol:XChainReportFTMT
 
 
 # Stage 6: Permit exit of vaults
-set-exiting-arbitrum-test :; forge script script/Deploy.s.sol:SetExitingArbitrumTest \
+set-exiting-arbitrum-test :; forge script SetExitingArbitrumTest \
 	--private-key ${GOVERNOR_PRIVATE_KEY} \
 	--rpc-url https://arbitrum-rinkeby.infura.io/v3/${INFURA_API_KEY} \
- 	--broadcast \
+	--broadcast \
 	-vvvv 
 
 
@@ -223,6 +228,12 @@ set-exiting-avax-test :; forge script script/Deploy.s.sol:SetExitingAvaxTest \
 
 # stage 7: Request the withdraw
 xchain-request-withdraw-avax-ftm-test :; forge script script/Deploy.s.sol:XChainRequestWithdrawAvaxToFTMTest \
+	--private-key ${GOVERNOR_PRIVATE_KEY} \
+	--rpc-url https://api.avax-test.network/ext/bc/C/rpc \
+	--broadcast \
+	-vvvv
+
+xchain-request-withdraw-avax-arbitrum-test :; forge script XChainRequestWithdrawAvaxToArbitrumTest \
 	--private-key ${GOVERNOR_PRIVATE_KEY} \
 	--rpc-url https://api.avax-test.network/ext/bc/C/rpc \
 	--broadcast \
@@ -248,6 +259,13 @@ exit-vault-avax :; forge script script/Deploy.s.sol:ExitVaultAvaxTest \
 	--broadcast \
 	-vvvv
 
+exit-vault-arbitrum :; forge script ExitVaultArbitrumTest \
+	--private-key ${GOVERNOR_PRIVATE_KEY} \
+	--rpc-url https://arbitrum-rinkeby.infura.io/v3/${INFURA_API_KEY} \
+	--skip-simulation \
+	--broadcast \
+	-vvvv 
+
 exit-vault-ftm :; forge script script/Deploy.s.sol:ExitVaultFTMTest \
 	--private-key ${GOVERNOR_PRIVATE_KEY} \
 	--rpc-url https://rpc.testnet.fantom.network/ \
@@ -267,6 +285,11 @@ xchain-finalize-withdraw-ftm-avax-test :; forge script script/Deploy.s.sol:XChai
 	--broadcast \
 	-vvvv 
 
+xchain-finalize-withdraw-arbitrum-avax-test :; forge script XChainFinalizeWithdrawArbitrumToAvaxTest \
+	--private-key ${GOVERNOR_PRIVATE_KEY} \
+	--rpc-url https://arbitrum-rinkeby.infura.io/v3/${INFURA_API_KEY} \
+	--broadcast \
+	-vvvv 
 
 # Stage 10 - remove tokens from the hub
 hub-withdraw-ftm-test :; forge script script/Deploy.s.sol:HubWithdrawFTMTest \
@@ -274,6 +297,12 @@ hub-withdraw-ftm-test :; forge script script/Deploy.s.sol:HubWithdrawFTMTest \
 	--rpc-url https://rpc.testnet.fantom.network/ \
 	--broadcast \
 	-vvvv 
+
+hub-withdraw-avax-test :; forge script HubWithdrawAvaxTest \
+	--private-key ${GOVERNOR_PRIVATE_KEY} \
+	--rpc-url https://api.avax-test.network/ext/bc/C/rpc \
+	--broadcast \
+	-vvvv
 
 # Stage 11 - remember to report on the origin chain!
 
@@ -284,6 +313,32 @@ hub-withdraw-ftm-test :; forge script script/Deploy.s.sol:HubWithdrawFTMTest \
 strategy-withdraw-ftm-test :; forge script script/Deploy.s.sol:StrategyWithdrawFTMTest \
 	--private-key ${GOVERNOR_PRIVATE_KEY} \
 	--rpc-url https://rpc.testnet.fantom.network/ \
+	--broadcast \
+	-vvvv 
+
+
+# Administrative: Redeploy a hub - ensuring you update all remotes to point to the new hub
+redeploy-hub-arbitrum-test :; forge script RedeployXChainHubArbitrumTest \
+	--private-key ${GOVERNOR_PRIVATE_KEY} \
+	--rpc-url https://arbitrum-rinkeby.infura.io/v3/${INFURA_API_KEY} \
+	-vvvv 
+
+update-hub-avax-arbitrum-test :; forge script UpdateHubAvaxToArbitrumTest \
+	--private-key ${GOVERNOR_PRIVATE_KEY} \
+	--rpc-url https://api.avax-test.network/ext/bc/C/rpc \
+	--broadcast \
+	-vvvv
+
+redeploy-hub-avax-test :; forge script RedeployXChainHubAvaxTest \
+	--private-key ${GOVERNOR_PRIVATE_KEY} \
+	--rpc-url https://api.avax-test.network/ext/bc/C/rpc \
+	--broadcast \
+	--verify \
+	-vvvv
+
+update-hub-arbitrum-avax-test :; forge script UpdateHubArbitrumToAvaxTest \
+	--private-key ${GOVERNOR_PRIVATE_KEY} \
+	--rpc-url https://arbitrum-rinkeby.infura.io/v3/${INFURA_API_KEY} \
 	--broadcast \
 	-vvvv 
 

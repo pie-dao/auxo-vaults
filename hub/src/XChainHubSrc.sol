@@ -25,7 +25,6 @@ import {XChainHubStorage} from "@hub/XChainHubStorage.sol";
 import {XChainHubEvents} from "@hub/XChainHubEvents.sol";
 
 import {LayerZeroApp} from "@hub/LayerZeroApp.sol";
-import {LayerZeroAdapter} from "@hub/LayerZeroAdapter.sol";
 import {IStargateReceiver} from "@interfaces/IStargateReceiver.sol";
 import {IStargateRouter} from "@interfaces/IStargateRouter.sol";
 
@@ -34,7 +33,7 @@ import {IStargateRouter} from "@interfaces/IStargateRouter.sol";
 /// @dev source refers to the chain initially sending XChain deposits
 abstract contract XChainHubSrc is
     Pausable,
-    LayerZeroAdapter,
+    LayerZeroApp,
     XChainHubStorage,
     XChainHubEvents
 {
@@ -136,7 +135,7 @@ abstract contract XChainHubSrc is
                 abi.encode(message),
                 _refundAddress,
                 address(0), // zro address (not used)
-                abi.encodePacked(uint8(1), _dstGas) // version 1 only accepts dstGas
+                abi.encodePacked(uint16(1), _dstGas) // version 1 only accepts dstGas
             );
 
             emit UnderlyingReported(_dstChains[i], amountToReport, _strats[i]);
@@ -168,10 +167,7 @@ abstract contract XChainHubSrc is
 
         bytes memory dstHub = trustedRemoteLookup[_params.dstChainId];
 
-        require(
-            dstHub.length != 0,
-            "XChainHub::depositToChain:NO HUB"
-        );
+        require(dstHub.length != 0, "XChainHub::depositToChain:NO HUB");
 
         // load some variables into memory
         uint256 amount = _params.amount;
@@ -257,7 +253,7 @@ abstract contract XChainHubSrc is
             abi.encode(message),
             _refundAddress,
             address(0), // ZRO address (not implemented)
-            abi.encodePacked(uint8(1), _dstGas) // version 1 only accepts dstGas
+            abi.encodePacked(uint16(1), _dstGas) // version 1 only accepts dstGas
         );
 
         emit WithdrawRequested(
@@ -326,7 +322,6 @@ abstract contract XChainHubSrc is
         );
 
         // here we copld check strategy in the vault
-        // IVault(_params.vault)
         require(
             strategyAmount > 0,
             "XChainHub::finalizeWithdrawFromChain:NO WITHDRAWS"

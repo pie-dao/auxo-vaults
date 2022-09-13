@@ -18,5 +18,6 @@ interface IStargateReceiver {
         address _token,
         uint256 _amountLD,
         bytes memory _payload
-    ) external;
+    )
+        external;
 }
