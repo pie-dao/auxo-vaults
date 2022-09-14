@@ -199,3 +199,12 @@ contract XChainDepositPolygonToArbitrumProd is Script, Deploy, XChainDeposit {
         vm.stopBroadcast();
     }
 }
+
+contract SetExitingArbitrumProd is Script, Env {
+    function run() public {
+        Deployer srcDeployer = Deployer(getDeployers().arbitrum);
+        vm.startBroadcast(srcGovernor);
+        srcDeployer.hub().setExiting(address(srcDeployer.vaultProxy()), true);
+        vm.stopBroadcast();
+    }
+}

@@ -100,7 +100,7 @@ function deployAuthAndDeployerNoOwnershipTransfer(
     ERC20 _token,
     IStargateRouter _router,
     address _lzEndpoint,
-    address _governor,
+    address _governor, // hub owner, vault governor, strategy manager
     address _strategist
 ) returns (Deployer) {
     VaultFactory factory = new VaultFactory();
@@ -183,7 +183,6 @@ function _updateDeployerWithVault(
     Vault _vaultProxy
 ) {
     _deployer.setFactory(_factory);
-    _deployer.setVaultImplementation(Vault(_factory.getImplementation()));
     _deployer.setVaultProxy(_vaultProxy);
 }
 
@@ -218,26 +217,24 @@ function deployExternal(uint16 _chainId, address _feeCollector)
 function deployVault(Deployer _deployer) {
     VaultFactory factory = _deployer.vaultFactory();
     require(address(factory) != address(0), "Did not set factory");
-    (Vault vaultProxy, Vault vaultImpl) = _deployVault(
+    Vault vault = _deployVault(
         _deployer.auth(),
         ERC20(address(_deployer.underlying())),
         _deployer.governor(),
         factory
     );
-    _deployer.setVaultProxy(vaultProxy);
-    _deployer.setVaultImplementation(vaultImpl);
+    _deployer.setVaultProxy(vault);
 }
 
 /// @notice deploy a vault with an existing factory
 function deployVault(Deployer _deployer, VaultFactory _factory) {
-    (Vault vaultProxy, Vault vaultImpl) = _deployVault(
+    Vault vault = _deployVault(
         _deployer.auth(),
         ERC20(address(_deployer.underlying())),
         _deployer.governor(),
         _factory
     );
-    _deployer.setVaultProxy(vaultProxy);
-    _deployer.setVaultImplementation(vaultImpl);
+    _deployer.setVaultProxy(vault);
 }
 
 function _deployVault(
@@ -245,22 +242,23 @@ function _deployVault(
     ERC20 _underlying,
     address _governor,
     VaultFactory _factory
-) returns (Vault, Vault) {
+) returns (Vault) {
     require(address(_auth) != address(0), "deployVault::Auth Not Set");
     require(address(_underlying) != address(0), "token Not Set");
     require(_governor != address(0), "gov Not Set");
 
-    Vault implementation = new Vault();
-    _factory.setImplementation(address(implementation));
-    return (
+    /// @dev TODO don't do this if we don't need to
+    if (_factory.getImplementation() == address(0)) {
+        _factory.setImplementation(address(new Vault()));
+    }
+
+    return
         _factory.deployVault(
             address(_underlying),
             address(_auth),
             _governor,
             _governor
-        ),
-        implementation
-    );
+        );
 }
 
 function deployXChainHub(Deployer _deployer) {
@@ -269,7 +267,6 @@ function deployXChainHub(Deployer _deployer) {
         address(_deployer.lzEndpoint()) != address(0),
         "Not set lz endpoint"
     );
-    require(_deployer.refundAddress() != address(0), "Not set refund address");
 
     XChainHubSingle hub = new XChainHubSingle(
         address(_deployer.router()),
@@ -366,7 +363,6 @@ contract DeployerState {
 
     VaultFactory public vaultFactory;
     Vault public vaultProxy;
-    Vault public vaultImpl;
 
     XChainHubSingle public hub;
 
@@ -453,6 +449,7 @@ contract Deployer is DeployerState {
         GOV_CAPABILITIES.push("withdrawFromStrategy(address,uint256)");
     }
 
+    /// @dev we might want to set all of these as gov only
     function setPubCapabilitiesArray() internal {
         PUBLIC_CAPABILITIES.push("deposit(address,uint256)");
         PUBLIC_CAPABILITIES.push("enterBatchBurn(uint256)");
@@ -520,14 +517,6 @@ contract Deployer is DeployerState {
         notZeroAddress(address(_proxy))
     {
         vaultProxy = _proxy;
-    }
-
-    function setVaultImplementation(Vault _impl)
-        public
-        isTrustedUser(msg.sender)
-        notZeroAddress(address(_impl))
-    {
-        vaultImpl = _impl;
     }
 
     function setXChainHub(XChainHubSingle _hub)
@@ -749,7 +738,6 @@ function _initIgnoreAddresses(
     _ignoreAddresses[address(_deployer.refundAddress())] = true;
     _ignoreAddresses[address(_deployer.auth())] = true;
     _ignoreAddresses[address(_deployer.vaultFactory())] = true;
-    _ignoreAddresses[address(_deployer.vaultImpl())] = true;
     _ignoreAddresses[address(_deployer.vaultProxy())] = true;
     _ignoreAddresses[address(_deployer.vaultFactory().owner())] = true;
     _ignoreAddresses[address(_deployer.hub())] = true;

@@ -204,7 +204,6 @@ contract E2ETestSingle is PRBTest {
 
         assertNotEq(address(srcDeployer.vaultProxy()), address(0));
         assertNotEq(address(srcDeployer.vaultFactory()), address(0));
-        assertNotEq(address(srcDeployer.vaultImpl()), address(0));
 
         assertNotEq(address(srcDeployer.auth()), address(0));
         assertNotEq(address(srcDeployer.hub()), address(0));
