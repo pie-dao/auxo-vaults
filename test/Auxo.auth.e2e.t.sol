@@ -228,17 +228,28 @@ contract E2EAuthTest is PRBTest {
         vm.stopPrank();
     }
 
-    function testPublicCanAccessPublicFunctions(address _notGov, uint256 _amt)
-        public
-    {
+    function testDepositorCanAccessDepositorFunctions(
+        address _notGov,
+        uint256 _amt
+    ) public {
         vm.assume(_amt < MAX_INT);
         vm.assume(_notGov != governor);
         Vault proxy = deployer.vaultProxy();
+
+        vm.startPrank(governor);
+
+        deployer.auth().setUserRole(_notGov, deployer.DEPOSITOR_ROLE(), true);
+
+        vm.stopPrank();
+
+        vm.startPrank(_notGov);
 
         (bool success, bytes memory data) = address(proxy).call(
             abi.encodeWithSignature("deposit(address,uint256)", _notGov, _amt)
         );
         _checkCallFailsDespiteAuthorized(success, data);
+
+        vm.stopPrank();
     }
 
     function testGovHasCorrectRoles(address _notGov) public {

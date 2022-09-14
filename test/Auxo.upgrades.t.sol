@@ -197,8 +197,16 @@ contract E2ETestSingle is PRBTest {
         IERC20 token = srcDeployer.underlying();
 
         /// @dev you need to do this on both chains
-        srcDeployer.prepareDeposit(dstChainId, address(dstDeployer.hub()));
-        dstDeployer.prepareDeposit(srcChainId, address(srcDeployer.hub()));
+        srcDeployer.prepareDeposit(
+            dstChainId,
+            address(dstDeployer.hub()),
+            _depositor
+        );
+        dstDeployer.prepareDeposit(
+            srcChainId,
+            address(srcDeployer.hub()),
+            _depositor
+        );
 
         token.transfer(_depositor, token.balanceOf(address(this)));
 

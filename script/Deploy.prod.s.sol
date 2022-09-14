@@ -41,14 +41,6 @@ contract DeployArbitrumProduction is Script, Deploy {
     }
 }
 
-contract DeployArbitrumProductionSingle is Script, Deploy {
-    constructor() Setup(getChains().arbitrum) {}
-
-    function run() public {
-        _runSetup();
-    }
-}
-
 contract DeployOptimismProduction is Script, Deploy {
     constructor() Setup(getChains().optimism) {}
 
@@ -65,14 +57,6 @@ contract DeployPolygonProduction is Script, Deploy {
     }
 }
 
-contract DeployPolygonProductionSingle is Script, Deploy {
-    constructor() Setup(getChains().polygon) {}
-
-    function run() public {
-        _runSetup();
-    }
-}
-
 /// @dev prepare must be run on both chains to make XChaindeposits
 contract DepositPreparePolygonToArbitrumProd is Script, Env {
     uint256 userDepositLimit = 2000 * (10**6);
@@ -82,11 +66,13 @@ contract DepositPreparePolygonToArbitrumProd is Script, Env {
     uint16 dstChainId = getChains().arbitrum.id;
 
     function run() public {
+        require(depositor != address(0), "whitelist a depositor");
         vm.startBroadcast(srcGovernor);
         prepareDeposit(
             srcDeployer,
             dstHub,
             dstChainId,
+            depositor,
             userDepositLimit,
             vaultDepositLimit
         );
@@ -107,6 +93,7 @@ contract DepositPrepareAritrumToPolygonProd is Script, Env {
             srcDeployer,
             dstHub,
             dstChainId,
+            depositor,
             userDepositLimit,
             vaultDepositLimit
         );

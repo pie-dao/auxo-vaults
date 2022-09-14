@@ -107,7 +107,7 @@ contract DepositPrepareOptimismToArbitrumTest is Script, Env {
 
     function run() public {
         vm.startBroadcast(srcGovernor);
-        prepareDeposit(srcDeployer, dstHub, dstChainId);
+        prepareDeposit(srcDeployer, dstHub, dstChainId, depositor);
 
         vm.stopBroadcast();
     }
@@ -121,7 +121,7 @@ contract DepositPrepareArbitrumToOptimismTest is Script, Env {
 
     function run() public {
         vm.startBroadcast(srcGovernor);
-        prepareDeposit(srcDeployer, dstHub, dstChainId);
+        prepareDeposit(srcDeployer, dstHub, dstChainId, depositor);
         vm.stopBroadcast();
     }
 }
@@ -133,7 +133,7 @@ contract DepositPrepareArbitrumToAvaxTest is Script, Env {
 
     function run() public {
         vm.startBroadcast(srcGovernor);
-        prepareDeposit(srcDeployer, dstHub, dstChainId);
+        prepareDeposit(srcDeployer, dstHub, dstChainId, depositor);
         vm.stopBroadcast();
     }
 }
@@ -145,7 +145,7 @@ contract DepositPrepareAvaxToArbitrumTest is Script, Env {
 
     function run() public {
         vm.startBroadcast(srcGovernor);
-        prepareDeposit(srcDeployer, dstHub, dstChainId);
+        prepareDeposit(srcDeployer, dstHub, dstChainId, depositor);
         vm.stopBroadcast();
     }
 }
@@ -157,7 +157,7 @@ contract DepositPrepareAvaxToFTMTest is Script, Env {
 
     function run() public {
         vm.startBroadcast(srcGovernor);
-        prepareDeposit(srcDeployer, dstHub, dstChainId);
+        prepareDeposit(srcDeployer, dstHub, dstChainId, depositor);
         vm.stopBroadcast();
     }
 }
@@ -169,7 +169,7 @@ contract DepositPrepareFTMToAvaxTest is Script, Env {
 
     function run() public {
         vm.startBroadcast(srcGovernor);
-        prepareDeposit(srcDeployer, dstHub, dstChainId);
+        prepareDeposit(srcDeployer, dstHub, dstChainId, depositor);
         vm.stopBroadcast();
     }
 }
@@ -181,7 +181,7 @@ contract DepositPrepareFTMToArbitrumTest is Script, Env {
 
     function run() public {
         vm.startBroadcast(srcGovernor);
-        prepareDeposit(srcDeployer, dstHub, dstChainId);
+        prepareDeposit(srcDeployer, dstHub, dstChainId, depositor);
         vm.stopBroadcast();
     }
 }
@@ -193,7 +193,7 @@ contract DepositPrepareArbitrumToFTMTest is Script, Env {
 
     function run() public {
         vm.startBroadcast(srcGovernor);
-        prepareDeposit(srcDeployer, dstHub, dstChainId);
+        prepareDeposit(srcDeployer, dstHub, dstChainId, depositor);
         vm.stopBroadcast();
     }
 }

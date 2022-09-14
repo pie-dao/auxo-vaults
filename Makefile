@@ -453,7 +453,7 @@ deploy-optimism-fork :; forge script script/Deploy.s.sol:DeployOptimismProductio
 	--private-key ${GOVERNOR_PRIVATE_KEY} \
 	--fork-url http://127.0.0.1:${PORT_OPTIMISM}
 
-deploy-polygon-fork :; forge script script/Deploy.s.sol:DeployPolygonProduction \
+deploy-polygon-fork :; forge script DeployPolygonProduction \
 	-vvvv \
 	--broadcast \
 	--private-key ${GOVERNOR_PRIVATE_KEY} \
@@ -497,6 +497,11 @@ xchain-deposit-polygon-arbitrum-fork :; forge script XChainDepositPolygonToArbit
 	--broadcast \
 	--private-key ${GOVERNOR_PRIVATE_KEY} \
 	--fork-url http://127.0.0.1:${PORT_POLYGON}
+
+set-exiting-arbitrum-fork :; forge script SetExitingArbitrumProd \
+	--broadcast \
+	--private-key ${GOVERNOR_PRIVATE_KEY} \
+	--fork-url http://127.0.0.1:${PORT_ARBITRUM}
 
 
 ### DOCTOR ASSERTS ###

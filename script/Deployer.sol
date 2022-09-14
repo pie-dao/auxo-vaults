@@ -356,6 +356,7 @@ function deployXChainStrategy(
 contract DeployerState {
     mapping(address => bool) trustedUsers;
     uint8 public constant GOV_ROLE = 0;
+    uint8 public constant DEPOSITOR_ROLE = 1;
 
     address public governor;
     address public strategist;
@@ -378,6 +379,7 @@ contract DeployerState {
 
     string[] public GOV_CAPABILITIES;
     string[] public PUBLIC_CAPABILITIES;
+    string[] public DEPOSITOR_CAPABILITIES;
 }
 
 /// @notice collect the deployment actions and data into a single class
@@ -407,8 +409,8 @@ contract Deployer is DeployerState {
         setGovernor(_i.governor);
         setStrategist(_i.strategist);
         setGovCapabilitiesArray();
+        setDepositorCapabilitiesArray();
         setPubCapabilitiesArray();
-        emit Deployed(address(this));
     }
 
     modifier isTrustedUser(address _user) {
@@ -427,6 +429,10 @@ contract Deployer is DeployerState {
 
     function pub_capabilities() external view returns (string[] memory) {
         return PUBLIC_CAPABILITIES;
+    }
+
+    function depositor_capabilities() external view returns (string[] memory) {
+        return DEPOSITOR_CAPABILITIES;
     }
 
     function setGovCapabilitiesArray() internal {
@@ -449,11 +455,14 @@ contract Deployer is DeployerState {
         GOV_CAPABILITIES.push("withdrawFromStrategy(address,uint256)");
     }
 
-    /// @dev we might want to set all of these as gov only
     function setPubCapabilitiesArray() internal {
-        PUBLIC_CAPABILITIES.push("deposit(address,uint256)");
-        PUBLIC_CAPABILITIES.push("enterBatchBurn(uint256)");
-        PUBLIC_CAPABILITIES.push("exitBatchBurn()");
+        /// @dev for now, we require whitelisted depositors
+    }
+
+    function setDepositorCapabilitiesArray() internal {
+        DEPOSITOR_CAPABILITIES.push("deposit(address,uint256)");
+        DEPOSITOR_CAPABILITIES.push("enterBatchBurn(uint256)");
+        DEPOSITOR_CAPABILITIES.push("exitBatchBurn()");
     }
 
     function setTrustedUser(address _user, bool _trusted)
@@ -544,8 +553,8 @@ contract Deployer is DeployerState {
         return bytes4(_hash);
     }
 
-    function _setGovernorCapability(string memory sigString) internal {
-        bytes4 signature = getContractSignature(sigString);
+    function _setGovernorCapability(string memory signatureString) internal {
+        bytes4 signature = getContractSignature(signatureString);
         auth.setRoleCapability(GOV_ROLE, signature, true);
     }
 
@@ -554,10 +563,18 @@ contract Deployer is DeployerState {
         auth.setPublicCapability(signature, true);
     }
 
+    function _setDepositorCapability(string memory signatureString) internal {
+        bytes4 signature = getContractSignature(signatureString);
+        auth.setRoleCapability(DEPOSITOR_ROLE, signature, true);
+    }
+
     function _setCapabilities() internal {
         require(address(auth) != address(0), "set capabilities::Auth not set");
         for (uint256 i = 0; i < PUBLIC_CAPABILITIES.length; i++) {
             _setPublicCapability(PUBLIC_CAPABILITIES[i]);
+        }
+        for (uint256 i = 0; i < DEPOSITOR_CAPABILITIES.length; i++) {
+            _setDepositorCapability(DEPOSITOR_CAPABILITIES[i]);
         }
         for (uint256 i = 0; i < GOV_CAPABILITIES.length; i++) {
             _setGovernorCapability(GOV_CAPABILITIES[i]);
@@ -580,11 +597,12 @@ contract Deployer is DeployerState {
         _setCapabilities();
     }
 
-    function prepareDeposit(uint16 _dstChainId, address _dstHub)
-        external
-        isTrustedUser(msg.sender)
-    {
-        _prepareVault();
+    function prepareDeposit(
+        uint16 _dstChainId,
+        address _dstHub,
+        address _depositor
+    ) external isTrustedUser(msg.sender) {
+        _prepareVault(_depositor);
         _prepareHub(_dstChainId, _dstHub);
     }
 
@@ -594,10 +612,16 @@ contract Deployer is DeployerState {
         return (decimals, baseUnit);
     }
 
-    function _prepareVault() internal {
+    function _prepareVault(address _depositor) internal {
         // unpause the vault
         if (vaultProxy.paused()) vaultProxy.triggerPause();
         (, uint256 baseUnit) = getUnits();
+
+        // whitelist the hub for deposits
+        auth.setUserRole(address(hub), DEPOSITOR_ROLE, true);
+
+        // allow the selected depositor
+        auth.setUserRole(_depositor, DEPOSITOR_ROLE, true);
 
         vaultProxy.setDepositLimits(20_000 * baseUnit, 100_000 * baseUnit);
         vaultProxy.trustStrategy(IStrategy(address(strategy)));
@@ -622,6 +646,11 @@ function _setGovernorCapability(Deployer _d, string memory sigString) {
     _d.auth().setRoleCapability(_d.GOV_ROLE(), signature, true);
 }
 
+function _setDepositorCapability(Deployer _d, string memory signatureString) {
+    bytes4 signature = _d.getContractSignature(signatureString);
+    _d.auth().setRoleCapability(_d.DEPOSITOR_ROLE(), signature, true);
+}
+
 function _setPublicCapability(Deployer _d, string memory signatureString) {
     bytes4 signature = _d.getContractSignature(signatureString);
     _d.auth().setPublicCapability(signature, true);
@@ -629,10 +658,17 @@ function _setPublicCapability(Deployer _d, string memory signatureString) {
 
 function _setCapabilities(Deployer _d) {
     require(address(_d.auth()) != address(0), "set capabilities::Auth not set");
+
     string[] memory PUBLIC_CAPABILITIES = _d.pub_capabilities();
     for (uint256 i = 0; i < PUBLIC_CAPABILITIES.length; i++) {
         _setPublicCapability(_d, PUBLIC_CAPABILITIES[i]);
     }
+
+    string[] memory DEPOSITOR_CAPABILITIES = _d.depositor_capabilities();
+    for (uint256 i = 0; i < DEPOSITOR_CAPABILITIES.length; i++) {
+        _setDepositorCapability(_d, DEPOSITOR_CAPABILITIES[i]);
+    }
+
     string[] memory GOV_CAPABILITIES = _d.gov_capabilities();
     for (uint256 i = 0; i < GOV_CAPABILITIES.length; i++) {
         _setGovernorCapability(_d, GOV_CAPABILITIES[i]);
@@ -656,9 +692,10 @@ function setupRoles(Deployer _d, bool _transferOwnership) {
 function prepareDeposit(
     Deployer _srcDeployer,
     address _dstHub,
-    uint16 _dstChainId
+    uint16 _dstChainId,
+    address _depositor
 ) {
-    _prepareVault(_srcDeployer);
+    _prepareVault(_srcDeployer, _depositor);
     _prepareHub(_srcDeployer, _dstHub, _dstChainId);
 }
 
@@ -667,10 +704,16 @@ function prepareDeposit(
     Deployer _srcDeployer,
     address _dstHub,
     uint16 _dstChainId,
+    address _depositor,
     uint256 _userDepositLimits,
     uint256 _vaultDepositLimits
 ) {
-    _prepareVault(_srcDeployer, _userDepositLimits, _vaultDepositLimits);
+    _prepareVault(
+        _srcDeployer,
+        _depositor,
+        _userDepositLimits,
+        _vaultDepositLimits
+    );
     _prepareHub(_srcDeployer, _dstHub, _dstChainId);
 }
 
@@ -680,18 +723,30 @@ function getUnits(Deployer _d) view returns (uint8, uint256) {
     return (decimals, baseUnit);
 }
 
-/// @dev overloaded below
-function _prepareVault(Deployer _d) {
+function _activateVaultForDeposits(Deployer _d, address _depositor) {
     // unpause the vault
     if (_d.vaultProxy().paused()) _d.vaultProxy().triggerPause();
+
+    // whitelist the hub for deposits
+    _d.auth().setUserRole(address(_d.hub()), _d.DEPOSITOR_ROLE(), true);
+
+    // allow the selected depositor
+    _d.auth().setUserRole(_depositor, _d.DEPOSITOR_ROLE(), true);
+
+    _d.vaultProxy().trustStrategy(IStrategy(address(_d.strategy())));
+}
+
+/// @dev overloaded below
+function _prepareVault(Deployer _d, address _depositor) {
+    _activateVaultForDeposits(_d, _depositor);
     (, uint256 baseUnit) = getUnits(_d);
     _d.vaultProxy().setDepositLimits(10_000 * baseUnit, 20_000 * baseUnit);
-    _d.vaultProxy().trustStrategy(IStrategy(address(_d.strategy())));
 }
 
 /// @dev overloaded from above
 function _prepareVault(
     Deployer _d,
+    address _depositor,
     uint256 _userDepositLimits,
     uint256 _vaultDepositLimits
 ) {
@@ -699,10 +754,8 @@ function _prepareVault(
         _userDepositLimits < _vaultDepositLimits,
         "PrepareVault::USER DEPOSIT LIMITS TOO HIGH"
     );
-    // unpause the vault
-    if (_d.vaultProxy().paused()) _d.vaultProxy().triggerPause();
+    _activateVaultForDeposits(_d, _depositor);
     _d.vaultProxy().setDepositLimits(_userDepositLimits, _vaultDepositLimits);
-    _d.vaultProxy().trustStrategy(IStrategy(address(_d.strategy())));
 }
 
 function _prepareHub(
