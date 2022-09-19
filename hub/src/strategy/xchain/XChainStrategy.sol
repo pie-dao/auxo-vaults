@@ -14,8 +14,8 @@
 pragma solidity ^0.8.12;
 
 import {XChainHub} from "@hub/XChainHub.sol";
-import {BaseStrategy} from "@hub/strategy/BaseStrategy.sol";
-import {XChainStrategyEvents} from "@hub/strategy/XChainStrategyEvents.sol";
+import {BaseStrategy} from "@hub/strategy/xchain/BaseStrategy.sol";
+import {XChainStrategyEvents} from "@hub/strategy/xchain/XChainStrategyEvents.sol";
 import {CallFacet} from "@hub/CallFacet.sol";
 
 import {IVault} from "@interfaces/IVault.sol";
