@@ -135,7 +135,7 @@ abstract contract XChainHubSrc is
                 abi.encode(message),
                 _refundAddress,
                 address(0), // zro address (not used)
-                abi.encodePacked(uint8(1), _dstGas) // version 1 only accepts dstGas
+                abi.encodePacked(uint16(1), _dstGas) // version 1 only accepts dstGas
             );
 
             emit UnderlyingReported(_dstChains[i], amountToReport, _strats[i]);
@@ -253,7 +253,7 @@ abstract contract XChainHubSrc is
             abi.encode(message),
             _refundAddress,
             address(0), // ZRO address (not implemented)
-            abi.encodePacked(uint8(1), _dstGas) // version 1 only accepts dstGas
+            abi.encodePacked(uint16(1), _dstGas) // version 1 only accepts dstGas
         );
 
         emit WithdrawRequested(

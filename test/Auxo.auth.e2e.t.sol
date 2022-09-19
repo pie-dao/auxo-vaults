@@ -8,8 +8,7 @@ import {PRBTest} from "@prb/test/PRBTest.sol";
 
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {ERC20} from "@oz/token/ERC20/ERC20.sol";
-import {TransparentUpgradeableProxy} from
-    "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 import {AuxoTest} from "@hub-test/mocks/MockERC20.sol";
 
@@ -18,8 +17,7 @@ import {XChainHub} from "@hub/XChainHub.sol";
 import {XChainHubSingle} from "@hub/XChainHubSingle.sol";
 import {Vault} from "@vaults/Vault.sol";
 import {VaultFactory} from "@vaults/factory/VaultFactory.sol";
-import {MultiRolesAuthority} from
-    "@vaults/auth/authorities/MultiRolesAuthority.sol";
+import {MultiRolesAuthority} from "@vaults/auth/authorities/MultiRolesAuthority.sol";
 import {Authority} from "@vaults/auth/Auth.sol";
 
 import {IVault} from "@interfaces/IVault.sol";
@@ -30,8 +28,7 @@ import "../script/Deployer.sol";
 import "../utils/error.sol";
 
 // Vault deposits will fail for uints larger than this
-uint256 constant MAX_INT =
-    115_792_089_237_316_195_423_570_985_008_687_907_853_269_984_665_640_564_039_458;
+uint256 constant MAX_INT = 115_792_089_237_316_195_423_570_985_008_687_907_853_269_984_665_640_564_039_458;
 
 /// @notice dedicated tests for auth sigs, a thing you REALLY don't want to get wrong
 contract E2EAuthTest is PRBTest {
@@ -45,7 +42,8 @@ contract E2EAuthTest is PRBTest {
     IStargateRouter private srcRouter;
     address private governor = 0x3ec2f6f9B88a532a9A1B67Ce40A01DC49C6E0039;
     address private strategist = 0xeB959af810FEC83dE7021A77906ab3d9fDe567B1;
-    address private srcFeeCollector = 0xB50c633C6B0541ccCe0De36A57E7b30550CE51Ec;
+    address private srcFeeCollector =
+        0xB50c633C6B0541ccCe0De36A57E7b30550CE51Ec;
 
     uint16 private srcChainId = 10_001;
     bool constant deploySingle = false;
@@ -54,8 +52,11 @@ contract E2EAuthTest is PRBTest {
         sharedToken = new AuxoTest();
         loadSigs();
 
-        (srcRouter, srcToken) =
-            deployExternal(srcChainId, srcFeeCollector, sharedToken);
+        (srcRouter, srcToken) = deployExternal(
+            srcChainId,
+            srcFeeCollector,
+            sharedToken
+        );
 
         vm.startPrank(governor);
         deployer = deployAuthAndDeployer(
@@ -74,7 +75,7 @@ contract E2EAuthTest is PRBTest {
 
         vm.startPrank(address(deployer));
         // we only have one chain in this example so we set chainId as 0
-        deployVaultHubStrat(deployer, deploySingle, 0);
+        deployVaultHubStrat(deployer, 0, "TEST");
         deployer.vaultFactory().transferOwnership(governor);
         deployer.auth().setOwner(governor);
         vm.stopPrank();
@@ -227,17 +228,28 @@ contract E2EAuthTest is PRBTest {
         vm.stopPrank();
     }
 
-    function testPublicCanAccessPublicFunctions(address _notGov, uint256 _amt)
-        public
-    {
+    function testDepositorCanAccessDepositorFunctions(
+        address _notGov,
+        uint256 _amt
+    ) public {
         vm.assume(_amt < MAX_INT);
         vm.assume(_notGov != governor);
         Vault proxy = deployer.vaultProxy();
+
+        vm.startPrank(governor);
+
+        deployer.auth().setUserRole(_notGov, deployer.DEPOSITOR_ROLE(), true);
+
+        vm.stopPrank();
+
+        vm.startPrank(_notGov);
 
         (bool success, bytes memory data) = address(proxy).call(
             abi.encodeWithSignature("deposit(address,uint256)", _notGov, _amt)
         );
         _checkCallFailsDespiteAuthorized(success, data);
+
+        vm.stopPrank();
     }
 
     function testGovHasCorrectRoles(address _notGov) public {

@@ -70,8 +70,6 @@ abstract contract LayerZeroApp is
         _lzReceive(srcChainId, srcAddress, nonce, payload);
     }
 
-    /// @dev - interesting function here, pass control flow to attacker
-    /// even if the payload is fixed.
     function retryMessage(
         uint16 srcChainId,
         bytes memory srcAddress,
@@ -151,19 +149,15 @@ abstract contract LayerZeroApp is
         address _zroPaymentAddress,
         bytes memory _adapterParams
     ) internal virtual {
-        // dst chain comes from the array
-        // when it arrives
         bytes memory trustedRemote = trustedRemoteLookup[_dstChainId];
 
-        // this is all good
         require(
             trustedRemote.length != 0,
             "LayerZeroApp::lzSend:UNTRUSTED DESTINATION"
         );
 
         layerZeroEndpoint.send{value: msg.value}(
-            _dstChainId, // this is okay
-            // this is pulled from the trustedRemoteLookup - if sending from dstHub, we expect it to be srcHub
+            _dstChainId,
             trustedRemote,
             _payload,
             _refundAddress,

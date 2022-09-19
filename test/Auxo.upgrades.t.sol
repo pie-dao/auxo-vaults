@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity ^0.8.12;
 
-pragma abicoder v2;
-
 import "@std/console.sol";
 import {PRBTest} from "@prb/test/PRBTest.sol";
 
@@ -26,6 +24,7 @@ import {IStargateRouter} from "@interfaces/IStargateRouter.sol";
 import {IHubPayload} from "@interfaces/IHubPayload.sol";
 
 import "../script/Deployer.sol";
+import "../script/upgrades/UpgradeHub.sol";
 
 contract E2ETestSingle is PRBTest {
     /// keep one token to make testing easier
@@ -193,44 +192,6 @@ contract E2ETestSingle is PRBTest {
         /// @dev ----- END -------
     }
 
-    function testSetupNonZeroAddresses() public {
-        assertNotEq(srcDeployer.governor(), address(0));
-        assertNotEq(srcDeployer.strategist(), address(0));
-        assertNotEq(srcDeployer.refundAddress(), address(0));
-        assertNotEq(srcDeployer.chainId(), 0);
-
-        assertNotEq(srcDeployer.lzEndpoint(), address(0));
-        assertNotEq(address(srcDeployer.router()), address(0));
-
-        assertNotEq(address(srcDeployer.vaultProxy()), address(0));
-        assertNotEq(address(srcDeployer.vaultFactory()), address(0));
-
-        assertNotEq(address(srcDeployer.auth()), address(0));
-        assertNotEq(address(srcDeployer.hub()), address(0));
-        assertNotEq(address(srcDeployer.strategy()), address(0));
-        assertNotEq(address(srcDeployer.underlying()), address(0));
-    }
-
-    function testSetupOwnershipSetCorrectly() public {
-        assertEq(srcDeployer.vaultFactory().owner(), address(srcDeployer));
-        assertEq(srcDeployer.auth().owner(), address(srcDeployer));
-        assertEq(srcDeployer.hub().owner(), address(srcDeployer));
-    }
-
-    function testAdditionalRolesSetCorrectly() public {
-        assertEq(srcDeployer.strategy().manager(), srcGovernor);
-        assertEq(srcDeployer.strategy().strategist(), srcStrategist);
-    }
-
-    function testVaultInitialisation() public {
-        Vault vault = srcDeployer.vaultProxy();
-
-        assert(vault.paused());
-        assertEq(vault.totalFloat(), 0);
-        assertEq(vault.totalUnderlying(), 0);
-        assertEq(vault.totalStrategyHoldings(), 0);
-    }
-
     function _setupDeposit(address _depositor) internal {
         IERC20 token = srcDeployer.underlying();
 
@@ -312,224 +273,78 @@ contract E2ETestSingle is PRBTest {
         vm.stopPrank();
     }
 
-    function waitAndReport(uint256 _fastForward) public {
-        /// chains to report to
-
-        uint16[] memory chainsToReport = new uint16[](1);
-        address[] memory strategiesToReport = new address[](1);
-
-        chainsToReport[0] = srcChainId;
-        strategiesToReport[0] = address(srcDeployer.strategy());
-
-        XChainHub dstHub = dstDeployer.hub();
-
-        vm.warp(_fastForward);
-
-        vm.startPrank(dstHub.owner());
-        dstHub.lz_reportUnderlying(
-            IVault(address(dstDeployer.vaultProxy())),
-            chainsToReport,
-            strategiesToReport,
-            dstDefaultGas,
-            dstDeployer.refundAddress()
-        );
-        vm.stopPrank();
-    }
-
-    function startWithdraw(uint256 _amt) internal {
-        vm.startPrank(dstDeployer.hub().owner());
-        dstDeployer.hub().setExiting(address(dstDeployer.vaultProxy()), true);
-        vm.stopPrank();
-
-        vm.startPrank(srcStrategist);
-        srcDeployer.strategy().startRequestToWithdrawUnderlying(
-            _amt,
-            dstDefaultGas,
-            srcDeployer.refundAddress(),
-            address(dstDeployer.vaultProxy())
-        );
-        vm.stopPrank();
-    }
-
-    function testDeposit(address _depositor) public {
+    function testCanSwitchHubs(address _depositor) public {
         // this already reverts erc20
         vm.assume(!ignoreAddresses[_depositor]);
 
+        XChainHubSingle dstOldHub = dstDeployer.hub();
+        Vault vault = dstDeployer.vaultProxy();
+
         uint256 depositAmount = _getAmount();
         deposit(_depositor, depositAmount);
 
-        // asserts
-        assertEq(
-            dstToken.balanceOf(address(dstDeployer.vaultProxy())),
-            depositAmount
-        );
+        uint256 balancePre = vault.balanceOf(address(dstOldHub));
+        assert(balancePre != 0);
 
-        assertEq(
-            dstDeployer.vaultProxy().balanceOf(address(dstDeployer.hub())),
-            depositAmount
-        );
-
-        assertEq(srcToken.balanceOf(address(srcDeployer.strategy())), 0);
-        assertEq(srcToken.balanceOf(address(srcDeployer.hub())), 0);
-        uint256 actual = dstDeployer.hub().sharesPerStrategy(
+        uint256 existingShares = dstOldHub.sharesPerStrategy(
             srcChainId,
             address(srcDeployer.strategy())
         );
-        console.log("shares", actual, "deposit", depositAmount);
-        assertEq(actual, depositAmount);
-    }
+        assert(existingShares != 0);
 
-    function testwaitAndReport(address _depositor) public {
-        vm.assume(!ignoreAddresses[_depositor]);
+        updateWithNewHub(dstDeployer, srcChainId);
 
-        uint256 depositAmount = _getAmount();
-        deposit(_depositor, depositAmount);
-        waitAndReport(block.timestamp + 6 hours);
-        XChainStrategy strategy = srcDeployer.strategy();
-        assertEq(strategy.xChainState(), strategy.DEPOSITED());
-        assertEq(strategy.xChainDeposited(), depositAmount);
-        assertEq(strategy.xChainReported(), depositAmount);
-    }
+        vm.startPrank(srcDeployer.strategy().manager());
+        updateStrategyWithNewHub(srcDeployer);
+        vm.stopPrank();
 
-    function testStartWithdraw(address _depositor) public {
-        vm.assume(!ignoreAddresses[_depositor]);
+        XChainHubSingle dstNewHub = dstDeployer.hub();
 
-        uint256 depositAmount = _getAmount();
-        deposit(_depositor, depositAmount);
-        waitAndReport(block.timestamp + 6 hours);
+        // set vault for chain
+        dstNewHub.setVaultForChain(
+            address(dstDeployer.vaultProxy()),
+            srcChainId
+        );
 
-        XChainHub dstHub = dstDeployer.hub();
-        Vault dstVault = dstDeployer.vaultProxy();
-        startWithdraw(depositAmount);
+        vm.startPrank(dstOldHub.owner());
+        transferVaultTokensToNewHub(dstDeployer, dstOldHub, dstNewHub);
+        vm.stopPrank();
 
-        assertEq(dstVault.balanceOf(address(dstHub)), 0);
-        assertEq(dstVault.balanceOf(address(dstVault)), depositAmount);
+        // update the balances
+        uint16[] memory chains = new uint16[](1);
+        chains[0] = srcChainId;
+
+        for (uint256 i; i < chains.length; i++) {
+            uint16 chain = chains[i];
+            address strat = dstNewHub.strategyForChain(chain);
+            uint256 shares = dstOldHub.sharesPerStrategy(chain, strat);
+            require(shares != 0, "Should not set 0 sps");
+            dstNewHub.setSharesPerStrategy(chain, strat, shares);
+        }
+
         assertEq(
-            dstHub.exitingSharesPerStrategy(
+            dstNewHub.sharesPerStrategy(
                 srcChainId,
                 address(srcDeployer.strategy())
             ),
-            depositAmount
+            dstOldHub.sharesPerStrategy(
+                srcChainId,
+                address(srcDeployer.strategy())
+            )
+        );
+        assertEq(vault.balanceOf(address(dstOldHub)), 0);
+        assertEq(vault.balanceOf(address(dstNewHub)), balancePre);
+        assertEq(
+            dstNewHub.vaultForChain(srcChainId),
+            dstOldHub.vaultForChain(srcChainId)
         );
         assertEq(
-            srcDeployer.strategy().xChainState(),
-            srcDeployer.strategy().WITHDRAWING()
-        );
-    }
-
-    function finalizeWithdraw() internal {
-        Vault dstVault = dstDeployer.vaultProxy();
-        XChainHub dstHub = dstDeployer.hub();
-
-        vm.startPrank(dstDeployer.governor());
-        dstVault.execBatchBurn();
-        vm.stopPrank();
-
-        vm.startPrank(dstHub.owner());
-
-        dstHub.withdrawFromVault(IVault(address(dstVault)));
-        dstHub.setExiting(address(dstVault), false);
-        dstHub.sg_finalizeWithdrawFromChain(
-            IHubPayload.SgFinalizeParams({
-                dstChainId: srcChainId,
-                vault: address(dstVault),
-                strategy: address(srcDeployer.strategy()),
-                minOutUnderlying: 0,
-                srcPoolId: 1,
-                dstPoolId: 1,
-                currentRound: dstVault.batchBurnRound(),
-                refundAddress: dstDeployer.refundAddress(),
-                dstGas: dstDefaultGas
-            })
-        );
-
-        vm.stopPrank();
-    }
-
-    function testFinalizeWithdraw(address _depositor) public {
-        vm.assume(!ignoreAddresses[_depositor]);
-
-        uint256 depositAmount = _getAmount();
-        deposit(_depositor, depositAmount);
-        waitAndReport(block.timestamp + 6 hours);
-        startWithdraw(depositAmount);
-        finalizeWithdraw();
-
-        assertEq(
-            srcDeployer.underlying().balanceOf(address(srcDeployer.hub())),
-            depositAmount
+            dstNewHub.strategyForChain(srcChainId),
+            dstOldHub.strategyForChain(srcChainId)
         );
         assertEq(
-            dstDeployer.underlying().balanceOf(address(dstDeployer.hub())),
-            0
+            dstNewHub.trustedRemoteLookup(srcChainId),
+            dstOldHub.trustedRemoteLookup(srcChainId)
         );
-        assertEq(
-            dstDeployer.underlying().balanceOf(
-                address(dstDeployer.vaultProxy())
-            ),
-            0
-        );
-    }
-
-    function withdrawToStrategy(uint256 depositAmount) internal {
-        XChainStrategy strategy = srcDeployer.strategy();
-        vm.startPrank(srcDeployer.strategist());
-        strategy.withdrawFromHub(depositAmount);
-        vm.stopPrank();
-    }
-
-    function testWithdrawBackToStrategy(address _depositor) public {
-        vm.assume(!ignoreAddresses[_depositor]);
-
-        uint256 depositAmount = _getAmount();
-        deposit(_depositor, depositAmount);
-        waitAndReport(block.timestamp + 6 hours);
-        startWithdraw(depositAmount);
-        finalizeWithdraw();
-
-        XChainStrategy strategy = srcDeployer.strategy();
-        XChainHub srcHub = srcDeployer.hub();
-        IERC20 token = srcDeployer.underlying();
-
-        withdrawToStrategy(depositAmount);
-
-        assertEq(strategy.xChainState(), strategy.DEPOSITED());
-        assertEq(strategy.xChainDeposited(), depositAmount);
-        assertEq(strategy.xChainWithdrawn(), depositAmount);
-
-        assertEq(token.balanceOf(address(strategy)), depositAmount);
-        assertEq(token.balanceOf(address(srcHub)), 0);
-
-        waitAndReport(block.timestamp + 12 hours);
-
-        assertEq(strategy.xChainState(), strategy.NOT_DEPOSITED());
-        assertEq(strategy.xChainDeposited(), 0);
-        assertEq(strategy.xChainReported(), 0);
-    }
-
-    function testWithdrawToOGVault(address _depositor) public {
-        vm.assume(!ignoreAddresses[_depositor]);
-
-        uint256 depositAmount = _getAmount();
-
-        deposit(_depositor, depositAmount);
-        waitAndReport(block.timestamp + 6 hours);
-        startWithdraw(depositAmount);
-        finalizeWithdraw();
-        withdrawToStrategy(depositAmount);
-        waitAndReport(block.timestamp + 12 hours);
-
-        Vault vault = srcDeployer.vaultProxy();
-        IERC20 token = srcDeployer.underlying();
-
-        vm.startPrank(address(srcDeployer));
-        vault.withdrawFromStrategy(
-            IStrategy(address(srcDeployer.strategy())),
-            depositAmount
-        );
-        vm.stopPrank();
-
-        assertEq(token.balanceOf(address(vault)), depositAmount);
-        assertEq(token.balanceOf(address(srcDeployer.strategy())), 0);
     }
 }

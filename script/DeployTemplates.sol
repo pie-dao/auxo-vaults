@@ -33,8 +33,8 @@ import "./Env.s.sol";
 
 /// @dev Configure here the shared logic for deploy scripts
 
-contract Deploy is Script, Env {
-    ChainConfig network;
+contract Setup is Script, Env {
+     ChainConfig network;
 
     /// *** SOURCE ***
     uint16 public srcChainId;
@@ -43,7 +43,6 @@ contract Deploy is Script, Env {
     ILayerZeroEndpoint public srcLzEndpoint;
     Deployer public srcDeployer;
     VaultFactory public srcFactory;
-    bool public single;
     
     /// @dev you might need to update these addresses
     // Anvil unlocked account
@@ -53,16 +52,19 @@ contract Deploy is Script, Env {
     address public srcRefundAddress =
         payable(0xB50c633C6B0541ccCe0De36A57E7b30550CE51Ec);
 
-    constructor(ChainConfig memory _network, bool _single) {
+    constructor(ChainConfig memory _network) {
         network = _network;
         srcChainId = network.id;
         srcToken = ERC20(network.usdc.addr);
         srcRouter = IStargateRouter(network.sg);
         srcLzEndpoint = ILayerZeroEndpoint(network.lz);
-        single = _single;
     }
+}
 
-    function _runSetup() internal {
+
+abstract contract Deploy is Script, Env, Setup {
+
+    function _runSetup(string memory _strategyName) internal {
         vm.startBroadcast(srcGovernor);
         srcDeployer = deployAuthAndDeployerNoOwnershipTransfer(
             srcChainId,
@@ -74,10 +76,42 @@ contract Deploy is Script, Env {
         );
 
         // initially deploy with a chainId of zero, this can be updated later
-        deployVaultHubStrat(srcDeployer, single, 0);
+        deployVaultHubStrat(srcDeployer, 0, _strategyName);
         vm.stopBroadcast();
     }
 }
+
+abstract contract DeployWithExistingVault is Script, Env, Setup {
+    Deployer public oldDeployer;
+
+    function _runSetup(string memory _strategyName) internal {
+        require(address(oldDeployer) != address(0), "SET OLD DEPLOYER");
+
+        vm.startBroadcast(srcGovernor);
+
+        /// @dev overloads vault factory
+        srcDeployer = deployAuthAndDeployerNoOwnershipTransfer(
+            srcChainId,
+            srcToken,
+            srcRouter,
+            network.lz,
+            srcGovernor,
+            srcStrategist,
+            oldDeployer.vaultFactory()
+        );
+
+        // initially deploy with a chainId of zero, this can be updated later
+        deployHubStratConnectVault(
+            srcDeployer, 
+            0, 
+            _strategyName,
+            oldDeployer.vaultFactory(), 
+            oldDeployer.vaultProxy()
+        );
+        vm.stopBroadcast();
+    }
+}
+
 
 interface IMintable is IERC20 {
     function mint(address _to, uint256 _amount) external;
@@ -94,6 +128,7 @@ abstract contract DepositTest is Script, Deploy {
             IMintable(address(srcToken)).mint(msg.sender, baseUnit * 1e6);
         }
         srcToken.approve(address(vault), type(uint256).max);
+        if (vault.paused()) vault.triggerPause();
         vault.deposit(srcGovernor, 1e3 * baseUnit);
     }
 }
@@ -302,16 +337,18 @@ abstract contract XChainRequestWithdraw is Script, Deploy {
 
 abstract contract XChainFinalize is Script, Deploy {
     ChainConfig dst;
-    address dstStrategy;
-    address dstHub;
 
     function _finalize() internal {
-        require(dstStrategy != address(0), "INIT Strat");
-        require(dstHub != address(0), "INIT Hub");
 
         Vault vault = srcDeployer.vaultProxy();
         uint256 amt = 999 * (10 ** vault.underlying().decimals());
         uint256 min = (amt * 99) / 100;
+
+        XChainHubSingle srcHub = srcDeployer.hub(); 
+        bytes memory dstHub = srcHub.trustedRemoteLookup(dst.id);
+        address dstStrategy = srcHub.strategyForChain(dst.id);
+
+        require(dstStrategy != address(0) && dstHub.length != 0, "Missing destination data");
 
         IHubPayload.Message memory message = IHubPayload.Message({
             action: srcDeployer.hub().FINALIZE_WITHDRAW_ACTION(),
@@ -336,7 +373,7 @@ abstract contract XChainFinalize is Script, Deploy {
         );
         console.log("Fee Estimate", feeEstimate);
 
-        srcDeployer.hub().sg_finalizeWithdrawFromChain{value: feeEstimate}(
+        srcHub.sg_finalizeWithdrawFromChain{value: feeEstimate}(
             IHubPayload.SgFinalizeParams({
                 dstChainId: dst.id,
                 vault: address(vault),
@@ -351,3 +388,5 @@ abstract contract XChainFinalize is Script, Deploy {
         );
     }
 }
+
+

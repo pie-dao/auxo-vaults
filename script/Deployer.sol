@@ -16,12 +16,10 @@ import {XChainHubSingle} from "@hub/XChainHubSingle.sol";
 import {Vault} from "@vaults/Vault.sol";
 import {VaultFactory} from "@vaults/factory/VaultFactory.sol";
 
-import {MultiRolesAuthority} from
-    "@vaults/auth/authorities/MultiRolesAuthority.sol";
+import {MultiRolesAuthority} from "@vaults/auth/authorities/MultiRolesAuthority.sol";
 import {Authority} from "@vaults/auth/Auth.sol";
 
 import {IVault} from "@interfaces/IVault.sol";
-/// must be the correct iface
 import {IStrategy} from "@vault-interfaces/IStrategy.sol";
 import {IStargateRouter} from "@interfaces/IStargateRouter.sol";
 import {ILayerZeroEndpoint} from "@interfaces/ILayerZeroEndpoint.sol";
@@ -70,9 +68,7 @@ function deployAuthAndDeployer(
     address _lzEndpoint,
     address _governor,
     address _strategist
-)
-    returns (Deployer)
-{
+) returns (Deployer) {
     VaultFactory factory = new VaultFactory();
 
     // We deploy these outside the srcDeployer because these components will exist already
@@ -103,11 +99,9 @@ function deployAuthAndDeployerNoOwnershipTransfer(
     ERC20 _token,
     IStargateRouter _router,
     address _lzEndpoint,
-    address _governor,
+    address _governor, // hub owner, vault governor, strategy manager
     address _strategist
-)
-    returns (Deployer)
-{
+) returns (Deployer) {
     VaultFactory factory = new VaultFactory();
 
     // We deploy these outside the srcDeployer because these components will exist already
@@ -130,17 +124,74 @@ function deployAuthAndDeployerNoOwnershipTransfer(
     return deployer;
 }
 
-function deployVaultHubStrat(Deployer _deployer, bool _single, uint16 _dstChainId) {
+/// @notice overload and pass the vault factory
+function deployAuthAndDeployerNoOwnershipTransfer(
+    uint16 _chainId,
+    ERC20 _token,
+    IStargateRouter _router,
+    address _lzEndpoint,
+    address _governor,
+    address _strategist,
+    VaultFactory _factory
+) returns (Deployer) {
+    // We deploy these outside the srcDeployer because these components will exist already
+    // initial deploys are set in the constructor
+    Deployer deployer = new Deployer(
+        Deployer.ConstructorInput({
+            underlying: address(_token),
+            router: address(_router),
+            lzEndpoint: address(_lzEndpoint),
+            governor: _governor,
+            strategist: _strategist,
+            vaultFactory: _factory,
+            chainId: _chainId
+        })
+    );
+
+    deployAuth(deployer, _governor);
+    setupRoles(deployer, true);
+
+    return deployer;
+}
+
+function deployVaultHubStrat(
+    Deployer _deployer,
+    uint16 _dstChainId,
+    string memory _strategyName
+) {
     deployVault(_deployer);
-    deployXChainHub(_deployer, _single);
-    deployXChainStrategy(_deployer, "TEST", _dstChainId);
+    deployXChainHub(_deployer);
+    deployXChainStrategy(_deployer, _strategyName, _dstChainId);
+}
+
+function deployHubStratConnectVault(
+    Deployer _deployer,
+    uint16 _dstChainId,
+    string memory _strategyName,
+    VaultFactory _factory,
+    Vault _vaultProxy
+) {
+    _updateDeployerWithVault(_deployer, _factory, _vaultProxy);
+    deployXChainHub(_deployer);
+    deployXChainStrategy(_deployer, _strategyName, _dstChainId);
+}
+
+function _updateDeployerWithVault(
+    Deployer _deployer,
+    VaultFactory _factory,
+    Vault _vaultProxy
+) {
+    _deployer.setFactory(_factory);
+    _deployer.setVaultProxy(_vaultProxy);
 }
 
 /// @notice deploys components before
 /// @param _chainId of the chain the router is deployed on (used as srcChainId)
-function deployExternal(uint16 _chainId, address _feeCollector, ERC20 token)
-    returns (IStargateRouter, ERC20)
-{
+function deployExternal(
+    uint16 _chainId,
+    address _feeCollector,
+    ERC20 token
+) returns (IStargateRouter, ERC20) {
     StargateRouterMock mockRouter = new StargateRouterMock(
         _chainId,
         _feeCollector
@@ -165,26 +216,24 @@ function deployExternal(uint16 _chainId, address _feeCollector)
 function deployVault(Deployer _deployer) {
     VaultFactory factory = _deployer.vaultFactory();
     require(address(factory) != address(0), "Did not set factory");
-    (Vault vaultProxy, Vault vaultImpl) = _deployVault(
+    Vault vault = _deployVault(
         _deployer.auth(),
         ERC20(address(_deployer.underlying())),
         _deployer.governor(),
         factory
     );
-    _deployer.setVaultProxy(vaultProxy);
-    _deployer.setVaultImplementation(vaultImpl);
+    _deployer.setVaultProxy(vault);
 }
 
 /// @notice deploy a vault with an existing factory
 function deployVault(Deployer _deployer, VaultFactory _factory) {
-    (Vault vaultProxy, Vault vaultImpl) = _deployVault(
+    Vault vault = _deployVault(
         _deployer.auth(),
         ERC20(address(_deployer.underlying())),
         _deployer.governor(),
         _factory
     );
-    _deployer.setVaultProxy(vaultProxy);
-    _deployer.setVaultImplementation(vaultImpl);
+    _deployer.setVaultProxy(vault);
 }
 
 function _deployVault(
@@ -192,49 +241,53 @@ function _deployVault(
     ERC20 _underlying,
     address _governor,
     VaultFactory _factory
-)
-    returns (Vault, Vault)
-{
+) returns (Vault) {
     require(address(_auth) != address(0), "deployVault::Auth Not Set");
     require(address(_underlying) != address(0), "token Not Set");
     require(_governor != address(0), "gov Not Set");
 
-    Vault implementation = new Vault();
-    _factory.setImplementation(address(implementation));
-    return (
-        _factory.deployVault(address(_underlying), address(_auth), _governor, _governor),
-        implementation
-    );
+    /// @dev TODO don't do this if we don't need to
+    if (_factory.getImplementation() == address(0)) {
+        _factory.setImplementation(address(new Vault()));
+    }
+
+    return
+        _factory.deployVault(
+            address(_underlying),
+            address(_auth),
+            _governor,
+            _governor
+        );
 }
 
-function deployXChainHub(Deployer _deployer, bool _single) {
+function deployXChainHub(Deployer _deployer) {
     require(address(_deployer.router()) != address(0), "Not set sg endpoint");
     require(
-        address(_deployer.lzEndpoint()) != address(0), "Not set lz endpoint"
+        address(_deployer.lzEndpoint()) != address(0),
+        "Not set lz endpoint"
     );
-    require(_deployer.refundAddress() != address(0), "Not set refund address");
 
-    XChainHub hub;
-    if (_single) {
-        console.log("Deploying Single Hub");
-        hub = new XChainHubSingle(
-            address(_deployer.router()),
-            address(_deployer.lzEndpoint()) 
-        );
-    } else {
-        console.log("Deploying Regular Hub");
-        hub = new XChainHub(
-            address(_deployer.router()),
-            address(_deployer.lzEndpoint())
-        );
-    }
+    XChainHubSingle hub = new XChainHubSingle(
+        address(_deployer.router()),
+        address(_deployer.lzEndpoint())
+    );
     _deployer.setXChainHub(hub);
 }
 
-function deployXChainStrategy(Deployer _deployer, string memory _name, uint16 _dstChainId) {
+function deployXChainStrategy(
+    Deployer _deployer,
+    string memory _name,
+    uint16 _dstChainId
+) {
     require(address(_deployer.hub()) != address(0), "Not set hub");
-    require(address(_deployer.vaultProxy()) != address(0), "Not set VaultProxy");
-    require(address(_deployer.underlying()) != address(0), "Not set Underlying");
+    require(
+        address(_deployer.vaultProxy()) != address(0),
+        "Not set VaultProxy"
+    );
+    require(
+        address(_deployer.underlying()) != address(0),
+        "Not set Underlying"
+    );
     require(_deployer.governor() != address(0), "Not set mgr");
     require(_deployer.strategist() != address(0), "Not set strat");
     XChainStrategy strategy = new XChainStrategy(
@@ -252,6 +305,7 @@ function deployXChainStrategy(Deployer _deployer, string memory _name, uint16 _d
 contract DeployerState {
     mapping(address => bool) trustedUsers;
     uint8 public constant GOV_ROLE = 0;
+    uint8 public constant DEPOSITOR_ROLE = 1;
 
     address public governor;
     address public strategist;
@@ -259,10 +313,8 @@ contract DeployerState {
 
     VaultFactory public vaultFactory;
     Vault public vaultProxy;
-    Vault public vaultImpl;
 
-    XChainHub public hub;
-    XChainHubSingle public hubSingle;
+    XChainHubSingle public hub;
 
     uint16 public chainId; // layerzero chain id of current chain
     IERC20 public underlying;
@@ -276,6 +328,7 @@ contract DeployerState {
 
     string[] public GOV_CAPABILITIES;
     string[] public PUBLIC_CAPABILITIES;
+    string[] public DEPOSITOR_CAPABILITIES;
 }
 
 /// @notice collect the deployment actions and data into a single class
@@ -297,7 +350,7 @@ contract Deployer is DeployerState {
         trustedUsers[_i.governor] = true;
 
         setUnderlying(_i.underlying);
-        chainId = _i.chainId;
+        setChainId(_i.chainId);
         router = IStargateRouter(_i.router);
         lzEndpoint = _i.lzEndpoint;
         setRefundAddress(_i.governor);
@@ -305,8 +358,8 @@ contract Deployer is DeployerState {
         setGovernor(_i.governor);
         setStrategist(_i.strategist);
         setGovCapabilitiesArray();
+        setDepositorCapabilitiesArray();
         setPubCapabilitiesArray();
-        emit Deployed(address(this));
     }
 
     modifier isTrustedUser(address _user) {
@@ -325,6 +378,10 @@ contract Deployer is DeployerState {
 
     function pub_capabilities() external view returns (string[] memory) {
         return PUBLIC_CAPABILITIES;
+    }
+
+    function depositor_capabilities() external view returns (string[] memory) {
+        return DEPOSITOR_CAPABILITIES;
     }
 
     function setGovCapabilitiesArray() internal {
@@ -348,9 +405,13 @@ contract Deployer is DeployerState {
     }
 
     function setPubCapabilitiesArray() internal {
-        PUBLIC_CAPABILITIES.push("deposit(address,uint256)");
-        PUBLIC_CAPABILITIES.push("enterBatchBurn(uint256)");
-        PUBLIC_CAPABILITIES.push("exitBatchBurn()");
+        /// @dev for now, we require whitelisted depositors
+    }
+
+    function setDepositorCapabilitiesArray() internal {
+        DEPOSITOR_CAPABILITIES.push("deposit(address,uint256)");
+        DEPOSITOR_CAPABILITIES.push("enterBatchBurn(uint256)");
+        DEPOSITOR_CAPABILITIES.push("exitBatchBurn()");
     }
 
     function setTrustedUser(address _user, bool _trusted)
@@ -374,6 +435,10 @@ contract Deployer is DeployerState {
         notZeroAddress(_governor)
     {
         governor = _governor;
+    }
+
+    function setChainId(uint16 _chainId) public isTrustedUser(msg.sender) {
+        chainId = _chainId;
     }
 
     function setStrategist(address _strategist)
@@ -416,15 +481,7 @@ contract Deployer is DeployerState {
         vaultProxy = _proxy;
     }
 
-    function setVaultImplementation(Vault _impl)
-        public
-        isTrustedUser(msg.sender)
-        notZeroAddress(address(_impl))
-    {
-        vaultImpl = _impl;
-    }
-
-    function setXChainHub(XChainHub _hub)
+    function setXChainHub(XChainHubSingle _hub)
         public
         isTrustedUser(msg.sender)
         notZeroAddress(address(_hub))
@@ -449,8 +506,8 @@ contract Deployer is DeployerState {
         return bytes4(_hash);
     }
 
-    function _setGovernorCapability(string memory sigString) internal {
-        bytes4 signature = getContractSignature(sigString);
+    function _setGovernorCapability(string memory signatureString) internal {
+        bytes4 signature = getContractSignature(signatureString);
         auth.setRoleCapability(GOV_ROLE, signature, true);
     }
 
@@ -459,10 +516,18 @@ contract Deployer is DeployerState {
         auth.setPublicCapability(signature, true);
     }
 
+    function _setDepositorCapability(string memory signatureString) internal {
+        bytes4 signature = getContractSignature(signatureString);
+        auth.setRoleCapability(DEPOSITOR_ROLE, signature, true);
+    }
+
     function _setCapabilities() internal {
         require(address(auth) != address(0), "set capabilities::Auth not set");
         for (uint256 i = 0; i < PUBLIC_CAPABILITIES.length; i++) {
             _setPublicCapability(PUBLIC_CAPABILITIES[i]);
+        }
+        for (uint256 i = 0; i < DEPOSITOR_CAPABILITIES.length; i++) {
+            _setDepositorCapability(DEPOSITOR_CAPABILITIES[i]);
         }
         for (uint256 i = 0; i < GOV_CAPABILITIES.length; i++) {
             _setGovernorCapability(GOV_CAPABILITIES[i]);
@@ -488,41 +553,37 @@ contract Deployer is DeployerState {
     function prepareDeposit(
         uint16 _dstChainId,
         address _dstHub,
-        address _remoteStrategy
-    )
-        external
-        isTrustedUser(msg.sender)
-    {
-        _prepareVault();
-        _prepareHub(_dstChainId, _dstHub, _remoteStrategy);
+        address _depositor
+    ) external isTrustedUser(msg.sender) {
+        _prepareVault(_depositor);
+        _prepareHub(_dstChainId, _dstHub);
     }
 
     function getUnits() public view returns (uint8, uint256) {
         uint8 decimals = vaultProxy.underlying().decimals();
-        uint256 baseUnit = 10 ** decimals;
+        uint256 baseUnit = 10**decimals;
         return (decimals, baseUnit);
     }
 
-    function _prepareVault() internal {
+    function _prepareVault(address _depositor) internal {
         // unpause the vault
-        vaultProxy.triggerPause();
+        if (vaultProxy.paused()) vaultProxy.triggerPause();
         (, uint256 baseUnit) = getUnits();
-        vaultProxy.setDepositLimits(1000 * baseUnit, 2000 * baseUnit);
+
+        // whitelist the hub for deposits
+        auth.setUserRole(address(hub), DEPOSITOR_ROLE, true);
+
+        // allow the selected depositor
+        auth.setUserRole(_depositor, DEPOSITOR_ROLE, true);
+
+        vaultProxy.setDepositLimits(20_000 * baseUnit, 100_000 * baseUnit);
         vaultProxy.trustStrategy(IStrategy(address(strategy)));
     }
 
-    function _prepareHub(
-        uint16 _dstChainId,
-        address _dstHub,
-        address _remoteStrategy
-    )
-        internal
-    {
+    function _prepareHub(uint16 _dstChainId, address _dstHub) internal {
         hub.setTrustedRemote(_dstChainId, abi.encodePacked(_dstHub));
         hub.setTrustedVault(address(vaultProxy), true);
-        /// @dev this really highlights a weakness in the vault checks
         hub.setTrustedStrategy(address(strategy), true);
-        hub.setTrustedStrategy(_remoteStrategy, true);
     }
 
     function depositIntoStrategy(uint256 _amt)
@@ -538,6 +599,11 @@ function _setGovernorCapability(Deployer _d, string memory sigString) {
     _d.auth().setRoleCapability(_d.GOV_ROLE(), signature, true);
 }
 
+function _setDepositorCapability(Deployer _d, string memory signatureString) {
+    bytes4 signature = _d.getContractSignature(signatureString);
+    _d.auth().setRoleCapability(_d.DEPOSITOR_ROLE(), signature, true);
+}
+
 function _setPublicCapability(Deployer _d, string memory signatureString) {
     bytes4 signature = _d.getContractSignature(signatureString);
     _d.auth().setPublicCapability(signature, true);
@@ -545,10 +611,17 @@ function _setPublicCapability(Deployer _d, string memory signatureString) {
 
 function _setCapabilities(Deployer _d) {
     require(address(_d.auth()) != address(0), "set capabilities::Auth not set");
+
     string[] memory PUBLIC_CAPABILITIES = _d.pub_capabilities();
     for (uint256 i = 0; i < PUBLIC_CAPABILITIES.length; i++) {
         _setPublicCapability(_d, PUBLIC_CAPABILITIES[i]);
     }
+
+    string[] memory DEPOSITOR_CAPABILITIES = _d.depositor_capabilities();
+    for (uint256 i = 0; i < DEPOSITOR_CAPABILITIES.length; i++) {
+        _setDepositorCapability(_d, DEPOSITOR_CAPABILITIES[i]);
+    }
+
     string[] memory GOV_CAPABILITIES = _d.gov_capabilities();
     for (uint256 i = 0; i < GOV_CAPABILITIES.length; i++) {
         _setGovernorCapability(_d, GOV_CAPABILITIES[i]);
@@ -572,44 +645,61 @@ function setupRoles(Deployer _d, bool _transferOwnership) {
 function prepareDeposit(
     Deployer _srcDeployer,
     address _dstHub,
-    address _dstStrategy,
-    uint16 _dstChainId
+    uint16 _dstChainId,
+    address _depositor
 ) {
-    _prepareVault(_srcDeployer);
-    _prepareHub(_srcDeployer, _dstHub, _dstStrategy, _dstChainId);
+    _prepareVault(_srcDeployer, _depositor);
+    _prepareHub(_srcDeployer, _dstHub, _dstChainId);
 }
 
 /// @dev overloaded from above
 function prepareDeposit(
     Deployer _srcDeployer,
     address _dstHub,
-    address _dstStrategy,
     uint16 _dstChainId,
+    address _depositor,
     uint256 _userDepositLimits,
     uint256 _vaultDepositLimits
 ) {
-    _prepareVault(_srcDeployer, _userDepositLimits, _vaultDepositLimits);
-    _prepareHub(_srcDeployer, _dstHub, _dstStrategy, _dstChainId);
+    _prepareVault(
+        _srcDeployer,
+        _depositor,
+        _userDepositLimits,
+        _vaultDepositLimits
+    );
+    _prepareHub(_srcDeployer, _dstHub, _dstChainId);
 }
 
 function getUnits(Deployer _d) view returns (uint8, uint256) {
     uint8 decimals = _d.vaultProxy().underlying().decimals();
-    uint256 baseUnit = 10 ** decimals;
+    uint256 baseUnit = 10**decimals;
     return (decimals, baseUnit);
 }
 
-/// @dev overloaded below
-function _prepareVault(Deployer _d) {
+function _activateVaultForDeposits(Deployer _d, address _depositor) {
     // unpause the vault
-    _d.vaultProxy().triggerPause();
-    (, uint256 baseUnit) = getUnits(_d);
-    _d.vaultProxy().setDepositLimits(1000 * baseUnit, 2000 * baseUnit);
+    if (_d.vaultProxy().paused()) _d.vaultProxy().triggerPause();
+
+    // whitelist the hub for deposits
+    _d.auth().setUserRole(address(_d.hub()), _d.DEPOSITOR_ROLE(), true);
+
+    // allow the selected depositor
+    _d.auth().setUserRole(_depositor, _d.DEPOSITOR_ROLE(), true);
+
     _d.vaultProxy().trustStrategy(IStrategy(address(_d.strategy())));
+}
+
+/// @dev overloaded below
+function _prepareVault(Deployer _d, address _depositor) {
+    _activateVaultForDeposits(_d, _depositor);
+    (, uint256 baseUnit) = getUnits(_d);
+    _d.vaultProxy().setDepositLimits(10_000 * baseUnit, 20_000 * baseUnit);
 }
 
 /// @dev overloaded from above
 function _prepareVault(
     Deployer _d,
+    address _depositor,
     uint256 _userDepositLimits,
     uint256 _vaultDepositLimits
 ) {
@@ -617,29 +707,26 @@ function _prepareVault(
         _userDepositLimits < _vaultDepositLimits,
         "PrepareVault::USER DEPOSIT LIMITS TOO HIGH"
     );
-    // unpause the vault
-    _d.vaultProxy().triggerPause();
+    _activateVaultForDeposits(_d, _depositor);
     _d.vaultProxy().setDepositLimits(_userDepositLimits, _vaultDepositLimits);
-    _d.vaultProxy().trustStrategy(IStrategy(address(_d.strategy())));
 }
 
 function _prepareHub(
     Deployer _srcDeployer,
     address _dstHub,
-    address _dstStrategy,
     uint16 _dstChainId
 ) {
     XChainHub hub = _srcDeployer.hub();
     hub.setTrustedRemote(_dstChainId, abi.encodePacked(_dstHub));
     hub.setTrustedVault(address(_srcDeployer.vaultProxy()), true);
-
-    /// @dev this feels a bit unneccessary
     hub.setTrustedStrategy(address(_srcDeployer.strategy()), true);
-    hub.setTrustedStrategy(address(_dstStrategy), true);
 }
 
 function depositIntoStrategy(Deployer _d, uint256 _amt) {
-    _d.vaultProxy().depositIntoStrategy(IStrategy(address(_d.strategy())), _amt);
+    _d.vaultProxy().depositIntoStrategy(
+        IStrategy(address(_d.strategy())),
+        _amt
+    );
 }
 
 /// @notice when impersonating, ignore components as dummy addresses
@@ -657,7 +744,6 @@ function _initIgnoreAddresses(
     _ignoreAddresses[address(_deployer.refundAddress())] = true;
     _ignoreAddresses[address(_deployer.auth())] = true;
     _ignoreAddresses[address(_deployer.vaultFactory())] = true;
-    _ignoreAddresses[address(_deployer.vaultImpl())] = true;
     _ignoreAddresses[address(_deployer.vaultProxy())] = true;
     _ignoreAddresses[address(_deployer.vaultFactory().owner())] = true;
     _ignoreAddresses[address(_deployer.hub())] = true;

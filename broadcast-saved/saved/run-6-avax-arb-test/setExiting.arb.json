@@ -1,0 +1,46 @@
+{
+    "transactions": [
+      {
+        "hash": "0xfdd9a171eadf4105f0f21f466647556541872e9cda21522283afa83c82be8d7c",
+        "transactionType": "CALL",
+        "contractName": null,
+        "contractAddress": "0x5f76938097f0bf57ad710298f615ee4b21dff6c3",
+        "function": null,
+        "arguments": null,
+        "transaction": {
+          "type": "0x00",
+          "from": "0x63bce354dba7d6270cb34daa46b869892abb3a79",
+          "to": "0x5f76938097f0bf57ad710298f615ee4b21dff6c3",
+          "gas": "0xec23",
+          "value": "0x0",
+          "data": "0xa651cdd4000000000000000000000000b0484ffe522cf46d5862cc863caf72792c43df320000000000000000000000000000000000000000000000000000000000000001",
+          "nonce": "0x1df"
+        },
+        "additionalContracts": []
+      }
+    ],
+    "receipts": [
+      {
+        "transactionHash": "0xfdd9a171eadf4105f0f21f466647556541872e9cda21522283afa83c82be8d7c",
+        "transactionIndex": "0x1",
+        "blockHash": "0xe0bc97a5a217d2c5391be16d19edfbd022637f2a345cb6cd71c1b40c3ea8fe0b",
+        "blockNumber": "0xeb5e7a",
+        "from": "0x63bce354dba7d6270cb34daa46b869892abb3a79",
+        "to": "0x5f76938097f0bf57ad710298f615ee4b21dff6c3",
+        "cumulativeGasUsed": "0xb5a5",
+        "gasUsed": "0xb5a5",
+        "contractAddress": null,
+        "logs": [],
+        "status": "0x1",
+        "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+        "type": "0x0",
+        "effectiveGasPrice": "0x5f5e100"
+      }
+    ],
+    "libraries": [],
+    "pending": [],
+    "path": "/home/jordan/Documents/Dev/crypto/piedao/auxo-vaults/broadcast/Deploy.s.sol/421611/run-latest.json",
+    "returns": {},
+    "timestamp": 1662989827,
+    "commit": "21e9302"
+  }

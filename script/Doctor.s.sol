@@ -31,7 +31,6 @@ contract Doctor is Script, Env {
         assert(address(deployer.router()) != address(0));
         assert(address(deployer.vaultProxy()) != address(0));
         assert(address(deployer.vaultFactory()) != address(0));
-        assert(address(deployer.vaultImpl()) != address(0));
         assert(address(deployer.auth()) != address(0));
         assert(address(deployer.hub()) != address(0));
         assert(address(deployer.strategy()) != address(0));
@@ -87,7 +86,9 @@ contract Doctor is Script, Env {
         validateError(
             hub,
             abi.encodeWithSignature(
-                "setStrategyForChain(address,uint16)", nonGovernor, network.id
+                "setStrategyForChain(address,uint16)",
+                nonGovernor,
+                network.id
             ),
             errorString
         );
@@ -95,7 +96,9 @@ contract Doctor is Script, Env {
         validateError(
             hub,
             abi.encodeWithSignature(
-                "setVaultForChain(address,uint16)", nonGovernor, network.id
+                "setVaultForChain(address,uint16)",
+                nonGovernor,
+                network.id
             ),
             errorString
         );
@@ -103,30 +106,46 @@ contract Doctor is Script, Env {
         validateError(
             hub,
             abi.encodeWithSignature(
-                "emergencyWithdraw(uint256,address)", 100, network.usdc.addr
+                "emergencyWithdraw(uint256,address)",
+                100,
+                network.usdc.addr
             ),
             errorString
         );
 
         validateError(
-            hub, abi.encodeWithSignature("triggerPause()"), errorString
-        );
-
-        validateError(
             hub,
-            abi.encodeWithSignature("setTrustedVault(address,bool)", nonGovernor, true),
+            abi.encodeWithSignature("triggerPause()"),
             errorString
         );
 
         validateError(
             hub,
-            abi.encodeWithSignature("setTrustedStrategy(address,bool)", nonGovernor, true),
+            abi.encodeWithSignature(
+                "setTrustedVault(address,bool)",
+                nonGovernor,
+                true
+            ),
             errorString
         );
 
         validateError(
             hub,
-            abi.encodeWithSignature("call(address[],bytes[],uint256[])", nonGovernor, true),
+            abi.encodeWithSignature(
+                "setTrustedStrategy(address,bool)",
+                nonGovernor,
+                true
+            ),
+            errorString
+        );
+
+        validateError(
+            hub,
+            abi.encodeWithSignature(
+                "call(address[],bytes[],uint256[])",
+                nonGovernor,
+                true
+            ),
             errorString
         );
 

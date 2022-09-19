@@ -1,6 +1,6 @@
 @oz/=lib/openzeppelin-contracts/contracts/
 openzeppelin/=lib/openzeppelin-contracts/contracts/
-@oz-upgradeable/=lib/openzeppelin-contracts-upgradeable.git/contracts/
+@oz-upgradeable/=lib/openzeppelin-contracts-upgradeable/contracts/
 @openzeppelin/contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable/contracts/
 @openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/
 
@@ -11,6 +11,8 @@ openzeppelin/=lib/openzeppelin-contracts/contracts/
 
 @hub/=src/
 @hub-test/=test/
+@hub-upgradeable/=src/upgradeable/
+
 
 @mocks/=test/mocks/
 @prb/test/=lib/prb-test/src/
