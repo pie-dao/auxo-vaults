@@ -348,7 +348,7 @@ update-hub-arbitrum-avax-test :; forge script UpdateHubArbitrumToAvaxTest \
 # Polygon has issues with gas prices 
 # https://github.com/foundry-rs/foundry/issues/1703
 # tl;dr add --legacy flag
-deploy-polygon-prod :; forge script script/Deploy.s.sol:DeployPolygonProduction \
+deploy-polygon-prod :; forge script DeployPolygonProduction \
 	--private-key ${GOVERNOR_PRIVATE_KEY} \
 	--etherscan-api-key ${POLYGONSCAN_KEY} \
 	--rpc-url https://polygon-rpc.com \
@@ -357,27 +357,13 @@ deploy-polygon-prod :; forge script script/Deploy.s.sol:DeployPolygonProduction 
 	--broadcast \
 	-vvvv
 
-# Polygon has issues with gas prices 
-# https://github.com/foundry-rs/foundry/issues/1703
-# tl;dr add --legacy flag
-deploy-polygon-prod-single :; forge script DeployPolygonProductionSingle \
+deploy-optimism-prod :; forge script DeployOptimismProduction \
 	--private-key ${GOVERNOR_PRIVATE_KEY} \
-	--etherscan-api-key ${POLYGONSCAN_KEY} \
-	--rpc-url https://polygon-rpc.com \
-	--legacy \
+	--etherscan-api-key ${OPTIMISTIC_KEY} \
+	--rpc-url https://optimism-mainnet.infura.io/v3/${INFURA_API_KEY} \
 	--verify \
-	--resume \
 	--broadcast \
-	-vvvv
-
-deploy-arbitrum-prod-single :; forge script script/Deploy.s.sol:DeployArbitrumProductionSingle \
-	--private-key ${GOVERNOR_PRIVATE_KEY} \
-	--etherscan-api-key ${ARBITRUM_KEY} \
-	--rpc-url https://arbitrum-mainnet.infura.io/v3/${INFURA_API_KEY} \
-	--broadcast \
-	--verify \
-	--resume \
-	-vvvv
+	-vvvv	
 
 # Polygon has issues with gas prices 
 # https://github.com/foundry-rs/foundry/issues/1703
@@ -389,11 +375,24 @@ deposit-prepare-polygon-arbitrum-prod :; forge script DepositPreparePolygonToArb
 	--broadcast \
 	-vvvv
 
-deposit-prepare-polygon-arbitrum-prod :; forge script DepositPrepareAritrumToPolygonProd \
+deposit-prepare-arbitrum-polygon-prod :; forge script DepositPrepareAritrumToPolygonProd \
 	--private-key ${GOVERNOR_PRIVATE_KEY} \
 	--rpc-url https://arbitrum-mainnet.infura.io/v3/${INFURA_API_KEY} \
 	--broadcast \
 	-vvvv
+
+deposit-prepare-polygon-optimism-prod :; forge script DepositPreparePolygonToOptimismProd \
+	--private-key ${GOVERNOR_PRIVATE_KEY} \
+	--rpc-url https://polygon-rpc.com \
+	--broadcast \
+	--legacy \
+	-vvvv	
+
+deposit-prepare-optimism-polygon-prod :; forge script DepositPrepareOptimismToPolygonProd \
+	--private-key ${GOVERNOR_PRIVATE_KEY} \
+	--rpc-url https://optimism-mainnet.infura.io/v3/${INFURA_API_KEY} \
+	--broadcast \
+	-vvvv	
 
 # Note the private key is different here
 deposit-polygon-prod :; forge script DepositIntoPolygonVaultProd \
@@ -401,14 +400,26 @@ deposit-polygon-prod :; forge script DepositIntoPolygonVaultProd \
 	--rpc-url https://polygon-rpc.com \
 	--legacy \
 	--broadcast \
-	--resume \
 	-vvvv
 
-xchain-single-deposit-prepare-arbitrum-polygon-prod :; forge script XChainPrepareDepositArbitrumFromPolygon \
+xchain-deposit-prepare-arbitrum-polygon-prod :; forge script XChainPrepareDepositArbitrumFromPolygon \
 	--private-key ${GOVERNOR_PRIVATE_KEY} \
 	--rpc-url https://arbitrum-mainnet.infura.io/v3/${INFURA_API_KEY} \
 	--broadcast \
 	-vvvv
+
+xchain-deposit-prepare-polygon-optimism-prod :; forge script XChainPrepareDepositPolygonToOptimismProd \
+	--private-key ${GOVERNOR_PRIVATE_KEY} \
+	--rpc-url https://polygon-rpc.com \
+	--broadcast \
+	--legacy \
+	-vvvv
+
+xchain-deposit-prepare-optimism-polygon-prod :; forge script XChainPrepareDepositOptimismToPolygonProd \
+	--private-key ${GOVERNOR_PRIVATE_KEY} \
+	--rpc-url https://optimism-mainnet.infura.io/v3/${INFURA_API_KEY} \
+	--broadcast \
+	-vvvv	
 
 deposit-xchainstrategy-polygon-prod :; forge script DepositIntoXChainStrategyPolygonProd \
 	--private-key ${GOVERNOR_PRIVATE_KEY} \
@@ -421,6 +432,32 @@ xchain-deposit-polygon-arbitrum-prod :; forge script XChainDepositPolygonToArbit
 	--rpc-url https://polygon-rpc.com \
 	--legacy \
 	--private-key ${GOVERNOR_PRIVATE_KEY} \
+	--broadcast \
+	-vvvv
+
+xchain-deposit-polygon-optimism-prod :; forge script XChainDepositPolygonToOptimismProd \
+	--rpc-url https://polygon-rpc.com \
+	--legacy \
+	--private-key ${GOVERNOR_PRIVATE_KEY} \
+	--broadcast \
+	-vvvv
+
+
+# Administrative action: LayerZero changed chain ids
+upgrade-chain-polygon-optimism-prod :; forge script UpgradePolygonToOptimismChainId \
+	--etherscan-api-key ${POLYGONSCAN_KEY} \
+	--private-key ${GOVERNOR_PRIVATE_KEY} \
+	--rpc-url https://polygon-rpc.com \
+	--legacy \
+	--verify \
+	--broadcast \
+	-vvvv
+
+upgrade-chain-optimism-polygon-prod :; forge script UpgradeOptimismToPolygonChainId \
+	--etherscan-api-key ${OPTIMISTIC_KEY} \
+	--private-key ${GOVERNOR_PRIVATE_KEY} \
+	--rpc-url https://optimism-mainnet.infura.io/v3/${INFURA_API_KEY} \
+	--verify \
 	--broadcast \
 	-vvvv
 
@@ -441,13 +478,7 @@ deploy-arbitrum-fork :; forge script script/Deploy.s.sol:DeployArbitrumProductio
 	--private-key ${GOVERNOR_PRIVATE_KEY} \
 	--fork-url http://127.0.0.1:${PORT_ARBITRUM}
 
-deploy-arbitrum-fork-single :; forge script script/Deploy.s.sol:DeployArbitrumProductionSingle \
-	-vvvv \
-	--broadcast \
-	--private-key ${GOVERNOR_PRIVATE_KEY} \
-	--fork-url http://127.0.0.1:${PORT_ARBITRUM}	
-
-deploy-optimism-fork :; forge script script/Deploy.s.sol:DeployOptimismProduction \
+deploy-optimism-fork :; forge script DeployOptimismProduction \
 	-vvvv \
 	--broadcast \
 	--private-key ${GOVERNOR_PRIVATE_KEY} \
@@ -459,17 +490,23 @@ deploy-polygon-fork :; forge script DeployPolygonProduction \
 	--private-key ${GOVERNOR_PRIVATE_KEY} \
 	--fork-url http://127.0.0.1:${PORT_POLYGON}
 
-deploy-polygon-fork-single :; forge script DeployPolygonProductionSingle \
-	-vvvv \
-	--broadcast \
-	--private-key ${GOVERNOR_PRIVATE_KEY} \
-	--fork-url http://127.0.0.1:${PORT_POLYGON}
-
-deposit-prepare-polygon-arbitrum-fork :; forge script DepositPreparePolygonToArbitrum \
+deposit-prepare-polygon-arbitrum-fork :; forge script DepositPreparePolygonToArbitrumProd \
 	--private-key ${GOVERNOR_PRIVATE_KEY} \
 	--fork-url http://127.0.0.1:${PORT_POLYGON} \
 	--legacy \
 	-vvvv
+
+deposit-prepare-polygon-optimism-fork :; forge script DepositPreparePolygonToOptimismProd \
+	--private-key ${GOVERNOR_PRIVATE_KEY} \
+	--fork-url http://127.0.0.1:${PORT_POLYGON} \
+	--legacy \
+	-vvvv
+
+deposit-prepare-optimism-polygon-fork :; forge script DepositPrepareOptimismToPolygonProd \
+	-vvvv \
+	--broadcast \
+	--private-key ${GOVERNOR_PRIVATE_KEY} \
+	--fork-url http://127.0.0.1:${PORT_OPTIMISM}
 
 deposit-prepare-arbitrum-polygon-fork :; forge script DepositPrepareAritrumToPolygonProd \
 	--broadcast \
@@ -482,18 +519,37 @@ deposit-polygon-fork :; forge script DepositIntoPolygonVaultProd \
 	--legacy \
 	-vvvv
 
-xchain-single-deposit-prepare-arbitrum-polygon-fork :; forge script XChainPrepareDepositArbitrumFromPolygon \
+xchain-deposit-prepare-arbitrum-polygon-fork :; forge script XChainPrepareDepositArbitrumFromPolygon \
 	--broadcast \
 	--private-key ${GOVERNOR_PRIVATE_KEY} \
 	--fork-url http://127.0.0.1:${PORT_ARBITRUM}
 
+xchain-deposit-prepare-polygon-optimism-fork :; forge script XChainPrepareDepositPolygonToOptimismProd \
+	--private-key ${GOVERNOR_PRIVATE_KEY} \
+	--fork-url http://127.0.0.1:${PORT_POLYGON} \
+	--broadcast \
+	--legacy \
+	-vvvv
+
+xchain-deposit-prepare-optimism-polygon-fork :; forge script XChainPrepareDepositOptimismToPolygonProd \
+	--private-key ${GOVERNOR_PRIVATE_KEY} \
+	--fork-url http://127.0.0.1:${PORT_OPTIMISM} \
+	--broadcast \
+	-vvvv	
+
 deposit-xchainstrategy-polygon-fork :; forge script DepositIntoXChainStrategyPolygonProd \
-	--private-key ${DEPOSITOR_PRIVATE_KEY} \
+	--private-key ${GOVERNOR_PRIVATE_KEY} \
 	--fork-url http://127.0.0.1:${PORT_POLYGON} \
 	--legacy \
+	--broadcast \
 	-vvvv
 	
 xchain-deposit-polygon-arbitrum-fork :; forge script XChainDepositPolygonToArbitrumProd \
+	--broadcast \
+	--private-key ${GOVERNOR_PRIVATE_KEY} \
+	--fork-url http://127.0.0.1:${PORT_POLYGON}
+
+xchain-deposit-polygon-optimism-fork :; forge script XChainDepositPolygonToOptimismProd \
 	--broadcast \
 	--private-key ${GOVERNOR_PRIVATE_KEY} \
 	--fork-url http://127.0.0.1:${PORT_POLYGON}
@@ -529,4 +585,14 @@ admin-resume-deposit-arbitrum-prod :; forge script ResumeDepositArbitrumFork \
 	--private-key ${GOVERNOR_PRIVATE_KEY} \
 	--rpc-url https://arbitrum-mainnet.infura.io/v3/${INFURA_API_KEY} \
 	--broadcast \
+	-vvvv
+
+upgrade-chain-polygon-optimism-fork :; forge script UpgradePolygonToOptimismChainId \
+	--fork-url http://127.0.0.1:${PORT_POLYGON} \
+	--private-key ${GOVERNOR_PRIVATE_KEY} \
+	-vvvv
+
+upgrade-chain-optimism-polygon-fork :; forge script UpgradeOptimismToPolygonChainId \
+	--fork-url http://127.0.0.1:${PORT_OPTIMISM} \
+	--private-key ${GOVERNOR_PRIVATE_KEY} \
 	-vvvv

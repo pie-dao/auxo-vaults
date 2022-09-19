@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 pragma solidity ^0.8.12;
 
-pragma abicoder v2;
-
 import "@std/console.sol";
 import {PRBTest} from "@prb/test/PRBTest.sol";
 
@@ -26,6 +24,7 @@ import {IStargateRouter} from "@interfaces/IStargateRouter.sol";
 import {IHubPayload} from "@interfaces/IHubPayload.sol";
 
 import "../script/Deployer.sol";
+import "../script/upgrades/UpgradeHub.sol";
 
 contract E2ETestSingle is PRBTest {
     /// keep one token to make testing easier

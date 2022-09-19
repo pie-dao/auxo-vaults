@@ -64,7 +64,7 @@ contract Setup is Script, Env {
 
 abstract contract Deploy is Script, Env, Setup {
 
-    function _runSetup() internal {
+    function _runSetup(string memory _strategyName) internal {
         vm.startBroadcast(srcGovernor);
         srcDeployer = deployAuthAndDeployerNoOwnershipTransfer(
             srcChainId,
@@ -76,7 +76,7 @@ abstract contract Deploy is Script, Env, Setup {
         );
 
         // initially deploy with a chainId of zero, this can be updated later
-        deployVaultHubStrat(srcDeployer, 0, "TEST");
+        deployVaultHubStrat(srcDeployer, 0, _strategyName);
         vm.stopBroadcast();
     }
 }
@@ -84,7 +84,7 @@ abstract contract Deploy is Script, Env, Setup {
 abstract contract DeployWithExistingVault is Script, Env, Setup {
     Deployer public oldDeployer;
 
-    function _runSetup() internal {
+    function _runSetup(string memory _strategyName) internal {
         require(address(oldDeployer) != address(0), "SET OLD DEPLOYER");
 
         vm.startBroadcast(srcGovernor);
@@ -104,7 +104,7 @@ abstract contract DeployWithExistingVault is Script, Env, Setup {
         deployHubStratConnectVault(
             srcDeployer, 
             0, 
-            "TEST STRATEGY", 
+            _strategyName,
             oldDeployer.vaultFactory(), 
             oldDeployer.vaultProxy()
         );
@@ -386,42 +386,6 @@ abstract contract XChainFinalize is Script, Deploy {
                 dstGas: dstDefaultGas
             })
         );
-    }
-}
-
-/// @dev if redeploying hub on multiple chains you need to update remotes
-/// @dev this assumes state variables are correct in the previous deploy
-///      if, say you forgot to update state variables previously, this will fail
-abstract contract RedeployXChainHub is Script, Setup {
-    ChainConfig dstChain;
-
-    function redeploy() internal {
-        uint16 dstChainId = dstChain.id;
-
-        require(dstChainId != 0, "SET DST CHAIN ID");
-
-        XChainHubSingle oldHub = srcDeployer.hub();
-
-        updateWithNewHub(srcDeployer, dstChainId);
-
-        updateStrategyWithNewHub(srcDeployer);
-
-        XChainHubSingle newHub = srcDeployer.hub();
-        newHub.setVaultForChain(address(srcDeployer.vaultProxy()), dstChainId);
-
-        transferVaultTokensToNewHub(srcDeployer, oldHub, newHub);
-
-        // update the balances
-        uint16[] memory chains = new uint16[](1);
-        chains[0] = dstChainId;
-
-        for (uint256 i; i < chains.length; i++) {
-            uint16 chain = chains[i];
-            address strat = newHub.strategyForChain(chain);
-            uint256 shares = oldHub.sharesPerStrategy(chain, strat);
-            require(shares != 0, "RedeployXChainHub::ZERO SHARES");
-            newHub.setSharesPerStrategy(chain, strat, shares);
-        }
     }
 }
 

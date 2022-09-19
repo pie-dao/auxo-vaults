@@ -38,7 +38,7 @@ abstract contract Env is Script {
         return address(iaddr);
     }
 
-    uint256 public constant dstDefaultGas = 200_000;
+    uint256 public dstDefaultGas = 200_000;
     // Anvil unlocked account
     // address constant srcGovernor = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266;
     address public immutable srcGovernor =

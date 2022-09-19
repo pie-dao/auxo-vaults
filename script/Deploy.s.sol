@@ -37,7 +37,8 @@ contract DeployArbitrumRinkeby is Script, Deploy {
     constructor() Setup(getChains_test().arbitrum) {}
 
     function run() public {
-        _runSetup();
+        string memory strategyName = "TEST STRATEGY";
+        _runSetup(strategyName);
     }
 }
 
@@ -45,7 +46,8 @@ contract DeployOptimismKovan is Script, Deploy {
     constructor() Setup(getChains_test().optimism) {}
 
     function run() public {
-        _runSetup();
+        string memory strategyName = "TEST STRATEGY";
+        _runSetup(strategyName);
     }
 }
 
@@ -53,7 +55,8 @@ contract DeployPolygonMumbai is Script, Deploy {
     constructor() Setup(getChains_test().polygon) {}
 
     function run() public {
-        _runSetup();
+        string memory strategyName = "TEST STRATEGY";
+        _runSetup(strategyName);
     }
 }
 
@@ -61,7 +64,8 @@ contract DeployAvaxFuji is Script, Deploy {
     constructor() Setup(getChains_test().avax) {}
 
     function run() public {
-        _runSetup();
+        string memory strategyName = "TEST STRATEGY";
+        _runSetup(strategyName);
     }
 }
 
@@ -69,7 +73,8 @@ contract DeployFTMTest is Script, Deploy {
     constructor() Setup(getChains_test().fantom) {}
 
     function run() public {
-        _runSetup();
+        string memory strategyName = "TEST STRATEGY";
+        _runSetup(strategyName);
     }
 }
 
@@ -82,7 +87,8 @@ contract DeployAvaxFujiExistingVault is Script, DeployWithExistingVault {
     }
 
     function run() public {
-        _runSetup();
+        string memory strategyName = "TEST STRATEGY";
+        _runSetup(strategyName);
     }
 }
 
@@ -95,7 +101,8 @@ contract DeployArbitrumRinkebyExistingVault is Script, DeployWithExistingVault {
     }
 
     function run() public {
-        _runSetup();
+        string memory strategyName = "TEST STRATEGY";
+        _runSetup(strategyName);
     }
 }
 
@@ -728,74 +735,6 @@ contract StrategyWithdrawFTMTest is Script, Deploy {
             withdrawQty
         );
 
-        vm.stopBroadcast();
-    }
-}
-
-/// @dev Redeploy requires updating remotes
-contract RedeployXChainHubArbitrumTest is Script, Setup, RedeployXChainHub {
-    constructor() Setup(getChains_test().arbitrum) {
-        srcDeployer = Deployer(getDeployers_test().arbitrum);
-        dstChain = getChains_test().avax;
-    }
-
-    function run() public {
-        vm.startBroadcast(srcGovernor);
-        redeploy();
-        vm.stopBroadcast();
-    }
-}
-
-/// @dev Redeploy requires updating remotes
-contract UpdateHubAvaxToArbitrumTest is Script, Setup {
-    ChainConfig dstChain;
-    address dstHub = 0x5D74741412eC6B585340Eef281C8b712FA5D4cbb;
-
-    constructor() Setup(getChains_test().avax) {
-        srcDeployer = Deployer(getDeployers_test().avax);
-        dstChain = getChains_test().arbitrum;
-    }
-
-    function run() public {
-        vm.startBroadcast(srcGovernor);
-        srcDeployer.hub().setTrustedRemote(
-            dstChain.id,
-            abi.encodePacked(dstHub)
-        );
-        vm.stopBroadcast();
-    }
-}
-
-/// @dev Redeploy requires updating remotes
-contract RedeployXChainHubAvaxTest is Script, Setup, RedeployXChainHub {
-    constructor() Setup(getChains_test().avax) {
-        srcDeployer = Deployer(getDeployers_test().avax);
-        dstChain = getChains_test().arbitrum;
-    }
-
-    function run() public {
-        vm.startBroadcast(srcGovernor);
-        redeploy();
-        vm.stopBroadcast();
-    }
-}
-
-/// @dev Redeploy requires updating remotes
-contract UpdateHubArbitrumToAvaxTest is Script, Setup {
-    ChainConfig dstChain;
-    address dstHub = 0x8B5CD25f504ae0cB0b698516AAF8da31e77bf7f9;
-
-    constructor() Setup(getChains_test().arbitrum) {
-        srcDeployer = Deployer(getDeployers_test().arbitrum);
-        dstChain = getChains_test().avax;
-    }
-
-    function run() public {
-        vm.startBroadcast(srcGovernor);
-        srcDeployer.hub().setTrustedRemote(
-            dstChain.id,
-            abi.encodePacked(dstHub)
-        );
         vm.stopBroadcast();
     }
 }

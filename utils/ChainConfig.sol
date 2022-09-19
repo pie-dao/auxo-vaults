@@ -46,8 +46,8 @@ function getDeployers() pure returns (Deployers memory) {
     return
         Deployers({
             avax: address(0),
-            polygon: 0x90598C4AbB91864b819314738b2493Bb75E2B6Fc,
-            optimism: address(0),
+            polygon: 0xe14D3bF3998FD9f59a4c1D28Cd27D37bF1aF0bd9,
+            optimism: 0x24E98A389c046A32465E90f9213CaCffa795Dc40,
             arbitrum: 0x7461a28866eb4e2eE9806B311F6ECa3eF5bFfa7a,
             fantom: address(0)
         });
@@ -66,7 +66,7 @@ function getDeployers_test() pure returns (Deployers memory) {
 
 function getChains() pure returns (Chains memory) {
     ChainConfig memory optimism = ChainConfig({
-        id: 11,
+        id: 111,
         lz: 0x3c2269811836af69497E5F486A85D7316753cf62,
         sg: 0xB0D502E938ed5f4df2E681fE6E419ff29631d62b,
         usdc: StargateToken({
@@ -76,7 +76,7 @@ function getChains() pure returns (Chains memory) {
     });
 
     ChainConfig memory arbitrum = ChainConfig({
-        id: 10,
+        id: 110,
         lz: 0x3c2269811836af69497E5F486A85D7316753cf62,
         sg: 0x53Bf833A5d6c4ddA888F69c22C88C9f356a41614,
         usdc: StargateToken({
@@ -86,7 +86,7 @@ function getChains() pure returns (Chains memory) {
     });
 
     ChainConfig memory polygon = ChainConfig({
-        id: 9,
+        id: 109,
         lz: 0x3c2269811836af69497E5F486A85D7316753cf62,
         sg: 0x45A01E4e04F14f7A4a6702c74187c5F6222033cd,
         usdc: StargateToken({
@@ -96,7 +96,7 @@ function getChains() pure returns (Chains memory) {
     });
 
     ChainConfig memory avax = ChainConfig({
-        id: 6,
+        id: 106,
         lz: 0x3c2269811836af69497E5F486A85D7316753cf62,
         sg: 0x45A01E4e04F14f7A4a6702c74187c5F6222033cd,
         usdc: StargateToken({
@@ -106,7 +106,7 @@ function getChains() pure returns (Chains memory) {
     });
 
     ChainConfig memory fantom = ChainConfig({
-        id: 12,
+        id: 112,
         lz: 0xb6319cC6c8c27A8F5dAF0dD3DF91EA35C4720dd7,
         sg: 0xAf5191B0De278C7286d6C7CC6ab6BB8A73bA2Cd6,
         usdc: StargateToken({

@@ -37,7 +37,8 @@ contract DeployArbitrumProduction is Script, Deploy {
     constructor() Setup(getChains().arbitrum) {}
 
     function run() public {
-        _runSetup();
+        string memory strategyName = "XChainStrategy Arbitrum-Polygon";
+        _runSetup(strategyName);
     }
 }
 
@@ -45,7 +46,8 @@ contract DeployOptimismProduction is Script, Deploy {
     constructor() Setup(getChains().optimism) {}
 
     function run() public {
-        _runSetup();
+        string memory strategyName = "XChainStrategy Optimism-Polygon";
+        _runSetup(strategyName);
     }
 }
 
@@ -53,7 +55,8 @@ contract DeployPolygonProduction is Script, Deploy {
     constructor() Setup(getChains().polygon) {}
 
     function run() public {
-        _runSetup();
+        string memory strategyName = "XChainStrategy Polygon-Optimism";
+        _runSetup(strategyName);
     }
 }
 
@@ -64,6 +67,50 @@ contract DepositPreparePolygonToArbitrumProd is Script, Env {
     Deployer srcDeployer = Deployer(getDeployers().polygon);
     address dstHub = 0x4C88c6Da30B54D5d3B6b33e0837F5719402C45Cb;
     uint16 dstChainId = getChains().arbitrum.id;
+
+    function run() public {
+        require(depositor != address(0), "whitelist a depositor");
+        vm.startBroadcast(srcGovernor);
+        prepareDeposit(
+            srcDeployer,
+            dstHub,
+            dstChainId,
+            depositor,
+            userDepositLimit,
+            vaultDepositLimit
+        );
+        vm.stopBroadcast();
+    }
+}
+
+contract DepositPreparePolygonToOptimismProd is Script, Env {
+    uint256 userDepositLimit = 10_000 * (10**6);
+    uint256 vaultDepositLimit = 20_000 * (10**6);
+    Deployer srcDeployer = Deployer(getDeployers().polygon);
+    address dstHub = 0x4C88c6Da30B54D5d3B6b33e0837F5719402C45Cb;
+    uint16 dstChainId = getChains().optimism.id;
+
+    function run() public {
+        require(depositor != address(0), "whitelist a depositor");
+        vm.startBroadcast(srcGovernor);
+        prepareDeposit(
+            srcDeployer,
+            dstHub,
+            dstChainId,
+            depositor,
+            userDepositLimit,
+            vaultDepositLimit
+        );
+        vm.stopBroadcast();
+    }
+}
+
+contract DepositPrepareOptimismToPolygonProd is Script, Env {
+    uint256 userDepositLimit = 10_000 * (10**6);
+    uint256 vaultDepositLimit = 20_000 * (10**6);
+    Deployer srcDeployer = Deployer(getDeployers().optimism);
+    address dstHub = 0xE628f2e4398C172Ad1e1E1DeE9Ae6201D73Dd0f3;
+    uint16 dstChainId = getChains().polygon.id;
 
     function run() public {
         require(depositor != address(0), "whitelist a depositor");
@@ -133,6 +180,42 @@ contract XChainPrepareDepositArbitrumFromPolygon is
     }
 }
 
+contract XChainPrepareDepositOptimismToPolygonProd is
+    Script,
+    Deploy,
+    PrepareXChainDeposit
+{
+    constructor() Setup(getChains().optimism) {
+        remoteStrategy = 0x7cBFdD12C188CF7C9844499c4b2082A2033FcAE2;
+        srcDeployer = Deployer(getDeployers().optimism);
+        remote = getChains().polygon;
+    }
+
+    function run() public {
+        vm.startBroadcast(srcGovernor);
+        prepare();
+        vm.stopBroadcast();
+    }
+}
+
+contract XChainPrepareDepositPolygonToOptimismProd is
+    Script,
+    Deploy,
+    PrepareXChainDeposit
+{
+    constructor() Setup(getChains().polygon) {
+        remoteStrategy = 0x13FC4319A30c76faAA42373B78CE6018082b5377;
+        srcDeployer = Deployer(getDeployers().polygon);
+        remote = getChains().optimism;
+    }
+
+    function run() public {
+        vm.startBroadcast(srcGovernor);
+        prepare();
+        vm.stopBroadcast();
+    }
+}
+
 contract DepositIntoXChainStrategyPolygonProd is Script, Deploy {
     uint256 depositAmount;
     IERC20 token;
@@ -143,11 +226,11 @@ contract DepositIntoXChainStrategyPolygonProd is Script, Deploy {
         Vault vault = srcDeployer.vaultProxy();
         token = srcDeployer.underlying();
 
-        // deposit 75%
+        // deposit 100%
         uint256 underlyingDeposits = vault.underlying().balanceOf(
             address(vault)
         );
-        depositAmount = (underlyingDeposits * 3) / 4;
+        depositAmount = underlyingDeposits;
     }
 
     function run() public {
@@ -181,6 +264,29 @@ contract XChainDepositPolygonToArbitrumProd is Script, Deploy, XChainDeposit {
     }
 
     function run() public {
+        vm.startBroadcast(srcGovernor);
+        deposit();
+        vm.stopBroadcast();
+    }
+}
+
+contract XChainDepositPolygonToOptimismProd is Script, Deploy, XChainDeposit {
+    constructor() Setup(getChains().polygon) {
+        dstVault = 0xf8712041a381603567a23720AFC6cf50947EBaf4;
+        dstHub = 0x4C88c6Da30B54D5d3B6b33e0837F5719402C45Cb;
+        srcDeployer = Deployer(getDeployers().polygon);
+        dst = getChains().optimism;
+
+        uint256 strategyHoldings = srcDeployer.underlying().balanceOf(
+            address(srcDeployer.strategy())
+        );
+        depositAmount = strategyHoldings;
+        console.log(depositAmount);
+    }
+
+    function run() public {
+        // add some extra gas
+        dstDefaultGas = 300_000;
         vm.startBroadcast(srcGovernor);
         deposit();
         vm.stopBroadcast();

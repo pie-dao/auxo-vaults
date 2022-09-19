@@ -20,3 +20,5 @@ broadcast/
 /broadcast/
 soljson-*
 bin/
+
+.scrap*

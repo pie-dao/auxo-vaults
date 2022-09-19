@@ -20,7 +20,6 @@ import {MultiRolesAuthority} from "@vaults/auth/authorities/MultiRolesAuthority.
 import {Authority} from "@vaults/auth/Auth.sol";
 
 import {IVault} from "@interfaces/IVault.sol";
-/// must be the correct iface
 import {IStrategy} from "@vault-interfaces/IStrategy.sol";
 import {IStargateRouter} from "@interfaces/IStargateRouter.sol";
 import {ILayerZeroEndpoint} from "@interfaces/ILayerZeroEndpoint.sol";
@@ -275,56 +274,6 @@ function deployXChainHub(Deployer _deployer) {
     _deployer.setXChainHub(hub);
 }
 
-function updateWithNewHub(Deployer _deployer, uint16 _remoteChainId) {
-    XChainHubSingle oldHub = _deployer.hub();
-
-    // deploy a new hub with the existing instance
-    // update the deployer
-    deployXChainHub(_deployer);
-    XChainHubSingle hub = _deployer.hub();
-
-    // set trusted vault
-    hub.setTrustedVault(address(_deployer.vaultProxy()), true);
-
-    // set trusted strategy
-    XChainStrategy strategy = _deployer.strategy();
-    hub.setTrustedStrategy(address(strategy), true);
-
-    // set local strategy
-    hub.setLocalStrategy(address(strategy));
-
-    // migrate the strategy for chain
-    address remoteStrategy = oldHub.strategyForChain(_remoteChainId);
-    hub.setStrategyForChain(remoteStrategy, _remoteChainId);
-
-    // Set the trusted remote (hub )
-    bytes memory trustedHub = oldHub.trustedRemoteLookup(_remoteChainId);
-    hub.setTrustedRemote(_remoteChainId, trustedHub);
-
-    // now update the strategy as the manager then you can set the vault for the chain
-}
-
-function updateStrategyWithNewHub(Deployer _deployer) {
-    // update the XChainStrategy
-    XChainStrategy strategy = _deployer.strategy();
-    strategy.setHub(address(_deployer.hub()));
-}
-
-function transferVaultTokensToNewHub(
-    Deployer _deployer,
-    XChainHub _oldHub,
-    XChainHub _newHub
-) {
-    Vault vault = _deployer.vaultProxy();
-    uint256 oldHubVaultBalance = vault.balanceOf(address(_oldHub));
-    bytes memory callData = abi.encodeWithSignature(
-        "transfer(address,uint256)",
-        address(_newHub),
-        oldHubVaultBalance
-    );
-    _oldHub.singleCall(address(vault), callData, 0);
-}
-
 function deployXChainStrategy(
     Deployer _deployer,
     string memory _name,
@@ -401,7 +350,7 @@ contract Deployer is DeployerState {
         trustedUsers[_i.governor] = true;
 
         setUnderlying(_i.underlying);
-        chainId = _i.chainId;
+        setChainId(_i.chainId);
         router = IStargateRouter(_i.router);
         lzEndpoint = _i.lzEndpoint;
         setRefundAddress(_i.governor);
@@ -486,6 +435,10 @@ contract Deployer is DeployerState {
         notZeroAddress(_governor)
     {
         governor = _governor;
+    }
+
+    function setChainId(uint16 _chainId) public isTrustedUser(msg.sender) {
+        chainId = _chainId;
     }
 
     function setStrategist(address _strategist)
