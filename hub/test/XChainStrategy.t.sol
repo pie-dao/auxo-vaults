@@ -1,16 +1,14 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.12;
 
-pragma abicoder v2;
-
 import "@oz/token/ERC20/ERC20.sol";
 import "@std/console.sol";
 import {PRBTest} from "@prb/test/PRBTest.sol";
 
-import {XChainStrategy} from "@hub/strategy/XChainStrategy.sol";
+import {XChainStrategy} from "@hub/strategy/xchain/XChainStrategy.sol";
 
 import {XChainHub} from "@hub/XChainHub.sol";
-import {XChainStrategyEvents} from "@hub/strategy/XChainStrategyEvents.sol";
+import {XChainStrategyEvents} from "@hub/strategy/xchain/XChainStrategyEvents.sol";
 
 import {AuxoTest} from "@hub-test/mocks/MockERC20.sol";
 import {MockVault} from "@hub-test/mocks/MockVault.sol";

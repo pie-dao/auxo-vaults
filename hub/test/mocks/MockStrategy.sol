@@ -5,7 +5,7 @@ pragma abicoder v2;
 
 import "@oz/token/ERC20/ERC20.sol";
 import "@interfaces/IStargateReceiver.sol";
-import "@hub/strategy/XChainStrategy.sol";
+import "@hub/strategy/xchain/XChainStrategy.sol";
 
 contract MockStrat {
     ERC20 public underlying;

@@ -1,31 +1,23 @@
-//   ______
-//  /      \
-// /$$$$$$  | __    __  __    __   ______
-// $$ |__$$ |/  |  /  |/  \  /  | /      \
-// $$    $$ |$$ |  $$ |$$  \/$$/ /$$$$$$  |
-// $$$$$$$$ |$$ |  $$ | $$  $$<  $$ |  $$ |
-// $$ |  $$ |$$ \__$$ | /$$$$  \ $$ \__$$ |
-// $$ |  $$ |$$    $$/ /$$/ $$  |$$    $$/
-// $$/   $$/  $$$$$$/  $$/   $$/  $$$$$$/
-//
-// auxo.fi
-
 // SPDX-License-Identifier: AGPL-3.0-only
-pragma solidity ^0.8.12;
+pragma solidity ^0.8.10;
+
+import {ERC20Upgradeable as ERC20} from "@oz-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+import {OwnableUpgradeable as Ownable} from "@oz-upgradeable/access/OwnableUpgradeable.sol";
+import {AccessControlUpgradeable as AccessControl} from "@oz-upgradeable/access/AccessControlUpgradeable.sol";
+import {ReentrancyGuardUpgradeable as ReentrancyGuard} from "@oz-upgradeable/security/ReentrancyGuardUpgradeable.sol";
+import {AddressUpgradeable as Address} from "@oz-upgradeable/utils/AddressUpgradeable.sol";
+
+import {Initializable} from "@oz-upgradeable/proxy/utils/Initializable.sol";
+import {IERC20MetadataUpgradeable as IERC20} from "@oz-upgradeable/token/ERC20/extensions/IERC20MetadataUpgradeable.sol";
+import {SafeERC20Upgradeable as SafeERC20} from "@oz-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
 
 import {IVault} from "@interfaces/IVault.sol";
 
-import {Address} from "openzeppelin/utils/Address.sol";
-import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
-import {AccessControl} from "openzeppelin/access/AccessControl.sol";
-import {SafeERC20} from "openzeppelin/token/ERC20/utils/SafeERC20.sol";
-import {ReentrancyGuard} from "openzeppelin/security/ReentrancyGuard.sol";
-
-abstract contract BaseStrategy is ReentrancyGuard {
+abstract contract BaseStrategy is Initializable {
     using SafeERC20 for IERC20;
 
     /*///////////////////////////////////////////////////////////////
-                            CONSTANTS
+                            IMMUTABLES
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Success return value.
@@ -69,13 +61,17 @@ abstract contract BaseStrategy is ReentrancyGuard {
     event UpdateStrategist(address indexed strategist);
 
     /// @notice Event emitted when rewards are sold.
-    event RewardsHarvested(address indexed reward, uint256 rewards, uint256 underlying);
+    event RewardsHarvested(
+        address indexed reward,
+        uint256 rewards,
+        uint256 underlying
+    );
 
     /// @notice Event emitted when underlying is deposited in this strategy.
-    event Deposited(address indexed vault, uint256 amount);
+    event Deposit(IVault indexed vault, uint256 amount);
 
     /// @notice Event emitted when underlying is withdrawn from this strategy.
-    event Withdraw(address indexed vault, uint256 amount);
+    event Withdraw(IVault indexed vault, uint256 amount);
 
     /// @notice Event emitted when underlying is deployed.
     event DepositUnderlying(uint256 deposited);
@@ -90,10 +86,13 @@ abstract contract BaseStrategy is ReentrancyGuard {
                             INITIALIZE
     //////////////////////////////////////////////////////////////*/
 
-    function __initialize(IVault vault_, IERC20 underlying_, address manager_, address strategist_, string memory name_)
-        internal
-        virtual
-    {
+    function __initialize(
+        IVault vault_,
+        IERC20 underlying_,
+        address manager_,
+        address strategist_,
+        string memory name_
+    ) internal virtual initializer {
         name = name_;
         vault = vault_;
         manager = manager_;
@@ -135,7 +134,7 @@ abstract contract BaseStrategy is ReentrancyGuard {
         depositedUnderlying += amount;
         underlying.safeTransferFrom(msg.sender, address(this), amount);
 
-        emit Deposited(msg.sender, amount);
+        emit Deposit(IVault(msg.sender), amount);
 
         success = SUCCESS;
     }
@@ -158,9 +157,21 @@ abstract contract BaseStrategy is ReentrancyGuard {
         } else {
             underlying.transfer(msg.sender, amount);
 
-            emit Withdraw(msg.sender, amount);
+            emit Withdraw(IVault(msg.sender), amount);
         }
     }
+
+    /*///////////////////////////////////////////////////////////////
+                        DEPOSIT/WITHDRAW UNDERLYING
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Deposit underlying in strategy's yielding option.
+    /// @param amount The amount to deposit.
+    function depositUnderlying(uint256 amount) external virtual;
+
+    /// @notice Withdraw underlying from strategy's yielding option.
+    /// @param amount The amount to withdraw.
+    function withdrawUnderlying(uint256 amount) external virtual;
 
     /*///////////////////////////////////////////////////////////////
                             ACCOUNTING

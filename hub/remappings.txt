@@ -6,6 +6,7 @@ openzeppelin/=lib/openzeppelin-contracts/contracts/
 
 @interfaces/=src/interfaces/
 @vault-interfaces/=src/vaults/interfaces/
+@vaults/=src/vaults/
 
 @std/=lib/forge-std/src
 
@@ -13,6 +14,7 @@ openzeppelin/=lib/openzeppelin-contracts/contracts/
 @hub-test/=test/
 @hub-upgradeable/=src/upgradeable/
 
+@strategies/=src/strategy/strategies/
 
 @mocks/=test/mocks/
 @prb/test/=lib/prb-test/src/
