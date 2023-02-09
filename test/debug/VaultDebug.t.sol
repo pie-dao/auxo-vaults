@@ -55,7 +55,7 @@ contract VaultDebugTest is PRBTest {
         Config memory ftm_usdc = FTM_USDC();
 
         // choose which of the above vaults you want to test
-        SELECTED = ftm_usdc;
+        SELECTED = ftm_frax;
 
         // connect to the ftm fork
         uint256 forkId = vm.createFork("https://rpc.ankr.com/fantom", 55247653);
@@ -88,7 +88,13 @@ contract VaultDebugTest is PRBTest {
         assertEq(retrievedAdmin, SELECTED.admin);
     }
 
-    function testFork_AllDepositorsExit() public {}
+    function _isDepositor(address _user) internal view returns (bool) {
+        bool hasBalance = vault.balanceOf(_user) > 0;
+        (, uint256 shares) = vault.userBatchBurnReceipts(_user);
+        bool hasShares = shares > 0;
+
+        return hasBalance || hasShares;
+    }
 
     // now we need to simulate a withdrawal
     // this doesn't work due to an underflow/overflow, so we need to upgrade.
@@ -101,7 +107,11 @@ contract VaultDebugTest is PRBTest {
 
         for (uint256 i = 0; i < SELECTED.depositors.length; i++) {
             address _depositor = SELECTED.depositors[i];
+
+            assertEq(_isDepositor(_depositor), true);
             uint256 balance = vault.balanceOf(_depositor);
+
+            // if the user doesn't have a vault balance, they don't need to enter the batch burn
             if (balance == 0) {
                 continue;
             }
@@ -132,7 +142,6 @@ contract VaultDebugTest is PRBTest {
             vault.execBatchBurn();
         }
         vm.stopPrank();
-        console2.log("------- EXEC BATCH BURN -------");
 
         uint256 vaultTokenBalancePost = vault.balanceOf(address(vault));
 
@@ -183,3 +192,47 @@ contract VaultDebugTest is PRBTest {
         // );
     }
 }
+
+/**
+SAVED LOGS
+
+
+        console2.log("totalShares", totalShares, totalShares / 1e18);
+        console2.log("totalSupply", totalSupply(), totalSupply() / 1e18);
+        console2.log(
+            "totalUnderlying",
+            totalUnderlying(),
+            totalUnderlying() / 1e18
+        );
+        console2.log(
+            "totalStrategyHoldings",
+            totalStrategyHoldings,
+            totalStrategyHoldings / 1e18
+        );
+        console2.log("lockedProfit", lockedProfit(), lockedProfit() / 1e18);
+
+        console2.log("exchangeRate", exchangeRate());
+
+        uint256 expectedER = underlying.balanceOf(address(this)).fdiv(
+            totalShares,
+            BASE_UNIT
+        );
+        console2.log("expectedER", expectedER);
+        console2.log(
+            "underlyingAmount",
+            underlyingAmount,
+            underlyingAmount / 1e18
+        );
+        console2.log("float", float, float / 1e18);
+
+        console2.log(
+            "BatchBurnBalance",
+            batchBurnBalance,
+            batchBurnBalance / 1e18
+        );
+        console2.log(
+            "underlying.balanceOf(address(this))",
+            underlying.balanceOf(address(this)),
+            underlying.balanceOf(address(this)) / 1e18
+        );
+ */

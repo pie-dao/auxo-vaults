@@ -12,8 +12,6 @@ import {IVaultAuth} from "./IVaultAuth.sol";
 import {SafeCastLib as SafeCast} from "./SafeCastLib.sol";
 import {FixedPointMathLib as FixedPointMath} from "./FixedPointMathLib.sol";
 
-import "@std/console2.sol";
-
 /// @title Vault
 /// @author dantop114
 /// @notice A vault seeking for yield.
@@ -713,57 +711,12 @@ contract Vault is ERC20, Pausable {
         // burning 0 shares is not convenient
         require(totalShares != 0, "batchBurn::TOTAL_SHARES_CANNOT_BE_ZERO");
 
-        console2.log("totalShares", totalShares, totalShares / 1e18);
-        console2.log("totalSupply", totalSupply(), totalSupply() / 1e18);
-        console2.log(
-            "totalUnderlying",
-            totalUnderlying(),
-            totalUnderlying() / 1e18
-        );
-        console2.log(
-            "totalStrategyHoldings",
-            totalStrategyHoldings,
-            totalStrategyHoldings / 1e18
-        );
-        console2.log("lockedProfit", lockedProfit(), lockedProfit() / 1e18);
-
-        console2.log("exchangeRate", exchangeRate());
-
-        uint256 expectedER = underlying.balanceOf(address(this)).fdiv(
-            totalShares,
-            BASE_UNIT
-        );
-        console2.log("expectedER", expectedER);
-
         // Determine the equivalent amount of underlying tokens and withdraw from strategies if needed.
         uint256 underlyingAmount = totalShares.fmul(exchangeRate(), BASE_UNIT);
         uint256 float = totalFloat();
 
-        console2.log(
-            "underlyingAmount",
-            underlyingAmount,
-            underlyingAmount / 1e18
-        );
-        console2.log("float", float, float / 1e18);
-
-        console2.log(
-            "BatchBurnBalance",
-            batchBurnBalance,
-            batchBurnBalance / 1e18
-        );
-        console2.log(
-            "underlying.balanceOf(address(this))",
-            underlying.balanceOf(address(this)),
-            underlying.balanceOf(address(this)) / 1e18
-        );
-
         // If the amount is greater than the float, withdraw from strategies.
         if (underlyingAmount > float) {
-            console2.log(
-                "Diff underlyingAmount - float",
-                underlyingAmount - float
-            );
-
             // Compute the bare minimum amount we need for this withdrawal.
             uint256 floatMissingForWithdrawal = underlyingAmount - float;
 
@@ -1184,25 +1137,9 @@ contract Vault is ERC20, Pausable {
         }
     }
 
-    // /// @notice Calculates the total amount of underlying tokens the Vault holds.
-    // /// @return totalUnderlyingHeld The total amount of underlying tokens the Vault holds.
-    // function totalUnderlying()
-    //     public
-    //     view
-    //     virtual
-    //     returns (uint256 totalUnderlyingHeld)
-    // {
-    //     unchecked {
-    //         // Cannot underflow as locked profit can't exceed total strategy holdings.
-    //         totalUnderlyingHeld = totalStrategyHoldings - lockedProfit();
-    //     }
-    //     //
-    //     // Include floating underlying balance in the total.
-    //     totalUnderlyingHeld += totalFloat();
-    // }
-
     /// @notice Calculates the total amount of underlying tokens the Vault holds.
     /// @return totalUnderlyingHeld The total amount of underlying tokens the Vault holds.
+    /// @dev updated to only account for float and ignore strategy holdings
     function totalUnderlying()
         public
         view
